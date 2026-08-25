@@ -22,7 +22,9 @@ guesses) or Tension (5 lives) mode.
 - **Frontend**: React 19 + Vite, in `src/react-app/`
 - **Backend**: Hono on Cloudflare Workers, in `src/worker/`
 - **Data**: Cloudflare D1 (quiz content) + Cloudflare KV (per-device progress/streaks)
-- **Deploy**: GitHub Actions (`.github/workflows/deploy.yml`) runs on every push to `main`
+- **Deploy**: Cloudflare Workers Builds (native Git integration, configured in the
+  Cloudflare dashboard) — auto-builds and deploys on every push to `main`. There
+  is **no GitHub Actions workflow** for this; see Deployment below.
 
 ## Repo map
 
@@ -86,12 +88,12 @@ content rather than guess. See git history on `db/seed.sql` for precedent
 (PSG's Champions League tiebreak, the AFCON 2025/26 dispute left
 deliberately unmodeled).
 
-**Production D1 is not auto-applied from `db/seed.sql`.** There is no
-migration/sync step in the deploy workflow — so far, content changes have
-been applied to production D1 by hand via the Cloudflare MCP
-`d1_database_query` tool, mirroring whatever changed in `db/seed.sql`. If
-that ever changes (e.g. a migration step gets added to CI), update this
-paragraph.
+**Production D1 is not auto-applied from `db/seed.sql`.** Workers Builds
+(see Deployment) only builds and deploys the Worker/frontend code — it does
+not run any D1 migration or seed step. So far, content changes have been
+applied to production D1 by hand via the Cloudflare MCP `d1_database_query`
+tool, mirroring whatever changed in `db/seed.sql`. If that ever changes (e.g.
+a migration step gets added to the build), update this paragraph.
 
 ## Local development
 
@@ -114,15 +116,35 @@ server still comes up.
 
 ## Deployment
 
-`.github/workflows/deploy.yml` runs `npm ci && npm run build` then
-`wrangler deploy` via `cloudflare/wrangler-action`, triggered on every push to
-`main`. It needs a `CLOUDFLARE_API_TOKEN` repository secret (Settings →
-Secrets and variables → Actions) — without it the workflow fails at the
-deploy step. This sandbox has no `wrangler` auth of its own (no
-`CLOUDFLARE_API_TOKEN` env var), so an agent working from here **cannot**
-`wrangler deploy` directly — only via this GitHub Actions path, or via the
-Cloudflare Developer Platform MCP tools for D1/KV data changes (not for
-deploying Worker code).
+Deploys happen via **Cloudflare Workers Builds** — Cloudflare's own Git
+integration, connected directly to this repo through the Cloudflare
+dashboard (Workers & Pages → tenable → Settings → Builds), most likely set up
+by the original "Deploy to Cloudflare" template button. Every push to `main`
+is automatically built and deployed by Cloudflare's own infrastructure —
+**no GitHub Actions workflow is involved, and none should be added for
+this.** Build/deploy status and logs are visible in the Cloudflare dashboard
+under that Worker's **Deployments** tab, not in the repo's Actions tab.
+
+An earlier version of this project *did* have a custom
+`.github/workflows/deploy.yml` (`wrangler deploy` via `cloudflare/wrangler-action`)
+that was redundant with Workers Builds and, worse, non-functional — it had no
+`CLOUDFLARE_API_TOKEN` secret configured, so all 8 of its runs failed
+outright. It sat there failing silently on every push while Workers Builds
+quietly did the actual deploying in the background, which is exactly the kind
+of thing this file exists to prevent — it's been removed. **Don't re-add a
+GitHub Actions deploy step** unless Workers Builds is deliberately being
+replaced (e.g. moving to a different Cloudflare account with no Git
+integration configured) — check the dashboard's Builds tab first if deploys
+ever seem to stop working, before assuming a new CI workflow is the fix.
+
+This sandbox has no `wrangler` auth of its own (no `CLOUDFLARE_API_TOKEN` env
+var), so an agent working from here **cannot** `wrangler deploy` directly —
+there is no way to trigger or force a deploy from this environment. Pushing
+(and merging) to `main` is what triggers a real deploy, handled entirely by
+Cloudflare outside of anything in this repo or session. The Cloudflare
+Developer Platform MCP tools available here can create/query D1, KV, and R2
+*data/resources*, but cannot deploy Worker code or inspect Workers Builds
+build status.
 
 ## Cloudflare resources
 
@@ -198,11 +220,13 @@ first limit likely to be hit — it'll surface as user-facing errors on
 `/api/guess`, not a bill. Worth keeping an eye on via the KV dashboard if
 usage grows.
 
-## GitHub Actions cost
+## Workers Builds cost
 
-The deploy workflow runs on every push to `main`, taking roughly 1-2 minutes.
-Public repos get unlimited free Actions minutes; private repos on a free
-personal GitHub plan get a limited monthly minute allowance. At this
-project's push frequency this is not a practical concern, but is worth
-knowing if `main` starts getting pushed to much more often (e.g. an
-automated content-refresh job).
+No GitHub Actions minutes are involved (see Deployment above). Workers
+Builds itself is bundled with the Workers plan (Free or Paid) rather than
+billed separately — it has its own resource limits (CPU, memory, disk,
+build timeout; 20 GB disk on both Free and Paid as of the last check) but no
+extra per-build charge beyond whatever Workers plan the account is
+already on. See https://developers.cloudflare.com/workers/ci-cd/builds/limits-and-pricing/
+for current specifics if this ever needs re-checking (e.g. before adding a
+much heavier build step).
