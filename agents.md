@@ -61,17 +61,41 @@ db/
 ## Data model
 
 - `categories` — one row per topic (slug, title, subtitle, stat_label).
-- `answers` — usually 10 rows per category (rank, canonical_name, stat_value),
-  but **not a hard rule**: `answerCount` is always derived from `COUNT(*)`, so
-  a category can legitimately have more. `copa-libertadores-alltime-titles`
-  has 27 — it lists every club that's ever won, not a top-10-by-count, after
-  a "Top 10" cut turned out to arbitrarily exclude real champions on ties.
-  Prefer a title that doesn't promise "Top 10" for categories like this one.
+- `answers` — usually 10 rows per category (rank, canonical_name, stat_value).
+  `answerCount` is always derived from `COUNT(*)` rather than assumed to be
+  10, so a category *can* have more if a topic genuinely calls for it — but
+  **the default for every category, including `copa-libertadores-alltime-titles`,
+  is a bounded Top N (normally 10)**, not "every entity that qualifies at
+  all." An earlier pass expanded the Libertadores category to all 27 clubs
+  that have ever won it; that was a misreading of a request that was actually
+  about typeahead coverage (see below), not the answer set, and was reverted.
+  Ties within a Top N are broken by most recent title/achievement (same
+  convention across the Champions League, Serie A, and Libertadores
+  categories) — don't uncap a category just because a tiebreak excludes a
+  real qualifier; that's the tiebreak working as intended.
 - `answer_aliases` — normalized match strings per answer (e.g. "psg", "paris
   saint-germain" both point at the "Paris Saint-Germain" answer). Guess
   matching (`matchGuess` in `src/worker/lib/categories.ts`) only ever compares
   against this table, never `canonical_name` directly, so seed data must
   always include the canonical name's own normalized form as one alias.
+
+### Generic rule: answers stay bounded, typeahead should be broader
+
+This applies to every category, not just one: **the `answers` table is the
+bounded guessable set (Top N) for a category and should stay that size; the
+typeahead/autocomplete pool for the guess box is a separate concern and
+should ideally cover far more real, recognizable names than just the current
+answers**, so players can type/select accurately even when guessing
+something that turns out to be wrong. Right now `suggestNames()` (in
+`src/worker/lib/categories.ts`) only searches `answer_aliases`, i.e. it only
+recognizes names that happen to be a correct answer in *some* category —
+that under-serves this goal but is the current state. A fuller
+implementation would add a typeahead-only reference table (e.g.
+`reference_entities` / `reference_entity_aliases`, decoupled from
+`answers`) that `suggestNames()` also searches, seeded with a broad set of
+real names relevant to the app's categories (clubs, players, etc.), without
+changing what counts as a correct guess. Not yet built — flagging this here
+so it isn't reintroduced as an answers-table change again.
 - Categories are **not** date-gated — every category is playable any time.
   Per-device progress lives in KV, keyed by `progress:{deviceId}:{slug}`, kept
   indefinitely (no TTL) so a finished category is remembered and never
