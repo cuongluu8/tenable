@@ -11,7 +11,7 @@
 -- churn; new categories below leave it NULL.
 
 INSERT INTO categories (slug, title, subtitle, stat_label, scheduled_date) VALUES
-	('ucl-titles-by-club', 'Top 10 UEFA Champions League / European Cup winners', 'By club, through the 2023-24 final', 'titles', '2026-08-25'),
+	('ucl-titles-by-club', 'Top 10 UEFA Champions League / European Cup winners', 'By club, through the 2025-26 final. Ties broken by most recent title.', 'titles', '2026-08-25'),
 	('ballon-dor-most-wins', 'Top 10 most Ballon d''Or wins', 'By individual player, all-time', 'wins', '2026-08-26');
 
 -- Category 1: UEFA Champions League / European Cup titles by club
@@ -25,7 +25,10 @@ INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
 	((SELECT id FROM categories WHERE slug = 'ucl-titles-by-club'), 7, 'Inter Milan', '3'),
 	((SELECT id FROM categories WHERE slug = 'ucl-titles-by-club'), 8, 'Manchester United', '3'),
 	((SELECT id FROM categories WHERE slug = 'ucl-titles-by-club'), 9, 'Juventus', '2'),
-	((SELECT id FROM categories WHERE slug = 'ucl-titles-by-club'), 10, 'Nottingham Forest', '2');
+	((SELECT id FROM categories WHERE slug = 'ucl-titles-by-club'), 10, 'Paris Saint-Germain', '2');
+-- PSG reached 2 titles (2024-25, 2025-26 — beating Inter 5-0, then Arsenal on
+-- penalties), tying Juventus and Nottingham Forest at 2. Ties broken by most
+-- recent title, which drops Forest (last won 1980) from the top 10.
 
 -- Category 2: Ballon d'Or wins by player
 INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
@@ -77,9 +80,13 @@ INSERT INTO answer_aliases (answer_id, alias)
 INSERT INTO answer_aliases (answer_id, alias)
 	SELECT id, 'juve' FROM answers WHERE canonical_name = 'Juventus';
 INSERT INTO answer_aliases (answer_id, alias)
-	SELECT id, 'nottingham forest' FROM answers WHERE canonical_name = 'Nottingham Forest';
+	SELECT id, 'paris saint-germain' FROM answers WHERE canonical_name = 'Paris Saint-Germain';
 INSERT INTO answer_aliases (answer_id, alias)
-	SELECT id, 'forest' FROM answers WHERE canonical_name = 'Nottingham Forest';
+	SELECT id, 'paris saint germain' FROM answers WHERE canonical_name = 'Paris Saint-Germain';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT id, 'psg' FROM answers WHERE canonical_name = 'Paris Saint-Germain';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT id, 'paris' FROM answers WHERE canonical_name = 'Paris Saint-Germain';
 
 INSERT INTO answer_aliases (answer_id, alias)
 	SELECT id, 'lionel messi' FROM answers WHERE canonical_name = 'Lionel Messi';
@@ -240,3 +247,86 @@ INSERT INTO answer_aliases (answer_id, alias)
 INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'morocco' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'afcon-titles-by-country' AND a.canonical_name = 'Morocco';
+
+-- Category 5: all-time FIFA World Cup career goalscorers, through the 2026
+-- tournament (Kylian Mbappé passed Lionel Messi and Miroslav Klose's
+-- previous record during the 2026 third-place playoff; Messi retired from
+-- international duty after the 2026 final, ending on 21).
+-- Ranks 9-10 are a 3-way tie at 11 goals (Kocsis, Klinsmann, Cristiano
+-- Ronaldo) — Kocsis takes 9 as the outright next-highest tally holder isn't
+-- tied, and Cristiano Ronaldo takes 10 over Klinsmann by pick (both valid).
+INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
+	('wc-alltime-goalscorers', 'Top 10 FIFA World Cup all-time goalscorers', 'Career total, through the 2026 tournament', 'goals');
+
+INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
+	((SELECT id FROM categories WHERE slug = 'wc-alltime-goalscorers'), 1, 'Kylian Mbappe', '22'),
+	((SELECT id FROM categories WHERE slug = 'wc-alltime-goalscorers'), 2, 'Lionel Messi', '21'),
+	((SELECT id FROM categories WHERE slug = 'wc-alltime-goalscorers'), 3, 'Miroslav Klose', '16'),
+	((SELECT id FROM categories WHERE slug = 'wc-alltime-goalscorers'), 4, 'Ronaldo Nazario', '15'),
+	((SELECT id FROM categories WHERE slug = 'wc-alltime-goalscorers'), 5, 'Gerd Muller', '14'),
+	((SELECT id FROM categories WHERE slug = 'wc-alltime-goalscorers'), 6, 'Harry Kane', '14'),
+	((SELECT id FROM categories WHERE slug = 'wc-alltime-goalscorers'), 7, 'Just Fontaine', '13'),
+	((SELECT id FROM categories WHERE slug = 'wc-alltime-goalscorers'), 8, 'Pele', '12'),
+	((SELECT id FROM categories WHERE slug = 'wc-alltime-goalscorers'), 9, 'Sandor Kocsis', '11'),
+	((SELECT id FROM categories WHERE slug = 'wc-alltime-goalscorers'), 10, 'Cristiano Ronaldo', '11');
+
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'kylian mbappe' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-alltime-goalscorers' AND a.canonical_name = 'Kylian Mbappe';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'mbappe' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-alltime-goalscorers' AND a.canonical_name = 'Kylian Mbappe';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'lionel messi' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-alltime-goalscorers' AND a.canonical_name = 'Lionel Messi';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'messi' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-alltime-goalscorers' AND a.canonical_name = 'Lionel Messi';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'miroslav klose' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-alltime-goalscorers' AND a.canonical_name = 'Miroslav Klose';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'klose' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-alltime-goalscorers' AND a.canonical_name = 'Miroslav Klose';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'ronaldo nazario' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-alltime-goalscorers' AND a.canonical_name = 'Ronaldo Nazario';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'r9' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-alltime-goalscorers' AND a.canonical_name = 'Ronaldo Nazario';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'gerd muller' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-alltime-goalscorers' AND a.canonical_name = 'Gerd Muller';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'muller' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-alltime-goalscorers' AND a.canonical_name = 'Gerd Muller';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'harry kane' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-alltime-goalscorers' AND a.canonical_name = 'Harry Kane';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'kane' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-alltime-goalscorers' AND a.canonical_name = 'Harry Kane';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'just fontaine' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-alltime-goalscorers' AND a.canonical_name = 'Just Fontaine';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'fontaine' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-alltime-goalscorers' AND a.canonical_name = 'Just Fontaine';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'pele' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-alltime-goalscorers' AND a.canonical_name = 'Pele';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'sandor kocsis' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-alltime-goalscorers' AND a.canonical_name = 'Sandor Kocsis';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'kocsis' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-alltime-goalscorers' AND a.canonical_name = 'Sandor Kocsis';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'cristiano ronaldo' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-alltime-goalscorers' AND a.canonical_name = 'Cristiano Ronaldo';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'ronaldo' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-alltime-goalscorers' AND a.canonical_name = 'Cristiano Ronaldo';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'cr7' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-alltime-goalscorers' AND a.canonical_name = 'Cristiano Ronaldo';
