@@ -198,6 +198,42 @@ content rather than guess. See git history on `db/seed.sql` for precedent
 (PSG's Champions League tiebreak, the AFCON 2025/26 dispute left
 deliberately unmodeled).
 
+**A wrong answer is not a minor bug — a user found one in
+`pl-2025-26-top-scorers` (Antoine Semenyo missing from rank 3 entirely, fixed
+2026-08-25) and correctly called that out as disillusioning, not cosmetic.**
+Getting the Top 10 wrong is the one thing this app cannot do and still be
+trustworthy — a player who catches an error has no reason to believe *any*
+other category is right, which undermines the whole game, not just the one
+category. Two things follow from this:
+
+1. **When content is added or changed, verify every ranked entry it touches
+   against multiple independent, reputable sources before it goes live** —
+   not just the entry that prompted the change. A single source (including
+   this agent's own training knowledge, or one aggregator site synthesizing
+   a WebSearch answer) is not sufficient for anything from a real, checkable
+   season/tournament; cross-reference at least two independent outlets
+   (official league/competition sites, major sports media — AP, ESPN, Sky
+   Sports, BBC, NBC Sports, Yahoo Sports, etc.) and prefer ones that show
+   the same number from multiple angles (e.g. a full points table, not just
+   a headline claim). WebSearch result summaries can themselves lean on a
+   low-quality aggregator (seen in practice: a `yen.com.gh`-sourced summary
+   claiming a player had transferred clubs mid-search that better sources
+   didn't corroborate) — check which underlying source each claim actually
+   traces to, don't take the search tool's synthesized answer at face value.
+2. **After any bug report on `answers` content, don't just fix the one
+   reported item — audit the rest of that category, and give the other
+   time-sensitive categories (anything with "2025-26", "2026", or "through
+   <season>" in its subtitle) the same pass.** One bug found by a user is a
+   strong signal there may be others not yet found; a category-by-category
+   spot check (query production for the full category list, verify every
+   "current season" / "through <year>" category, not just the one reported)
+   is exactly what surfaced no further errors after the Semenyo incident —
+   that audit is the standard to repeat, not a one-time response. Categories
+   without a season/year in the subtitle (e.g. Ballon d'Or all-time wins,
+   Euro Championship by country through a named past tournament) are lower
+   risk since they don't require folding in a just-finished season, but
+   still worth a quick sanity check when touching content generally.
+
 **Production D1 is not auto-applied from `db/seed.sql`.** Workers Builds
 (see Deployment) only builds and deploys the Worker/frontend code — it does
 not run any D1 migration or seed step. So far, content changes have been
