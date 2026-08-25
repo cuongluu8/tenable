@@ -98,18 +98,20 @@ This is implemented via `reference_entities` / `reference_entity_aliases`
 `matchGuess` (guess validation/scoring) never reads these tables, so adding
 a name here can't make a wrong guess "count" — it only helps typing. Seeded
 so far (see the bottom of `db/seed.sql`):
-- ~180 South American football clubs, `entity_type = 'club'` (current
-  top-flight rosters across the 10 CONMEBOL countries, `category` column
-  holds the country).
+- Several hundred football clubs, `entity_type = 'club'` (South American
+  top-flight rosters plus a full English/Scottish league expansion added
+  later, `category` column holds the country).
 - ~110 countries, `entity_type = 'country'` (UEFA + CAF members — scoped to
   the confederations the two 'country' categories actually cover, `category`
   column holds the confederation).
-- ~160 players, `entity_type = 'player'` (broadly recognizable
-  attackers/Ballon d'Or-calibre names across eras and nationalities,
-  `category` column holds nationality). **Explicitly not exhaustive** —
-  unlike the club/country lists (which are objectively bounded: "current
-  top-flight roster", "confederation members"), "notable players" has no
-  natural boundary. Expand as gaps show up rather than trying to front-load
+- **~7,800+ players and growing toward ~18,000**, `entity_type = 'player'`
+  (originally a curated ~160 broadly-recognizable Ballon d'Or-calibre names;
+  as of 2026-08-25 this is mid-expansion to a much broader "every player
+  since 1992" pool sourced from a cleaned FIFA 21 dataset — see "In-progress
+  player expansion" below). **Explicitly not exhaustive** — unlike the
+  club/country lists (which are objectively bounded: "current top-flight
+  roster", "confederation members"), "notable players" has no natural
+  boundary. Expand as gaps show up rather than trying to front-load
   completeness.
 
 This pool is **best-effort, not held to the same fact-checking bar as
@@ -119,13 +121,46 @@ entry here is a much smaller problem than an error in `answers`. Extend the
 same way for other regions/entity types as new categories get added — don't
 grow `answers` past its category's actual Top N to solve a typeahead gap.
 
-All three pools (club, country, player) are applied to production D1 and
-match `db/seed.sql` exactly — confirmed via
+**`db/seed.sql` and production D1 have diverged for `reference_entities`
+and no longer match 1:1.** The original intent (see git history) was that
+every reference-data addition gets appended to `seed.sql` and then mirrored
+to production by hand via the Cloudflare MCP `d1_database_query` tool. The
+large player-pool expansion (2026-08-25 onward, see below) broke that
+invariant: those batches were applied directly to production only, never
+back-ported into `seed.sql`, because the volume (17,000+ players across 70
+SQL files) made hand-editing `seed.sql` impractical mid-session. **Production
+D1 is the source of truth for the current reference-entity counts**, not
+`seed.sql` — confirm live counts via
 `SELECT entity_type, COUNT(*) FROM reference_entities GROUP BY entity_type;`
-(182 / 110 / 158) and the equivalent join through `reference_entity_aliases`
-(219 / 115 / 164). If a future reference-data batch is added to `seed.sql`
-without reaching production (e.g. an MCP auth expiry mid-apply, as happened
-once here), that query is the fast way to check before assuming it's done.
+rather than trusting numbers written here or in `seed.sql`. If you pick this
+back-porting work up, either bulk-append the executed batch files (see
+`db/pending_player_batches/` for the ones not yet run) into `seed.sql` in one
+pass, or explicitly decide `seed.sql`'s reference-entity section is legacy/
+bootstrap-only and stop treating it as authoritative — don't let it drift
+silently either way.
+
+### In-progress player expansion (started 2026-08-25)
+
+At the user's request ("I want every player since 1992"), the player
+typeahead pool is being expanded from ~160 curated names to ~17,577 real
+players, sourced from a cleaned FIFA 21 player dataset (EA's fabricated/
+placeholder players — an entire fake Brazilian Série A, detected via
+uniform-squad-size statistical fingerprinting — were filtered out first).
+Names are normalized and aliased to match `normalize()` in
+`src/worker/lib/normalize.ts`, deduped against pre-existing content, and
+split into 70 batch files of ~250 players each (sorted by FIFA overall
+rating descending, so the most recognizable players load first in case the
+job is interrupted). No bulk-upload API exists for D1 from this environment,
+so each batch is a separate `d1_database_query` MCP call.
+
+**Progress and exact resume instructions live in
+`db/pending_player_batches/PROGRESS.md`** — read that file before continuing
+this work in any new session. In short: batches up through the number still
+present in that directory (lowest-numbered `batch_NNN.sql` file) remain
+unexecuted; delete each one and commit the removal as you run it, so the
+directory's contents always reflect what's left. This is long-running,
+mechanical, multi-session work the user has explicitly authorized to
+completion — no need to re-ask before resuming it.
 
 **Type-scoped**: both `categories` and `reference_entities` carry an
 `entity_type` column (`'club'` | `'player'` | `'country'`, extend as new
