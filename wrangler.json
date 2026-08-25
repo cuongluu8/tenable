@@ -11,5 +11,18 @@
 	"assets": {
 		"directory": "./dist/client",
 		"not_found_handling": "single-page-application"
-	}
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "tenable-content",
+			"database_id": "a87ef250-cc94-4765-a821-785acbcd71a4"
+		}
+	],
+	"kv_namespaces": [
+		{
+			"binding": "PROGRESS",
+			"id": "f04cfb81bc8e4ba783cd3157d59e2734"
+		}
+	]
 }
