@@ -93,10 +93,38 @@ pool before touching `answers` — the Libertadores category was expanded to
 
 This is implemented via `reference_entities` / `reference_entity_aliases`
 (see schema.sql) — a typeahead-only pool, decoupled from `answers`.
-`suggestNames()` (`src/worker/lib/categories.ts`) unions both
-`answer_aliases` and `reference_entity_aliases`, deduped by canonical name.
-`matchGuess` (guess validation/scoring) never reads these tables, so adding
-a name here can't make a wrong guess "count" — it only helps typing. Seeded
+`matchGuess` (guess validation/scoring) never reads these tables (or
+`entity_search`, below), so adding a name here can't make a wrong guess
+"count" — it only helps typing.
+
+**`suggestNames()` matches primarily through `entity_search`, an FTS5
+virtual table (added 2026-08-25), not through the alias tables.**
+`entity_search` indexes the canonical name of every `answers` row and every
+`reference_entities` row, tokenized on word boundaries (`unicode61
+remove_diacritics 2`), and is queried with a per-word prefix `MATCH` (see
+`toFtsPrefixQuery()` in `normalize.ts`) — so a search matches ANY word of a
+name, not just its start: typing "szo" finds "Dominik Szoboszlai" via its
+second word, with no alias row required. It's kept in sync automatically by
+triggers on `answers`, `reference_entities`, and `categories` (the last one
+matters: `categories.entity_type` can be corrected by an `UPDATE` *after*
+that category's answers already exist — seed.sql itself does this — and
+`entity_search` denormalizes `entity_type` onto each answer row, so without
+a trigger watching that `UPDATE` too, answers inserted before the fix-up
+would carry a stale type forever; don't drop that trigger when touching this
+area). `answer_aliases` / `reference_entity_aliases` are still unioned in on
+top of the FTS match, but only earn their keep now for genuine nicknames
+that aren't a substring of the canonical name at all and so can't be found
+by tokenizing it — "psg", "barca", "spurs", "vvd". A missing nickname alias
+is a minor, expected gap (add one if a real one is reported missing); it is
+**not** the same class of bug as a missing `reference_entity_aliases` row
+used to be before this change (see the incident below) — first/last-name
+search no longer depends on alias rows existing at all.
+
+**Adding a new `reference_entities` row (or answer) needs nothing beyond
+the plain `INSERT`** — the trigger populates `entity_search` for you. Only
+add alias rows for actual nicknames, not for the name itself or its parts.
+
+Seeded
 so far (see the bottom of `db/seed.sql`):
 - Several hundred football clubs, `entity_type = 'club'` (South American
   top-flight rosters plus a full English/Scottish league expansion added
@@ -234,31 +262,34 @@ category. Two things follow from this:
    risk since they don't require folding in a just-finished season, but
    still worth a quick sanity check when touching content generally.
 
-**`reference_entities` rows are silently useless without matching
-`reference_entity_aliases` rows — a user found this too** (2026-08-25:
-Dominik Szoboszlai reported missing from typeahead despite Liverpool's
-current squad supposedly being covered). `suggestNames()` only ever reads
-`reference_entity_aliases`; it never falls back to `canonical_name`. An
-entity row with zero alias rows is invisible to typeahead forever, with no
-error anywhere — the INSERT into `reference_entities` succeeds, the
-follow-up INSERT into `reference_entity_aliases` can silently not happen
-(wrong join key, a step that was never written, a batch that only did half
-the job), and nothing surfaces it except a player noticing a name doesn't
-autocomplete. Auditing this bug's actual scope (not just the one reported
-player) found **199 players and 157 clubs** — effectively every
-current-season Premier League squad member plus every top-flight club
-across the big five leagues and more — sitting in `reference_entities` with
-no aliases at all, plus 65 exact-duplicate club rows from a batch that had
-evidently run twice. All of it was fixed in production the same day
-(aliases backfilled, duplicates deleted). **After adding or bulk-loading
-any `reference_entities` rows, always verify with:**
+**Incident that motivated `entity_search` (2026-08-25):** a user reported
+Dominik Szoboszlai missing from typeahead despite Liverpool's current squad
+supposedly being covered. At the time, `suggestNames()` only ever matched
+through `reference_entity_aliases`/`answer_aliases` — never `canonical_name`
+directly — so a `reference_entities` row with zero alias rows was invisible
+forever, with no error anywhere: the `INSERT` into `reference_entities`
+succeeds, the follow-up alias `INSERT` can silently not happen (wrong join
+key, a step that was never written, a batch that only did half the job),
+and nothing surfaces it except a player noticing a name doesn't
+autocomplete. Auditing the actual scope (not just the one reported player)
+found **199 players and 157 clubs** — effectively every current-season
+Premier League squad member plus every top-flight club across the big five
+leagues and more — with no aliases at all, plus 65 exact-duplicate club rows
+from a batch that had evidently run twice. That was patched in production
+the same day (aliases backfilled, duplicates deleted), but the *fix that
+actually matters* was structural: `suggestNames()` was rebuilt around
+`entity_search` (see above) so first/last-name matching no longer depends
+on any alias row existing in the first place — the bug class, not just this
+instance of it, is closed. If you're ever debugging a "can't find this name"
+report again, confirm `entity_search` actually contains the row and that
+its `entity_type` matches what's being searched for:
 ```sql
-SELECT entity_type, COUNT(*) FROM reference_entities re
-WHERE NOT EXISTS (SELECT 1 FROM reference_entity_aliases rea WHERE rea.entity_id = re.id)
-GROUP BY entity_type;
+SELECT * FROM entity_search WHERE entity_search MATCH 'yourprefix*';
 ```
-A nonzero count for any type means that batch's job isn't done yet, no
-matter what the `reference_entities` INSERT's `changes` count showed.
+An empty result there (rather than a missing alias) is now the thing to
+chase — e.g. a trigger that didn't fire, or a bulk load that wrote
+`reference_entities` some other way than a plain `INSERT` (bypassing the
+trigger).
 
 **Production D1 is not auto-applied from `db/seed.sql`.** Workers Builds
 (see Deployment) only builds and deploys the Worker/frontend code — it does

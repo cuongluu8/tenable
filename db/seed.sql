@@ -5761,3 +5761,10 @@ INSERT INTO reference_entity_aliases (entity_id, alias)
 SELECT re.id, v.alias FROM v
 JOIN reference_entities re ON re.canonical_name = v.name AND re.entity_type = 'club';
 
+-- No manual entity_search backfill needed here: the triggers in schema.sql
+-- populate it as a side effect of the INSERT/UPDATE statements above (each
+-- `INSERT INTO answers`/`reference_entities` and each
+-- `UPDATE categories SET entity_type = ...` already run earlier in this
+-- file). A manual backfill is only needed once, directly against production,
+-- for rows that existed before these triggers did — see agents.md.
+
