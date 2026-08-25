@@ -1,23 +1,22 @@
 import { Hono } from "hono";
 import { getOrSetDeviceId } from "../lib/device";
-import { todayKey } from "../lib/dailyKey";
-import { getCategoryForDate, getAllAnswers } from "../lib/categories";
+import { getCategoryBySlug, getAllAnswers } from "../lib/categories";
 import { getProgress } from "../lib/progressStore";
 
 const reveal = new Hono<{ Bindings: Env }>();
 
-// Full answer list for today's category — only returned once this device's
-// round is actually completed, so the client can't peek mid-round.
-reveal.get("/", async (c) => {
-	const date = todayKey();
+// Full answer list for a category — only returned once this device's round
+// on it is actually completed, so the client can't peek mid-round.
+reveal.get("/:slug", async (c) => {
+	const slug = c.req.param("slug");
 	const deviceId = getOrSetDeviceId(c);
 
-	const category = await getCategoryForDate(c.env.DB, date);
+	const category = await getCategoryBySlug(c.env.DB, slug);
 	if (!category) {
-		return c.json({ error: "No puzzle scheduled for today" }, 404);
+		return c.json({ error: "Unknown category" }, 404);
 	}
 
-	const progress = await getProgress(c.env.PROGRESS, deviceId, date);
+	const progress = await getProgress(c.env.PROGRESS, deviceId, slug);
 	if (!progress?.completed) {
 		return c.json({ error: "Round not finished yet" }, 403);
 	}
