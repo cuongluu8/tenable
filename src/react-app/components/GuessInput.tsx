@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { getSafeViewport } from "../lib/safeViewport";
+import { useKeepInSafeZone } from "../hooks/useKeepInSafeZone";
 
 interface Props {
 	value: string;
@@ -26,19 +28,13 @@ const DEBOUNCE_MS = 200;
 // popover" treatment.
 const DROPDOWN_GAP = 0;
 const DROPDOWN_MAX_HEIGHT = 224; // 14rem at the default 16px root, matches the old CSS max-height
-const MIN_USABLE_SPACE = 80; // below this, prefer flipping even if it's not the bigger side
+const MIN_USABLE_SPACE = 80; // floor on how short the list is allowed to get
 
 interface DropdownRect {
 	left: number;
 	width: number;
 	maxHeight: number;
-	direction: "below" | "above";
-	// Exactly one of these is set, matching `direction`: `top` for "below"
-	// (opens downward from the input, the common case), `bottom` for "above"
-	// (the flipped case, used when there isn't room below within the
-	// visible viewport).
-	top?: number;
-	bottom?: number;
+	bottom: number;
 }
 
 export function GuessInput({ value, onChange, onPick, disabled, categorySlug }: Props) {
@@ -58,58 +54,46 @@ export function GuessInput({ value, onChange, onPick, disabled, categorySlug }: 
 	const query = value.trim();
 	const visible = !dismissed && query.length >= 2 && suggestions.length > 0;
 
-	// Recomputes where the dropdown should render, anchored to the input's
-	// on-screen position via `position: fixed` rather than the `position:
-	// absolute` this used before. The reason is mobile: opening the on-screen
-	// keyboard shrinks `window.visualViewport` (the actually-visible area)
-	// without shrinking `window.innerHeight`/the layout viewport that plain
-	// `absolute`/`fixed` CSS is measured against — so a dropdown that always
-	// opens downward from the input (which typically sits low on the page,
-	// below the answer grid) can end up positioned behind the keyboard, out
-	// of reach. Anchoring against `visualViewport` and flipping to open
-	// *above* the input when there isn't room below fixes both: the
-	// dropdown always lands within what the player can actually see and tap.
+	// Scrolls the input into the safe zone as soon as it's focused — before
+	// the player has even typed anything, independent of whether suggestions
+	// are showing. See useKeepInSafeZone for why this can't just be the
+	// browser's native scroll-into-view.
+	useKeepInSafeZone(inputRef);
+
+	// Recomputes where the dropdown should render: always directly above the
+	// input (position: fixed, anchored to its on-screen rect), clamped to
+	// the safe zone (see safeViewport.ts) rather than window.innerHeight —
+	// the on-screen keyboard, and on iOS the address bar, can cover part of
+	// the screen without shrinking the layout viewport that plain CSS
+	// positioning is measured against, so a naive fixed-position dropdown
+	// can end up rendered behind either one. Always opening above (never
+	// below) keeps this predictable — no per-render judgment call about
+	// which side has "enough" room that could differ from what actually
+	// rendered, which is what made the previous flip-if-needed version feel
+	// inconsistent in practice.
 	const reposition = useCallback(() => {
 		const el = inputRef.current;
 		if (!el) return;
 		const inputRect = el.getBoundingClientRect();
-		const vv = window.visualViewport;
-		const viewportTop = vv?.offsetTop ?? 0;
-		const viewportBottom = viewportTop + (vv?.height ?? window.innerHeight);
+		const safe = getSafeViewport();
+		const spaceAbove = inputRect.top - safe.top - DROPDOWN_GAP;
 
-		const spaceBelow = viewportBottom - inputRect.bottom - DROPDOWN_GAP;
-		const spaceAbove = inputRect.top - viewportTop - DROPDOWN_GAP;
-
-		if (spaceBelow >= MIN_USABLE_SPACE || spaceBelow >= spaceAbove) {
-			setDropdownRect({
-				direction: "below",
-				top: inputRect.bottom + DROPDOWN_GAP,
-				left: inputRect.left,
-				width: inputRect.width,
-				maxHeight: Math.max(Math.min(spaceBelow, DROPDOWN_MAX_HEIGHT), MIN_USABLE_SPACE),
-			});
-		} else {
-			setDropdownRect({
-				direction: "above",
-				bottom: window.innerHeight - inputRect.top + DROPDOWN_GAP,
-				left: inputRect.left,
-				width: inputRect.width,
-				maxHeight: Math.max(Math.min(spaceAbove, DROPDOWN_MAX_HEIGHT), MIN_USABLE_SPACE),
-			});
-		}
+		setDropdownRect({
+			bottom: window.innerHeight - inputRect.top + DROPDOWN_GAP,
+			left: inputRect.left,
+			width: inputRect.width,
+			maxHeight: Math.max(Math.min(spaceAbove, DROPDOWN_MAX_HEIGHT), MIN_USABLE_SPACE),
+		});
 	}, []);
 
 	// Reposition synchronously before paint whenever the list (re)appears or
 	// its content changes size, and keep it pinned while open. Three things
-	// can move the input relative to what's visible while the keyboard is
-	// up, and each needs its own listener: the keyboard opening/closing
+	// can move the input relative to the safe zone while the keyboard is up,
+	// and each needs its own listener: the keyboard opening/closing
 	// (visualViewport resize), a pinch-zoom pan (visualViewport scroll), and
-	// — the one that actually matters most here — the browser's own
-	// scroll-focused-input-into-view behavior when the keyboard opens over
-	// an input positioned low on the page (a plain window scroll; relying on
-	// visualViewport's scroll event alone isn't reliable for this across
-	// browsers). The window-resize listener is a fallback for browsers
-	// without visualViewport support at all.
+	// a plain window scroll — including the one useKeepInSafeZone itself
+	// triggers, and possibly the browser's own native scroll-into-view on
+	// top of that, so this needs to react to it regardless of source.
 	useLayoutEffect(() => {
 		if (!visible) return;
 		reposition();
@@ -191,24 +175,20 @@ export function GuessInput({ value, onChange, onPick, disabled, categorySlug }: 
 				role="combobox"
 				aria-expanded={visible}
 				aria-autocomplete="list"
-				// While open, the border/corner flush with the list (see
-				// .guess-suggestions--below/above) so the input and its
+				// While open, the border/bottom corners flush with the list
+				// above (see .guess-suggestions) so the input and its
 				// suggestions read as one control, not two floating panels.
-				className={
-					visible && dropdownRect ? `guess-input__field--open-${dropdownRect.direction}` : undefined
-				}
+				className={visible ? "guess-input__field--open" : undefined}
 			/>
 			{visible && dropdownRect && (
 				<ul
-					className={`guess-suggestions guess-suggestions--${dropdownRect.direction}`}
+					className="guess-suggestions"
 					role="listbox"
 					style={{
 						left: dropdownRect.left,
 						width: dropdownRect.width,
 						maxHeight: dropdownRect.maxHeight,
-						...(dropdownRect.top !== undefined
-							? { top: dropdownRect.top }
-							: { bottom: dropdownRect.bottom }),
+						bottom: dropdownRect.bottom,
 					}}
 				>
 					{suggestions.map((name, i) => (

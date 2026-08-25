@@ -211,16 +211,11 @@
 	transition: border-color 0.15s;
 }
 /* While the suggestions list is open, the input's border switches to the
-   same accent + flush edge as the list (see .guess-suggestions--below/above
-   below) so the two read as one connected control, not two separately
-   floating panels — the standard "attached popover" treatment (native
-   <select>, browser address-bar autocomplete, any combobox). */
-.guess-input__field--open-below {
-	border-color: #4ade80;
-	border-bottom-left-radius: 0;
-	border-bottom-right-radius: 0;
-}
-.guess-input__field--open-above {
+   same accent + flush top edge as the list (always directly above it — see
+   .guess-suggestions) so the two read as one connected control, not two
+   separately floating panels — the standard "attached popover" treatment
+   (native <select>, browser address-bar autocomplete, any combobox). */
+.guess-input__field--open {
 	border-color: #4ade80;
 	border-top-left-radius: 0;
 	border-top-right-radius: 0;
@@ -232,18 +227,18 @@
    ring cutting across the seam. (Attribute selector + class + pseudo-class
    outranks the plain input[type="text"]:focus-visible rule regardless of
    CSS file import order.) */
-input[type="text"].guess-input__field--open-below:focus-visible,
-input[type="text"].guess-input__field--open-above:focus-visible {
+input[type="text"].guess-input__field--open:focus-visible {
 	outline: none;
 }
 
 .guess-suggestions {
 	/* position: fixed, not absolute — top/left/width/max-height are set
 	   per-render as inline styles by GuessInput (see the `reposition()`
-	   comment there for why: on mobile, the on-screen keyboard shrinks the
-	   VISIBLE viewport without shrinking the layout viewport that `absolute`/
-	   plain `fixed` positioning is measured against, so a dropdown anchored
-	   below the input can end up rendered behind the keyboard. */
+	   comment there for why: on mobile, the on-screen keyboard — and, on
+	   iOS, the address bar — can cover part of the screen without shrinking
+	   the layout viewport that plain `absolute`/`fixed` CSS is measured
+	   against. Always opens directly above the input, flush against it (see
+	   border-radius below) — never below, so its position is predictable. */
 	position: fixed;
 	z-index: 10;
 	list-style: none;
@@ -257,17 +252,11 @@ input[type="text"].guess-input__field--open-above:focus-visible {
 	background: #374151;
 	border: 1px solid #4ade80;
 	border-radius: 8px;
-	box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
-}
-/* Flush against the input on the side that touches it — the other two
-   corners stay rounded. Paired with .guess-input__field--open-below/above. */
-.guess-suggestions--below {
-	border-top-left-radius: 0;
-	border-top-right-radius: 0;
-}
-.guess-suggestions--above {
+	/* Flush against the input's top edge — square off the corners that
+	   touch it, matching .guess-input__field--open above. */
 	border-bottom-left-radius: 0;
 	border-bottom-right-radius: 0;
+	box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
 }
 .guess-suggestions li + li {
 	margin-top: 0.15rem;
