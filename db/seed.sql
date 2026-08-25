@@ -1186,3 +1186,634 @@ INSERT INTO answer_aliases (answer_id, alias)
 INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'olimpia' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'copa-libertadores-alltime-titles' AND a.rank = 10;
+-- Reference clubs: a typeahead-only pool of real South American club names,
+-- decoupled from the `answers` table. suggestNames() searches this alongside
+-- answer_aliases so players can type/select any real club while guessing, not
+-- just the current category's correct answers. This does NOT affect what
+-- counts as a correct guess (matchGuess still only reads answer_aliases,
+-- scoped to the category). Best-effort current top-flight rosters (Aug 2026) —
+-- not held to the same fact-checking bar as answer content since it only
+-- affects autocomplete, not scoring. See agents.md.
+
+INSERT INTO reference_entities (canonical_name, category) VALUES
+	('Argentinos Juniors', 'Argentina'),
+	('Atletico Tucuman', 'Argentina'),
+	('Aldosivi', 'Argentina'),
+	('Estudiantes de Rio Cuarto', 'Argentina'),
+	('Estudiantes de La Plata', 'Argentina'),
+	('Velez Sarsfield', 'Argentina'),
+	('Defensa y Justicia', 'Argentina'),
+	('Gimnasia y Esgrima Mendoza', 'Argentina'),
+	('Gimnasia y Esgrima La Plata', 'Argentina'),
+	('Talleres Cordoba', 'Argentina'),
+	('Union de Santa Fe', 'Argentina'),
+	('Huracan', 'Argentina'),
+	('Deportivo Riestra', 'Argentina'),
+	('Newells Old Boys', 'Argentina'),
+	('Banfield', 'Argentina'),
+	('Barracas Central', 'Argentina'),
+	('Platense', 'Argentina'),
+	('Sarmiento Junin', 'Argentina'),
+	('Belgrano', 'Argentina'),
+	('Independiente', 'Argentina'),
+	('Independiente Rivadavia', 'Argentina'),
+	('Boca Juniors', 'Argentina'),
+	('River Plate', 'Argentina'),
+	('Rosario Central', 'Argentina'),
+	('San Lorenzo', 'Argentina'),
+	('Colon', 'Argentina'),
+	('Racing Club', 'Argentina'),
+	('Lanus', 'Argentina'),
+	('Instituto', 'Argentina'),
+	('Palmeiras', 'Brazil'),
+	('Flamengo', 'Brazil'),
+	('Fluminense', 'Brazil'),
+	('Athletico Paranaense', 'Brazil'),
+	('Red Bull Bragantino', 'Brazil'),
+	('Bahia', 'Brazil'),
+	('Coritiba', 'Brazil'),
+	('Sao Paulo', 'Brazil'),
+	('Atletico Mineiro', 'Brazil'),
+	('Corinthians', 'Brazil'),
+	('Cruzeiro', 'Brazil'),
+	('Botafogo', 'Brazil'),
+	('Vitoria', 'Brazil'),
+	('Internacional', 'Brazil'),
+	('Santos', 'Brazil'),
+	('Gremio', 'Brazil'),
+	('Vasco da Gama', 'Brazil'),
+	('Remo', 'Brazil'),
+	('Mirassol', 'Brazil'),
+	('Chapecoense', 'Brazil'),
+	('Audax Italiano', 'Chile'),
+	('Cobresal', 'Chile'),
+	('Colo-Colo', 'Chile'),
+	('Coquimbo Unido', 'Chile'),
+	('Deportes Concepcion', 'Chile'),
+	('Deportes La Serena', 'Chile'),
+	('Deportes Limache', 'Chile'),
+	('Everton de Vina del Mar', 'Chile'),
+	('Huachipato', 'Chile'),
+	('Nublense', 'Chile'),
+	('O''Higgins', 'Chile'),
+	('Palestino', 'Chile'),
+	('Union La Calera', 'Chile'),
+	('Universidad Catolica', 'Chile'),
+	('Universidad de Chile', 'Chile'),
+	('Universidad de Concepcion', 'Chile'),
+	('Penarol', 'Uruguay'),
+	('Nacional', 'Uruguay'),
+	('Danubio', 'Uruguay'),
+	('Defensor Sporting', 'Uruguay'),
+	('River Plate Montevideo', 'Uruguay'),
+	('Montevideo Wanderers', 'Uruguay'),
+	('Cerro', 'Uruguay'),
+	('Progreso', 'Uruguay'),
+	('Rampla Juniors', 'Uruguay'),
+	('Liverpool Montevideo', 'Uruguay'),
+	('Boston River', 'Uruguay'),
+	('Racing Montevideo', 'Uruguay'),
+	('Fenix', 'Uruguay'),
+	('Plaza Colonia', 'Uruguay'),
+	('Cerro Largo', 'Uruguay'),
+	('Juventud de Las Piedras', 'Uruguay'),
+	('Deportivo Maldonado', 'Uruguay'),
+	('Albion', 'Uruguay'),
+	('Central Espanol', 'Uruguay'),
+	('Miramar Misiones', 'Uruguay'),
+	('Torque', 'Uruguay'),
+	('Cerro Porteno', 'Paraguay'),
+	('Olimpia', 'Paraguay'),
+	('Libertad', 'Paraguay'),
+	('Guarani', 'Paraguay'),
+	('Sportivo Luqueno', 'Paraguay'),
+	('Nacional Paraguay', 'Paraguay'),
+	('2 de Mayo', 'Paraguay'),
+	('Sportivo Trinidense', 'Paraguay'),
+	('Recoleta', 'Paraguay'),
+	('General Caballero JLM', 'Paraguay'),
+	('Tembetary', 'Paraguay'),
+	('Rubio Nu', 'Paraguay'),
+	('San Lorenzo Paraguay', 'Paraguay'),
+	('Sol de America', 'Paraguay'),
+	('Guairena', 'Paraguay'),
+	('Independiente Campo Grande', 'Paraguay'),
+	('Aguilas Doradas', 'Colombia'),
+	('Alianza Petrolera', 'Colombia'),
+	('America de Cali', 'Colombia'),
+	('Atletico Bucaramanga', 'Colombia'),
+	('Atletico Nacional', 'Colombia'),
+	('Boyaca Chico', 'Colombia'),
+	('Deportes Tolima', 'Colombia'),
+	('Deportivo Cali', 'Colombia'),
+	('Deportivo Pasto', 'Colombia'),
+	('Deportivo Pereira', 'Colombia'),
+	('Envigado', 'Colombia'),
+	('Fortaleza CEIF', 'Colombia'),
+	('Independiente Medellin', 'Colombia'),
+	('Independiente Santa Fe', 'Colombia'),
+	('Junior', 'Colombia'),
+	('La Equidad', 'Colombia'),
+	('Millonarios', 'Colombia'),
+	('Once Caldas', 'Colombia'),
+	('Cucuta Deportivo', 'Colombia'),
+	('Independiente del Valle', 'Ecuador'),
+	('Barcelona SC', 'Ecuador'),
+	('Emelec', 'Ecuador'),
+	('Universidad Catolica Ecuador', 'Ecuador'),
+	('Aucas', 'Ecuador'),
+	('Delfin SC', 'Ecuador'),
+	('Deportivo Cuenca', 'Ecuador'),
+	('LDU Quito', 'Ecuador'),
+	('Macara', 'Ecuador'),
+	('Mushuc Runa', 'Ecuador'),
+	('Guayaquil City', 'Ecuador'),
+	('Cumbaya', 'Ecuador'),
+	('Tecnico Universitario', 'Ecuador'),
+	('Alianza Lima', 'Peru'),
+	('Alianza Atletico', 'Peru'),
+	('Sporting Cristal', 'Peru'),
+	('Universitario', 'Peru'),
+	('Cusco FC', 'Peru'),
+	('Cienciano', 'Peru'),
+	('Sport Boys', 'Peru'),
+	('Sport Huancayo', 'Peru'),
+	('Deportivo Municipal', 'Peru'),
+	('Melgar', 'Peru'),
+	('Comerciantes Unidos', 'Peru'),
+	('Cajamarca', 'Peru'),
+	('Deportivo Moquegua', 'Peru'),
+	('Deportivo Garcilaso', 'Peru'),
+	('AD Tarma', 'Peru'),
+	('Los Chankas', 'Peru'),
+	('Juan Pablo II', 'Peru'),
+	('Atletico Grau', 'Peru'),
+	('ABB', 'Bolivia'),
+	('Always Ready', 'Bolivia'),
+	('Aurora', 'Bolivia'),
+	('Blooming', 'Bolivia'),
+	('Bolivar', 'Bolivia'),
+	('Guabira', 'Bolivia'),
+	('GV San Jose', 'Bolivia'),
+	('Independiente Petrolero', 'Bolivia'),
+	('Nacional Potosi', 'Bolivia'),
+	('Oriente Petrolero', 'Bolivia'),
+	('Real Oruro', 'Bolivia'),
+	('Real Potosi', 'Bolivia'),
+	('Real Tomayapo', 'Bolivia'),
+	('San Antonio Bulo Bulo', 'Bolivia'),
+	('The Strongest', 'Bolivia'),
+	('Universidad de Vinto', 'Bolivia'),
+	('Deportivo La Guaira', 'Venezuela'),
+	('Metropolitanos FC', 'Venezuela'),
+	('Deportivo Tachira', 'Venezuela'),
+	('Universidad Central de Venezuela', 'Venezuela'),
+	('Portuguesa FC', 'Venezuela'),
+	('Estudiantes de Merida', 'Venezuela'),
+	('Carabobo FC', 'Venezuela'),
+	('Academia Puerto Cabello', 'Venezuela'),
+	('Zamora FC', 'Venezuela'),
+	('Caracas FC', 'Venezuela'),
+	('Rayo Zuliano', 'Venezuela'),
+	('Monagas SC', 'Venezuela'),
+	('Academia Anzoategui', 'Venezuela'),
+	('Trujillanos', 'Venezuela');
+
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'argentinos' FROM reference_entities WHERE canonical_name = 'Argentinos Juniors' AND category = 'Argentina';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'argentinos juniors' FROM reference_entities WHERE canonical_name = 'Argentinos Juniors' AND category = 'Argentina';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'atletico tucuman' FROM reference_entities WHERE canonical_name = 'Atletico Tucuman' AND category = 'Argentina';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'aldosivi' FROM reference_entities WHERE canonical_name = 'Aldosivi' AND category = 'Argentina';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'estudiantes de rio cuarto' FROM reference_entities WHERE canonical_name = 'Estudiantes de Rio Cuarto' AND category = 'Argentina';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'estudiantes' FROM reference_entities WHERE canonical_name = 'Estudiantes de La Plata' AND category = 'Argentina';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'estudiantes de la plata' FROM reference_entities WHERE canonical_name = 'Estudiantes de La Plata' AND category = 'Argentina';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'velez' FROM reference_entities WHERE canonical_name = 'Velez Sarsfield' AND category = 'Argentina';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'velez sarsfield' FROM reference_entities WHERE canonical_name = 'Velez Sarsfield' AND category = 'Argentina';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'defensa y justicia' FROM reference_entities WHERE canonical_name = 'Defensa y Justicia' AND category = 'Argentina';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'gimnasia y esgrima mendoza' FROM reference_entities WHERE canonical_name = 'Gimnasia y Esgrima Mendoza' AND category = 'Argentina';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'gimnasia' FROM reference_entities WHERE canonical_name = 'Gimnasia y Esgrima La Plata' AND category = 'Argentina';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'gimnasia y esgrima la plata' FROM reference_entities WHERE canonical_name = 'Gimnasia y Esgrima La Plata' AND category = 'Argentina';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'talleres' FROM reference_entities WHERE canonical_name = 'Talleres Cordoba' AND category = 'Argentina';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'talleres cordoba' FROM reference_entities WHERE canonical_name = 'Talleres Cordoba' AND category = 'Argentina';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'union de santa fe' FROM reference_entities WHERE canonical_name = 'Union de Santa Fe' AND category = 'Argentina';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'union santa fe' FROM reference_entities WHERE canonical_name = 'Union de Santa Fe' AND category = 'Argentina';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'huracan' FROM reference_entities WHERE canonical_name = 'Huracan' AND category = 'Argentina';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'deportivo riestra' FROM reference_entities WHERE canonical_name = 'Deportivo Riestra' AND category = 'Argentina';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'riestra' FROM reference_entities WHERE canonical_name = 'Deportivo Riestra' AND category = 'Argentina';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'newells' FROM reference_entities WHERE canonical_name = 'Newells Old Boys' AND category = 'Argentina';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'newells old boys' FROM reference_entities WHERE canonical_name = 'Newells Old Boys' AND category = 'Argentina';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'banfield' FROM reference_entities WHERE canonical_name = 'Banfield' AND category = 'Argentina';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'barracas central' FROM reference_entities WHERE canonical_name = 'Barracas Central' AND category = 'Argentina';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'platense' FROM reference_entities WHERE canonical_name = 'Platense' AND category = 'Argentina';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'sarmiento' FROM reference_entities WHERE canonical_name = 'Sarmiento Junin' AND category = 'Argentina';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'sarmiento junin' FROM reference_entities WHERE canonical_name = 'Sarmiento Junin' AND category = 'Argentina';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'belgrano' FROM reference_entities WHERE canonical_name = 'Belgrano' AND category = 'Argentina';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'independiente' FROM reference_entities WHERE canonical_name = 'Independiente' AND category = 'Argentina';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'independiente rivadavia' FROM reference_entities WHERE canonical_name = 'Independiente Rivadavia' AND category = 'Argentina';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'boca' FROM reference_entities WHERE canonical_name = 'Boca Juniors' AND category = 'Argentina';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'boca juniors' FROM reference_entities WHERE canonical_name = 'Boca Juniors' AND category = 'Argentina';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'river' FROM reference_entities WHERE canonical_name = 'River Plate' AND category = 'Argentina';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'river plate' FROM reference_entities WHERE canonical_name = 'River Plate' AND category = 'Argentina';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'rosario central' FROM reference_entities WHERE canonical_name = 'Rosario Central' AND category = 'Argentina';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'san lorenzo' FROM reference_entities WHERE canonical_name = 'San Lorenzo' AND category = 'Argentina';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'colon' FROM reference_entities WHERE canonical_name = 'Colon' AND category = 'Argentina';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'racing' FROM reference_entities WHERE canonical_name = 'Racing Club' AND category = 'Argentina';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'racing club' FROM reference_entities WHERE canonical_name = 'Racing Club' AND category = 'Argentina';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'lanus' FROM reference_entities WHERE canonical_name = 'Lanus' AND category = 'Argentina';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'instituto' FROM reference_entities WHERE canonical_name = 'Instituto' AND category = 'Argentina';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'palmeiras' FROM reference_entities WHERE canonical_name = 'Palmeiras' AND category = 'Brazil';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'flamengo' FROM reference_entities WHERE canonical_name = 'Flamengo' AND category = 'Brazil';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'fluminense' FROM reference_entities WHERE canonical_name = 'Fluminense' AND category = 'Brazil';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'athletico paranaense' FROM reference_entities WHERE canonical_name = 'Athletico Paranaense' AND category = 'Brazil';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'atletico paranaense' FROM reference_entities WHERE canonical_name = 'Athletico Paranaense' AND category = 'Brazil';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'bragantino' FROM reference_entities WHERE canonical_name = 'Red Bull Bragantino' AND category = 'Brazil';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'red bull bragantino' FROM reference_entities WHERE canonical_name = 'Red Bull Bragantino' AND category = 'Brazil';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'bahia' FROM reference_entities WHERE canonical_name = 'Bahia' AND category = 'Brazil';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'coritiba' FROM reference_entities WHERE canonical_name = 'Coritiba' AND category = 'Brazil';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'sao paulo' FROM reference_entities WHERE canonical_name = 'Sao Paulo' AND category = 'Brazil';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'atletico mineiro' FROM reference_entities WHERE canonical_name = 'Atletico Mineiro' AND category = 'Brazil';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'galo' FROM reference_entities WHERE canonical_name = 'Atletico Mineiro' AND category = 'Brazil';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'corinthians' FROM reference_entities WHERE canonical_name = 'Corinthians' AND category = 'Brazil';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'cruzeiro' FROM reference_entities WHERE canonical_name = 'Cruzeiro' AND category = 'Brazil';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'botafogo' FROM reference_entities WHERE canonical_name = 'Botafogo' AND category = 'Brazil';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'vitoria' FROM reference_entities WHERE canonical_name = 'Vitoria' AND category = 'Brazil';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'inter' FROM reference_entities WHERE canonical_name = 'Internacional' AND category = 'Brazil';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'internacional' FROM reference_entities WHERE canonical_name = 'Internacional' AND category = 'Brazil';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'santos' FROM reference_entities WHERE canonical_name = 'Santos' AND category = 'Brazil';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'gremio' FROM reference_entities WHERE canonical_name = 'Gremio' AND category = 'Brazil';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'vasco' FROM reference_entities WHERE canonical_name = 'Vasco da Gama' AND category = 'Brazil';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'vasco da gama' FROM reference_entities WHERE canonical_name = 'Vasco da Gama' AND category = 'Brazil';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'remo' FROM reference_entities WHERE canonical_name = 'Remo' AND category = 'Brazil';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'mirassol' FROM reference_entities WHERE canonical_name = 'Mirassol' AND category = 'Brazil';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'chapecoense' FROM reference_entities WHERE canonical_name = 'Chapecoense' AND category = 'Brazil';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'audax italiano' FROM reference_entities WHERE canonical_name = 'Audax Italiano' AND category = 'Chile';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'cobresal' FROM reference_entities WHERE canonical_name = 'Cobresal' AND category = 'Chile';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'colo colo' FROM reference_entities WHERE canonical_name = 'Colo-Colo' AND category = 'Chile';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'colocolo' FROM reference_entities WHERE canonical_name = 'Colo-Colo' AND category = 'Chile';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'coquimbo unido' FROM reference_entities WHERE canonical_name = 'Coquimbo Unido' AND category = 'Chile';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'deportes concepcion' FROM reference_entities WHERE canonical_name = 'Deportes Concepcion' AND category = 'Chile';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'deportes la serena' FROM reference_entities WHERE canonical_name = 'Deportes La Serena' AND category = 'Chile';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'deportes limache' FROM reference_entities WHERE canonical_name = 'Deportes Limache' AND category = 'Chile';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'everton' FROM reference_entities WHERE canonical_name = 'Everton de Vina del Mar' AND category = 'Chile';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'everton de vina del mar' FROM reference_entities WHERE canonical_name = 'Everton de Vina del Mar' AND category = 'Chile';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'huachipato' FROM reference_entities WHERE canonical_name = 'Huachipato' AND category = 'Chile';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'nublense' FROM reference_entities WHERE canonical_name = 'Nublense' AND category = 'Chile';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'ohiggins' FROM reference_entities WHERE canonical_name = 'O''Higgins' AND category = 'Chile';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'palestino' FROM reference_entities WHERE canonical_name = 'Palestino' AND category = 'Chile';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'union la calera' FROM reference_entities WHERE canonical_name = 'Union La Calera' AND category = 'Chile';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'universidad catolica' FROM reference_entities WHERE canonical_name = 'Universidad Catolica' AND category = 'Chile';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'la u' FROM reference_entities WHERE canonical_name = 'Universidad de Chile' AND category = 'Chile';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'universidad de chile' FROM reference_entities WHERE canonical_name = 'Universidad de Chile' AND category = 'Chile';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'universidad de concepcion' FROM reference_entities WHERE canonical_name = 'Universidad de Concepcion' AND category = 'Chile';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'penarol' FROM reference_entities WHERE canonical_name = 'Penarol' AND category = 'Uruguay';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'nacional' FROM reference_entities WHERE canonical_name = 'Nacional' AND category = 'Uruguay';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'danubio' FROM reference_entities WHERE canonical_name = 'Danubio' AND category = 'Uruguay';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'defensor' FROM reference_entities WHERE canonical_name = 'Defensor Sporting' AND category = 'Uruguay';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'defensor sporting' FROM reference_entities WHERE canonical_name = 'Defensor Sporting' AND category = 'Uruguay';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'river plate montevideo' FROM reference_entities WHERE canonical_name = 'River Plate Montevideo' AND category = 'Uruguay';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'montevideo wanderers' FROM reference_entities WHERE canonical_name = 'Montevideo Wanderers' AND category = 'Uruguay';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'wanderers' FROM reference_entities WHERE canonical_name = 'Montevideo Wanderers' AND category = 'Uruguay';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'cerro' FROM reference_entities WHERE canonical_name = 'Cerro' AND category = 'Uruguay';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'progreso' FROM reference_entities WHERE canonical_name = 'Progreso' AND category = 'Uruguay';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'rampla juniors' FROM reference_entities WHERE canonical_name = 'Rampla Juniors' AND category = 'Uruguay';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'liverpool montevideo' FROM reference_entities WHERE canonical_name = 'Liverpool Montevideo' AND category = 'Uruguay';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'boston river' FROM reference_entities WHERE canonical_name = 'Boston River' AND category = 'Uruguay';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'racing montevideo' FROM reference_entities WHERE canonical_name = 'Racing Montevideo' AND category = 'Uruguay';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'fenix' FROM reference_entities WHERE canonical_name = 'Fenix' AND category = 'Uruguay';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'plaza colonia' FROM reference_entities WHERE canonical_name = 'Plaza Colonia' AND category = 'Uruguay';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'cerro largo' FROM reference_entities WHERE canonical_name = 'Cerro Largo' AND category = 'Uruguay';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'juventud de las piedras' FROM reference_entities WHERE canonical_name = 'Juventud de Las Piedras' AND category = 'Uruguay';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'deportivo maldonado' FROM reference_entities WHERE canonical_name = 'Deportivo Maldonado' AND category = 'Uruguay';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'albion' FROM reference_entities WHERE canonical_name = 'Albion' AND category = 'Uruguay';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'central espanol' FROM reference_entities WHERE canonical_name = 'Central Espanol' AND category = 'Uruguay';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'miramar misiones' FROM reference_entities WHERE canonical_name = 'Miramar Misiones' AND category = 'Uruguay';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'torque' FROM reference_entities WHERE canonical_name = 'Torque' AND category = 'Uruguay';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'cerro porteno' FROM reference_entities WHERE canonical_name = 'Cerro Porteno' AND category = 'Paraguay';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'olimpia' FROM reference_entities WHERE canonical_name = 'Olimpia' AND category = 'Paraguay';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'libertad' FROM reference_entities WHERE canonical_name = 'Libertad' AND category = 'Paraguay';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'guarani' FROM reference_entities WHERE canonical_name = 'Guarani' AND category = 'Paraguay';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'sportivo luqueno' FROM reference_entities WHERE canonical_name = 'Sportivo Luqueno' AND category = 'Paraguay';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'nacional paraguay' FROM reference_entities WHERE canonical_name = 'Nacional Paraguay' AND category = 'Paraguay';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, '2 de mayo' FROM reference_entities WHERE canonical_name = '2 de Mayo' AND category = 'Paraguay';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'sportivo trinidense' FROM reference_entities WHERE canonical_name = 'Sportivo Trinidense' AND category = 'Paraguay';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'recoleta' FROM reference_entities WHERE canonical_name = 'Recoleta' AND category = 'Paraguay';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'general caballero jlm' FROM reference_entities WHERE canonical_name = 'General Caballero JLM' AND category = 'Paraguay';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'tembetary' FROM reference_entities WHERE canonical_name = 'Tembetary' AND category = 'Paraguay';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'rubio nu' FROM reference_entities WHERE canonical_name = 'Rubio Nu' AND category = 'Paraguay';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'san lorenzo paraguay' FROM reference_entities WHERE canonical_name = 'San Lorenzo Paraguay' AND category = 'Paraguay';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'sol de america' FROM reference_entities WHERE canonical_name = 'Sol de America' AND category = 'Paraguay';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'guairena' FROM reference_entities WHERE canonical_name = 'Guairena' AND category = 'Paraguay';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'independiente campo grande' FROM reference_entities WHERE canonical_name = 'Independiente Campo Grande' AND category = 'Paraguay';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'aguilas doradas' FROM reference_entities WHERE canonical_name = 'Aguilas Doradas' AND category = 'Colombia';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'alianza petrolera' FROM reference_entities WHERE canonical_name = 'Alianza Petrolera' AND category = 'Colombia';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'america de cali' FROM reference_entities WHERE canonical_name = 'America de Cali' AND category = 'Colombia';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'atletico bucaramanga' FROM reference_entities WHERE canonical_name = 'Atletico Bucaramanga' AND category = 'Colombia';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'atletico nacional' FROM reference_entities WHERE canonical_name = 'Atletico Nacional' AND category = 'Colombia';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'boyaca chico' FROM reference_entities WHERE canonical_name = 'Boyaca Chico' AND category = 'Colombia';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'deportes tolima' FROM reference_entities WHERE canonical_name = 'Deportes Tolima' AND category = 'Colombia';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'deportivo cali' FROM reference_entities WHERE canonical_name = 'Deportivo Cali' AND category = 'Colombia';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'deportivo pasto' FROM reference_entities WHERE canonical_name = 'Deportivo Pasto' AND category = 'Colombia';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'deportivo pereira' FROM reference_entities WHERE canonical_name = 'Deportivo Pereira' AND category = 'Colombia';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'envigado' FROM reference_entities WHERE canonical_name = 'Envigado' AND category = 'Colombia';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'fortaleza ceif' FROM reference_entities WHERE canonical_name = 'Fortaleza CEIF' AND category = 'Colombia';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'independiente medellin' FROM reference_entities WHERE canonical_name = 'Independiente Medellin' AND category = 'Colombia';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'independiente santa fe' FROM reference_entities WHERE canonical_name = 'Independiente Santa Fe' AND category = 'Colombia';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'santa fe' FROM reference_entities WHERE canonical_name = 'Independiente Santa Fe' AND category = 'Colombia';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'junior' FROM reference_entities WHERE canonical_name = 'Junior' AND category = 'Colombia';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'junior de barranquilla' FROM reference_entities WHERE canonical_name = 'Junior' AND category = 'Colombia';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'la equidad' FROM reference_entities WHERE canonical_name = 'La Equidad' AND category = 'Colombia';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'millonarios' FROM reference_entities WHERE canonical_name = 'Millonarios' AND category = 'Colombia';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'once caldas' FROM reference_entities WHERE canonical_name = 'Once Caldas' AND category = 'Colombia';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'cucuta deportivo' FROM reference_entities WHERE canonical_name = 'Cucuta Deportivo' AND category = 'Colombia';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'independiente del valle' FROM reference_entities WHERE canonical_name = 'Independiente del Valle' AND category = 'Ecuador';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'barcelona sc' FROM reference_entities WHERE canonical_name = 'Barcelona SC' AND category = 'Ecuador';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'barcelona sporting club' FROM reference_entities WHERE canonical_name = 'Barcelona SC' AND category = 'Ecuador';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'emelec' FROM reference_entities WHERE canonical_name = 'Emelec' AND category = 'Ecuador';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'universidad catolica ecuador' FROM reference_entities WHERE canonical_name = 'Universidad Catolica Ecuador' AND category = 'Ecuador';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'aucas' FROM reference_entities WHERE canonical_name = 'Aucas' AND category = 'Ecuador';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'delfin' FROM reference_entities WHERE canonical_name = 'Delfin SC' AND category = 'Ecuador';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'delfin sc' FROM reference_entities WHERE canonical_name = 'Delfin SC' AND category = 'Ecuador';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'deportivo cuenca' FROM reference_entities WHERE canonical_name = 'Deportivo Cuenca' AND category = 'Ecuador';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'ldu' FROM reference_entities WHERE canonical_name = 'LDU Quito' AND category = 'Ecuador';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'ldu quito' FROM reference_entities WHERE canonical_name = 'LDU Quito' AND category = 'Ecuador';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'liga de quito' FROM reference_entities WHERE canonical_name = 'LDU Quito' AND category = 'Ecuador';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'macara' FROM reference_entities WHERE canonical_name = 'Macara' AND category = 'Ecuador';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'mushuc runa' FROM reference_entities WHERE canonical_name = 'Mushuc Runa' AND category = 'Ecuador';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'guayaquil city' FROM reference_entities WHERE canonical_name = 'Guayaquil City' AND category = 'Ecuador';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'cumbaya' FROM reference_entities WHERE canonical_name = 'Cumbaya' AND category = 'Ecuador';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'tecnico universitario' FROM reference_entities WHERE canonical_name = 'Tecnico Universitario' AND category = 'Ecuador';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'alianza lima' FROM reference_entities WHERE canonical_name = 'Alianza Lima' AND category = 'Peru';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'alianza atletico' FROM reference_entities WHERE canonical_name = 'Alianza Atletico' AND category = 'Peru';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'sporting cristal' FROM reference_entities WHERE canonical_name = 'Sporting Cristal' AND category = 'Peru';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'universitario' FROM reference_entities WHERE canonical_name = 'Universitario' AND category = 'Peru';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'cusco fc' FROM reference_entities WHERE canonical_name = 'Cusco FC' AND category = 'Peru';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'cienciano' FROM reference_entities WHERE canonical_name = 'Cienciano' AND category = 'Peru';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'sport boys' FROM reference_entities WHERE canonical_name = 'Sport Boys' AND category = 'Peru';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'sport huancayo' FROM reference_entities WHERE canonical_name = 'Sport Huancayo' AND category = 'Peru';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'deportivo municipal' FROM reference_entities WHERE canonical_name = 'Deportivo Municipal' AND category = 'Peru';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'fbc melgar' FROM reference_entities WHERE canonical_name = 'Melgar' AND category = 'Peru';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'melgar' FROM reference_entities WHERE canonical_name = 'Melgar' AND category = 'Peru';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'comerciantes unidos' FROM reference_entities WHERE canonical_name = 'Comerciantes Unidos' AND category = 'Peru';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'cajamarca' FROM reference_entities WHERE canonical_name = 'Cajamarca' AND category = 'Peru';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'fc cajamarca' FROM reference_entities WHERE canonical_name = 'Cajamarca' AND category = 'Peru';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'deportivo moquegua' FROM reference_entities WHERE canonical_name = 'Deportivo Moquegua' AND category = 'Peru';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'deportivo garcilaso' FROM reference_entities WHERE canonical_name = 'Deportivo Garcilaso' AND category = 'Peru';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'ad tarma' FROM reference_entities WHERE canonical_name = 'AD Tarma' AND category = 'Peru';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'los chankas' FROM reference_entities WHERE canonical_name = 'Los Chankas' AND category = 'Peru';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'juan pablo ii' FROM reference_entities WHERE canonical_name = 'Juan Pablo II' AND category = 'Peru';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'atletico grau' FROM reference_entities WHERE canonical_name = 'Atletico Grau' AND category = 'Peru';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'abb' FROM reference_entities WHERE canonical_name = 'ABB' AND category = 'Bolivia';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'always ready' FROM reference_entities WHERE canonical_name = 'Always Ready' AND category = 'Bolivia';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'aurora' FROM reference_entities WHERE canonical_name = 'Aurora' AND category = 'Bolivia';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'blooming' FROM reference_entities WHERE canonical_name = 'Blooming' AND category = 'Bolivia';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'bolivar' FROM reference_entities WHERE canonical_name = 'Bolivar' AND category = 'Bolivia';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'guabira' FROM reference_entities WHERE canonical_name = 'Guabira' AND category = 'Bolivia';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'gv san jose' FROM reference_entities WHERE canonical_name = 'GV San Jose' AND category = 'Bolivia';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'independiente petrolero' FROM reference_entities WHERE canonical_name = 'Independiente Petrolero' AND category = 'Bolivia';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'nacional potosi' FROM reference_entities WHERE canonical_name = 'Nacional Potosi' AND category = 'Bolivia';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'oriente petrolero' FROM reference_entities WHERE canonical_name = 'Oriente Petrolero' AND category = 'Bolivia';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'real oruro' FROM reference_entities WHERE canonical_name = 'Real Oruro' AND category = 'Bolivia';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'real potosi' FROM reference_entities WHERE canonical_name = 'Real Potosi' AND category = 'Bolivia';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'real tomayapo' FROM reference_entities WHERE canonical_name = 'Real Tomayapo' AND category = 'Bolivia';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'san antonio bulo bulo' FROM reference_entities WHERE canonical_name = 'San Antonio Bulo Bulo' AND category = 'Bolivia';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'the strongest' FROM reference_entities WHERE canonical_name = 'The Strongest' AND category = 'Bolivia';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'universidad de vinto' FROM reference_entities WHERE canonical_name = 'Universidad de Vinto' AND category = 'Bolivia';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'deportivo la guaira' FROM reference_entities WHERE canonical_name = 'Deportivo La Guaira' AND category = 'Venezuela';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'metropolitanos' FROM reference_entities WHERE canonical_name = 'Metropolitanos FC' AND category = 'Venezuela';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'metropolitanos fc' FROM reference_entities WHERE canonical_name = 'Metropolitanos FC' AND category = 'Venezuela';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'deportivo tachira' FROM reference_entities WHERE canonical_name = 'Deportivo Tachira' AND category = 'Venezuela';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'ucv' FROM reference_entities WHERE canonical_name = 'Universidad Central de Venezuela' AND category = 'Venezuela';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'universidad central de venezuela' FROM reference_entities WHERE canonical_name = 'Universidad Central de Venezuela' AND category = 'Venezuela';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'portuguesa' FROM reference_entities WHERE canonical_name = 'Portuguesa FC' AND category = 'Venezuela';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'portuguesa fc' FROM reference_entities WHERE canonical_name = 'Portuguesa FC' AND category = 'Venezuela';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'estudiantes de merida' FROM reference_entities WHERE canonical_name = 'Estudiantes de Merida' AND category = 'Venezuela';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'carabobo' FROM reference_entities WHERE canonical_name = 'Carabobo FC' AND category = 'Venezuela';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'carabobo fc' FROM reference_entities WHERE canonical_name = 'Carabobo FC' AND category = 'Venezuela';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'academia puerto cabello' FROM reference_entities WHERE canonical_name = 'Academia Puerto Cabello' AND category = 'Venezuela';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'zamora' FROM reference_entities WHERE canonical_name = 'Zamora FC' AND category = 'Venezuela';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'zamora fc' FROM reference_entities WHERE canonical_name = 'Zamora FC' AND category = 'Venezuela';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'caracas' FROM reference_entities WHERE canonical_name = 'Caracas FC' AND category = 'Venezuela';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'caracas fc' FROM reference_entities WHERE canonical_name = 'Caracas FC' AND category = 'Venezuela';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'rayo zuliano' FROM reference_entities WHERE canonical_name = 'Rayo Zuliano' AND category = 'Venezuela';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'monagas' FROM reference_entities WHERE canonical_name = 'Monagas SC' AND category = 'Venezuela';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'monagas sc' FROM reference_entities WHERE canonical_name = 'Monagas SC' AND category = 'Venezuela';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'academia anzoategui' FROM reference_entities WHERE canonical_name = 'Academia Anzoategui' AND category = 'Venezuela';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'trujillanos' FROM reference_entities WHERE canonical_name = 'Trujillanos' AND category = 'Venezuela';

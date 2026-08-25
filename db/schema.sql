@@ -30,3 +30,25 @@ CREATE TABLE IF NOT EXISTS answer_aliases (
 CREATE INDEX IF NOT EXISTS idx_answers_category ON answers(category_id);
 CREATE INDEX IF NOT EXISTS idx_aliases_answer ON answer_aliases(answer_id);
 CREATE INDEX IF NOT EXISTS idx_aliases_alias ON answer_aliases(alias);
+
+-- Typeahead-only reference pool: real-world names (e.g. football clubs) that
+-- are NOT necessarily a correct answer in any category. suggestNames() reads
+-- this alongside answer_aliases so the guess box can suggest/autocomplete any
+-- recognizable name, not just this category's answers. Guess validation
+-- (matchGuess) never reads these tables — they can't make a wrong guess
+-- "count". See agents.md for the rule this exists to satisfy.
+CREATE TABLE IF NOT EXISTS reference_entities (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	canonical_name TEXT NOT NULL,
+	category TEXT NOT NULL           -- loose grouping (e.g. a country), not a FK
+);
+
+CREATE TABLE IF NOT EXISTS reference_entity_aliases (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	entity_id INTEGER NOT NULL REFERENCES reference_entities(id),
+	alias TEXT NOT NULL              -- normalized, same rules as answer_aliases.alias
+);
+
+CREATE INDEX IF NOT EXISTS idx_reference_entities_category ON reference_entities(category);
+CREATE INDEX IF NOT EXISTS idx_reference_entity_aliases_entity ON reference_entity_aliases(entity_id);
+CREATE INDEX IF NOT EXISTS idx_reference_entity_aliases_alias ON reference_entity_aliases(alias);

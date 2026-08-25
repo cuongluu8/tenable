@@ -54,7 +54,7 @@ src/react-app/
     LivesIndicator.tsx
 
 db/
-  schema.sql   # categories / answers / answer_aliases tables
+  schema.sql   # categories / answers / answer_aliases / reference_entities tables
   seed.sql       # starter content — NOT a fact-checked library, see below
 ```
 
@@ -79,23 +79,33 @@ db/
   against this table, never `canonical_name` directly, so seed data must
   always include the canonical name's own normalized form as one alias.
 
-### Generic rule: answers stay bounded, typeahead should be broader
+### Generic rule: answers stay bounded, typeahead is broader
 
 This applies to every category, not just one: **the `answers` table is the
-bounded guessable set (Top N) for a category and should stay that size; the
-typeahead/autocomplete pool for the guess box is a separate concern and
-should ideally cover far more real, recognizable names than just the current
-answers**, so players can type/select accurately even when guessing
-something that turns out to be wrong. Right now `suggestNames()` (in
-`src/worker/lib/categories.ts`) only searches `answer_aliases`, i.e. it only
-recognizes names that happen to be a correct answer in *some* category —
-that under-serves this goal but is the current state. A fuller
-implementation would add a typeahead-only reference table (e.g.
-`reference_entities` / `reference_entity_aliases`, decoupled from
-`answers`) that `suggestNames()` also searches, seeded with a broad set of
-real names relevant to the app's categories (clubs, players, etc.), without
-changing what counts as a correct guess. Not yet built — flagging this here
-so it isn't reintroduced as an answers-table change again.
+bounded guessable set (Top N) for a category and stays that size; the
+typeahead/autocomplete pool for the guess box is a separate concern that
+covers far more real, recognizable names than just the current answers**, so
+players can type/select accurately even when guessing something that turns
+out to be wrong. If a request sounds like "include more real X" for a
+category, check whether it actually means the answer set or the typeahead
+pool before touching `answers` — the Libertadores category was expanded to
+27 clubs and reverted once already because of this ambiguity.
+
+This is implemented via `reference_entities` / `reference_entity_aliases`
+(see schema.sql) — a typeahead-only pool, decoupled from `answers`.
+`suggestNames()` (`src/worker/lib/categories.ts`) unions both
+`answer_aliases` and `reference_entity_aliases`, deduped by canonical name.
+`matchGuess` (guess validation/scoring) never reads these tables, so adding
+a name here can't make a wrong guess "count" — it only helps typing. Seeded
+so far: ~180 South American football clubs (current top-flight rosters
+across the 10 CONMEBOL countries, `category` column holds the country) —
+see the bottom of `db/seed.sql`. This pool is **best-effort, not held to the
+same fact-checking bar as `answers` content** (see Content accuracy below) —
+it doesn't affect scoring, only what the guess box suggests, so an
+occasional stale or missing club here is a much smaller problem than an
+error in `answers`. Extend it the same way for other regions/entity types
+(e.g. European clubs, players) as those categories get added — don't grow
+`answers` past its category's actual Top N to solve a typeahead gap.
 - Categories are **not** date-gated — every category is playable any time.
   Per-device progress lives in KV, keyed by `progress:{deviceId}:{slug}`, kept
   indefinitely (no TTL) so a finished category is remembered and never
@@ -142,6 +152,12 @@ npm run build             # tsc -b && vite build
 `wrangler dev` in this sandboxed environment logs harmless
 `Request.cf` / "Request was cancelled" warnings on startup — ignore them, the
 server still comes up.
+
+`wrangler dev` here runs against a **redirected config pointing at
+`dist/tenable/wrangler.json`**, i.e. a prebuilt bundle, not `src/worker/`
+directly — editing worker source and restarting `wrangler dev` without
+first running `npm run build` serves the *stale* bundle with no error or
+warning. Always `npm run build` before testing a worker-code change locally.
 
 ## Deployment
 
