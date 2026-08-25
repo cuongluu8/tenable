@@ -146,6 +146,20 @@ export async function getAllAnswers(
 // on top of that, but only earn their keep for real nicknames that aren't a
 // substring of the canonical name at all ("psg", "barca", "vvd") — those
 // can't be derived by tokenizing the name, so they still need a curated row.
+//
+// Ranked "answer" matches first, THEN by name length: `limit` is small (the
+// guess box only shows a handful of suggestions), and the reference pool
+// (~7,800+ players, most of them not famous — a bulk FIFA-dataset load, see
+// agents.md) is far bigger than the actual quiz answers. Sorting by length
+// alone let short, obscure reference-pool names bury a real answer — e.g.
+// searching "ronal" put "Ronald Matarrita" and "Ronald de la Fuente" ahead
+// of "Cristiano Ronaldo", an actual Top-10 answer in three categories,
+// pushing him to the edge of the limit. A name that's a real answer
+// somewhere is definitionally notable (it's the correct answer to a
+// trivia question); one that's only in the reference pool might not be —
+// so answers win the tiebreak regardless of name length. `source` already
+// distinguishes the two on every entity_search row; the alias branches are
+// tagged to match since they draw from the same two tables.
 export async function suggestNames(
 	db: D1Database,
 	normalizedPrefix: string,
@@ -158,24 +172,28 @@ export async function suggestNames(
 	const result = await db
 		.prepare(
 			`SELECT name FROM (
-				-- Tokenized full-text match: any word of the name, not just its start
-				SELECT name FROM entity_search
-				WHERE entity_search MATCH ?1 AND entity_type = ?3
-				UNION
-				-- Curated nickname aliases (answers)
-				SELECT a.canonical_name AS name
-				FROM answer_aliases al
-				JOIN answers a ON al.answer_id = a.id
-				JOIN categories c ON a.category_id = c.id
-				WHERE al.alias LIKE ?2 || '%' AND c.entity_type = ?3
-				UNION
-				-- Curated nickname aliases (reference pool)
-				SELECT re.canonical_name AS name
-				FROM reference_entity_aliases rel
-				JOIN reference_entities re ON rel.entity_id = re.id
-				WHERE rel.alias LIKE ?2 || '%' AND re.entity_type = ?3
+				SELECT name, MIN(CASE WHEN source = 'answer' THEN 0 ELSE 1 END) AS priority
+				FROM (
+					-- Tokenized full-text match: any word of the name, not just its start
+					SELECT name, source FROM entity_search
+					WHERE entity_search MATCH ?1 AND entity_type = ?3
+					UNION ALL
+					-- Curated nickname aliases (answers)
+					SELECT a.canonical_name AS name, 'answer' AS source
+					FROM answer_aliases al
+					JOIN answers a ON al.answer_id = a.id
+					JOIN categories c ON a.category_id = c.id
+					WHERE al.alias LIKE ?2 || '%' AND c.entity_type = ?3
+					UNION ALL
+					-- Curated nickname aliases (reference pool)
+					SELECT re.canonical_name AS name, 'reference' AS source
+					FROM reference_entity_aliases rel
+					JOIN reference_entities re ON rel.entity_id = re.id
+					WHERE rel.alias LIKE ?2 || '%' AND re.entity_type = ?3
+				 )
+				 GROUP BY name
 			 )
-			 ORDER BY LENGTH(name) ASC, name ASC
+			 ORDER BY priority ASC, LENGTH(name) ASC, name ASC
 			 LIMIT ?4`,
 		)
 		.bind(ftsQuery, normalizedPrefix, entityType, limit)
