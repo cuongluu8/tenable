@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { AnswerGrid } from "./AnswerGrid";
+import { GuessInput } from "./GuessInput";
 import { LivesIndicator } from "./LivesIndicator";
 import type {
 	Category,
@@ -83,16 +84,15 @@ export function PlayScreen({ slug, onBack }: Props) {
 		});
 	}
 
-	async function submitGuess(e: React.FormEvent) {
-		e.preventDefault();
-		if (!guessInput.trim() || !progress || submitting) return;
+	async function doGuess(guessText: string) {
+		if (!guessText.trim() || !progress || submitting) return;
 
 		setSubmitting(true);
 		try {
 			const res = await fetch("/api/guess", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ slug, guess: guessInput, mode: progress.mode }),
+				body: JSON.stringify({ slug, guess: guessText, mode: progress.mode }),
 			});
 			const data = (await res.json()) as GuessResponse | { error: string };
 
@@ -121,6 +121,18 @@ export function PlayScreen({ slug, onBack }: Props) {
 		} finally {
 			setSubmitting(false);
 		}
+	}
+
+	function submitGuess(e: React.FormEvent) {
+		e.preventDefault();
+		doGuess(guessInput);
+	}
+
+	// Picking a suggestion skips typing entirely: fill it in and submit
+	// straight away, since avoiding a typo is the whole point of picking one.
+	function pickSuggestion(name: string) {
+		setGuessInput(name);
+		doGuess(name);
 	}
 
 	return (
@@ -157,12 +169,10 @@ export function PlayScreen({ slug, onBack }: Props) {
 
 					{!progress.completed ? (
 						<form className="guess-form" onSubmit={submitGuess}>
-							<input
-								type="text"
+							<GuessInput
 								value={guessInput}
-								onChange={(e) => setGuessInput(e.target.value)}
-								placeholder="Type your guess…"
-								autoFocus
+								onChange={setGuessInput}
+								onPick={pickSuggestion}
 								disabled={submitting}
 							/>
 							<button type="submit" disabled={submitting || !guessInput.trim()}>

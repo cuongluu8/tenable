@@ -120,3 +120,26 @@ export async function getAllAnswers(
 		.all<FullAnswerRow>();
 	return result.results ?? [];
 }
+
+// Typeahead suggestions for the guess box. Deliberately searches across every
+// category's names/aliases, not just the one being played — scoping it to
+// the current category would turn "which names autocomplete" into a list of
+// the correct answers. This only helps with spelling, not with cheating.
+export async function suggestNames(
+	db: D1Database,
+	normalizedPrefix: string,
+	limit: number,
+): Promise<string[]> {
+	const result = await db
+		.prepare(
+			`SELECT DISTINCT a.canonical_name
+			 FROM answer_aliases al
+			 JOIN answers a ON al.answer_id = a.id
+			 WHERE al.alias LIKE ?1 || '%'
+			 ORDER BY LENGTH(a.canonical_name) ASC, a.canonical_name ASC
+			 LIMIT ?2`,
+		)
+		.bind(normalizedPrefix, limit)
+		.all<{ canonical_name: string }>();
+	return (result.results ?? []).map((r) => r.canonical_name);
+}
