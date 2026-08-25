@@ -97,15 +97,36 @@ This is implemented via `reference_entities` / `reference_entity_aliases`
 `answer_aliases` and `reference_entity_aliases`, deduped by canonical name.
 `matchGuess` (guess validation/scoring) never reads these tables, so adding
 a name here can't make a wrong guess "count" — it only helps typing. Seeded
-so far: ~180 South American football clubs (current top-flight rosters
-across the 10 CONMEBOL countries, `category` column holds the country) —
-see the bottom of `db/seed.sql`. This pool is **best-effort, not held to the
-same fact-checking bar as `answers` content** (see Content accuracy below) —
-it doesn't affect scoring, only what the guess box suggests, so an
-occasional stale or missing club here is a much smaller problem than an
-error in `answers`. Extend it the same way for other regions/entity types
-(e.g. European clubs, players) as those categories get added — don't grow
-`answers` past its category's actual Top N to solve a typeahead gap.
+so far (see the bottom of `db/seed.sql`):
+- ~180 South American football clubs, `entity_type = 'club'` (current
+  top-flight rosters across the 10 CONMEBOL countries, `category` column
+  holds the country).
+- ~110 countries, `entity_type = 'country'` (UEFA + CAF members — scoped to
+  the confederations the two 'country' categories actually cover, `category`
+  column holds the confederation).
+- ~160 players, `entity_type = 'player'` (broadly recognizable
+  attackers/Ballon d'Or-calibre names across eras and nationalities,
+  `category` column holds nationality). **Explicitly not exhaustive** —
+  unlike the club/country lists (which are objectively bounded: "current
+  top-flight roster", "confederation members"), "notable players" has no
+  natural boundary. Expand as gaps show up rather than trying to front-load
+  completeness.
+
+This pool is **best-effort, not held to the same fact-checking bar as
+`answers` content** (see Content accuracy below) — it doesn't affect
+scoring, only what the guess box suggests, so an occasional stale or missing
+entry here is a much smaller problem than an error in `answers`. Extend the
+same way for other regions/entity types as new categories get added — don't
+grow `answers` past its category's actual Top N to solve a typeahead gap.
+
+**Production sync note (as of the country+player expansion):** the club and
+country pools are applied to production D1; the player pool was generated
+and is in `db/seed.sql`/local D1 but **not yet applied to production** — the
+Cloudflare MCP connection expired mid-apply. Check
+`SELECT entity_type, COUNT(*) FROM reference_entities GROUP BY entity_type;`
+against production before assuming this is done; if it still shows 0 players,
+apply the player `INSERT` statements from `db/seed.sql` (the block after the
+country one) the same way prior reference-data batches were applied.
 
 **Type-scoped**: both `categories` and `reference_entities` carry an
 `entity_type` column (`'club'` | `'player'` | `'country'`, extend as new
