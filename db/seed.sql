@@ -1817,3 +1817,20 @@ INSERT INTO reference_entity_aliases (entity_id, alias)
 	SELECT id, 'academia anzoategui' FROM reference_entities WHERE canonical_name = 'Academia Anzoategui' AND category = 'Venezuela';
 INSERT INTO reference_entity_aliases (entity_id, alias)
 	SELECT id, 'trujillanos' FROM reference_entities WHERE canonical_name = 'Trujillanos' AND category = 'Venezuela';
+
+-- Categories default to entity_type = 'club' (schema.sql); fix up the ones
+-- whose answers are actually players or countries so suggestNames() scopes
+-- typeahead correctly (see agents.md's Generic rule / type-scoped typeahead).
+UPDATE categories SET entity_type = 'player' WHERE slug IN (
+	'ballon-dor-most-wins',
+	'wc-alltime-goalscorers',
+	'pl-2025-26-top-scorers',
+	'cl-2025-26-top-scorers',
+	'wc-2026-top-scorers',
+	'pl-alltime-top-scorers',
+	'cl-alltime-top-scorers'
+);
+UPDATE categories SET entity_type = 'country' WHERE slug IN (
+	'euro-titles-by-country',
+	'afcon-titles-by-country'
+);

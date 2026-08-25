@@ -6,6 +6,7 @@ interface CategoryRow {
 	title: string;
 	subtitle: string | null;
 	stat_label: string;
+	entity_type: string;
 }
 
 interface CategoryRowWithCount extends CategoryRow {
@@ -37,7 +38,7 @@ export async function getCategoryBySlug(
 ): Promise<CategoryRow | null> {
 	const row = await db
 		.prepare(
-			`SELECT id, slug, title, subtitle, stat_label
+			`SELECT id, slug, title, subtitle, stat_label, entity_type
 			 FROM categories WHERE slug = ?`,
 		)
 		.bind(slug)
@@ -131,9 +132,15 @@ export async function getAllAnswers(
 // they'd be guessed in). That keeps the answer set itself bounded (Top N)
 // while letting players type/select any real name, right or wrong. See the
 // "Generic rule" section in agents.md.
+//
+// Both sources are filtered to `entityType` (the *playing* category's own
+// entity_type, e.g. 'club' or 'player') so a player-guessing category never
+// suggests a club name and vice versa — matching the kind of answer a player
+// is actually looking for, without touching which guess is correct.
 export async function suggestNames(
 	db: D1Database,
 	normalizedPrefix: string,
+	entityType: string,
 	limit: number,
 ): Promise<string[]> {
 	const result = await db
@@ -142,17 +149,18 @@ export async function suggestNames(
 				SELECT a.canonical_name AS name
 				FROM answer_aliases al
 				JOIN answers a ON al.answer_id = a.id
-				WHERE al.alias LIKE ?1 || '%'
+				JOIN categories c ON a.category_id = c.id
+				WHERE al.alias LIKE ?1 || '%' AND c.entity_type = ?2
 				UNION
 				SELECT re.canonical_name AS name
 				FROM reference_entity_aliases rel
 				JOIN reference_entities re ON rel.entity_id = re.id
-				WHERE rel.alias LIKE ?1 || '%'
+				WHERE rel.alias LIKE ?1 || '%' AND re.entity_type = ?2
 			 )
 			 ORDER BY LENGTH(name) ASC, name ASC
-			 LIMIT ?2`,
+			 LIMIT ?3`,
 		)
-		.bind(normalizedPrefix, limit)
+		.bind(normalizedPrefix, entityType, limit)
 		.all<{ name: string }>();
 	return (result.results ?? []).map((r) => r.name);
 }

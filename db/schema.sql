@@ -9,7 +9,11 @@ CREATE TABLE IF NOT EXISTS categories (
 	title TEXT NOT NULL,             -- e.g. "Top 10 Premier League all-time goalscorers"
 	subtitle TEXT,                   -- optional extra context shown in the UI
 	stat_label TEXT NOT NULL,        -- e.g. "goals" — shown next to each revealed answer
-	scheduled_date TEXT UNIQUE       -- YYYY-MM-DD, the day this category is "today's puzzle"
+	scheduled_date TEXT UNIQUE,      -- YYYY-MM-DD, the day this category is "today's puzzle"
+	entity_type TEXT NOT NULL DEFAULT 'club'
+		-- what kind of thing every answer in this category is: 'club', 'player',
+		-- or 'country' (extend as new category shapes are added). Used to scope
+		-- typeahead suggestions to the same kind of thing — see suggestNames().
 );
 
 CREATE TABLE IF NOT EXISTS answers (
@@ -40,7 +44,11 @@ CREATE INDEX IF NOT EXISTS idx_aliases_alias ON answer_aliases(alias);
 CREATE TABLE IF NOT EXISTS reference_entities (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	canonical_name TEXT NOT NULL,
-	category TEXT NOT NULL           -- loose grouping (e.g. a country), not a FK
+	category TEXT NOT NULL,          -- loose grouping (e.g. a country), not a FK
+	entity_type TEXT NOT NULL DEFAULT 'club'
+		-- same vocabulary as categories.entity_type ('club', 'player', 'country'),
+		-- so a reference entity only ever surfaces as a suggestion for a
+		-- category asking for the same kind of thing.
 );
 
 CREATE TABLE IF NOT EXISTS reference_entity_aliases (

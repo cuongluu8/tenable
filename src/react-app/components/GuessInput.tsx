@@ -8,11 +8,15 @@ interface Props {
 	// picking from the list exists specifically to skip typing out the guess.
 	onPick: (name: string) => void;
 	disabled: boolean;
+	// The category being played — sent with every suggest request so results
+	// are scoped to that category's entity_type (e.g. players never suggest
+	// clubs). See suggest.ts.
+	categorySlug: string;
 }
 
 const DEBOUNCE_MS = 200;
 
-export function GuessInput({ value, onChange, onPick, disabled }: Props) {
+export function GuessInput({ value, onChange, onPick, disabled, categorySlug }: Props) {
 	const [suggestions, setSuggestions] = useState<string[]>([]);
 	// Explicitly closed by the player (Escape, blur, picking one) — separate
 	// from `suggestions` so a short query or a dismissal hides the list
@@ -37,7 +41,8 @@ export function GuessInput({ value, onChange, onPick, disabled }: Props) {
 
 		const id = ++requestId.current;
 		const timer = setTimeout(() => {
-			fetch(`/api/suggest?q=${encodeURIComponent(query)}`)
+			const params = new URLSearchParams({ q: query, category: categorySlug });
+			fetch(`/api/suggest?${params}`)
 				.then((res) => (res.ok ? (res.json() as Promise<{ suggestions: string[] }>) : null))
 				.then((data) => {
 					if (!data || id !== requestId.current) return; // stale response
@@ -49,7 +54,7 @@ export function GuessInput({ value, onChange, onPick, disabled }: Props) {
 		}, DEBOUNCE_MS);
 
 		return () => clearTimeout(timer);
-	}, [query]);
+	}, [query, categorySlug]);
 
 	function pick(name: string) {
 		justPickedRef.current = true;
