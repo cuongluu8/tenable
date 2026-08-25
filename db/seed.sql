@@ -718,7 +718,7 @@ INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
 	((SELECT id FROM categories WHERE slug = 'wc-2026-top-scorers'), 6, 'Ousmane Dembele', '6'),
 	((SELECT id FROM categories WHERE slug = 'wc-2026-top-scorers'), 7, 'Mikel Oyarzabal', '5'),
 	((SELECT id FROM categories WHERE slug = 'wc-2026-top-scorers'), 8, 'Vinicius Junior', '4'),
-	((SELECT id FROM categories WHERE slug = 'wc-2026-top-scorers'), 9, 'Jonathan Rodriguez', '4'),
+	((SELECT id FROM categories WHERE slug = 'wc-2026-top-scorers'), 9, 'Jonathan Quinones', '4'),
 	((SELECT id FROM categories WHERE slug = 'wc-2026-top-scorers'), 10, 'Ismaila Sarr', '4');
 
 INSERT INTO answer_aliases (answer_id, alias)
@@ -773,7 +773,7 @@ INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'vinicius junior' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'wc-2026-top-scorers' AND a.rank = 8;
 INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'jonathan rodriguez' FROM answers a JOIN categories c ON a.category_id = c.id
+	SELECT a.id, 'jonathan quinones' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'wc-2026-top-scorers' AND a.rank = 9;
 INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'ismaila sarr' FROM answers a JOIN categories c ON a.category_id = c.id
