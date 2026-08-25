@@ -234,6 +234,32 @@ category. Two things follow from this:
    risk since they don't require folding in a just-finished season, but
    still worth a quick sanity check when touching content generally.
 
+**`reference_entities` rows are silently useless without matching
+`reference_entity_aliases` rows — a user found this too** (2026-08-25:
+Dominik Szoboszlai reported missing from typeahead despite Liverpool's
+current squad supposedly being covered). `suggestNames()` only ever reads
+`reference_entity_aliases`; it never falls back to `canonical_name`. An
+entity row with zero alias rows is invisible to typeahead forever, with no
+error anywhere — the INSERT into `reference_entities` succeeds, the
+follow-up INSERT into `reference_entity_aliases` can silently not happen
+(wrong join key, a step that was never written, a batch that only did half
+the job), and nothing surfaces it except a player noticing a name doesn't
+autocomplete. Auditing this bug's actual scope (not just the one reported
+player) found **199 players and 157 clubs** — effectively every
+current-season Premier League squad member plus every top-flight club
+across the big five leagues and more — sitting in `reference_entities` with
+no aliases at all, plus 65 exact-duplicate club rows from a batch that had
+evidently run twice. All of it was fixed in production the same day
+(aliases backfilled, duplicates deleted). **After adding or bulk-loading
+any `reference_entities` rows, always verify with:**
+```sql
+SELECT entity_type, COUNT(*) FROM reference_entities re
+WHERE NOT EXISTS (SELECT 1 FROM reference_entity_aliases rea WHERE rea.entity_id = re.id)
+GROUP BY entity_type;
+```
+A nonzero count for any type means that batch's job isn't done yet, no
+matter what the `reference_entities` INSERT's `changes` count showed.
+
 **Production D1 is not auto-applied from `db/seed.sql`.** Workers Builds
 (see Deployment) only builds and deploys the Worker/frontend code — it does
 not run any D1 migration or seed step. So far, content changes have been
