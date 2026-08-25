@@ -208,6 +208,33 @@
 	border-radius: 8px;
 	border: 1px solid #374151;
 	background: #1f2937;
+	transition: border-color 0.15s;
+}
+/* While the suggestions list is open, the input's border switches to the
+   same accent + flush edge as the list (see .guess-suggestions--below/above
+   below) so the two read as one connected control, not two separately
+   floating panels — the standard "attached popover" treatment (native
+   <select>, browser address-bar autocomplete, any combobox). */
+.guess-input__field--open-below {
+	border-color: #4ade80;
+	border-bottom-left-radius: 0;
+	border-bottom-right-radius: 0;
+}
+.guess-input__field--open-above {
+	border-color: #4ade80;
+	border-top-left-radius: 0;
+	border-top-right-radius: 0;
+}
+/* The default focus outline (input[type="text"]:focus-visible in index.css)
+   draws a ring around all four sides — including the one that's supposed to
+   flush seamlessly into the list. Suppress it while open; the accent
+   border-color above already shows the input is focused/active, without a
+   ring cutting across the seam. (Attribute selector + class + pseudo-class
+   outranks the plain input[type="text"]:focus-visible rule regardless of
+   CSS file import order.) */
+input[type="text"].guess-input__field--open-below:focus-visible,
+input[type="text"].guess-input__field--open-above:focus-visible {
+	outline: none;
 }
 
 .guess-suggestions {
@@ -223,10 +250,24 @@
 	margin: 0;
 	padding: 0.3rem;
 	overflow-y: auto;
-	background: #1f2937;
-	border: 1px solid #374151;
+	/* One step lighter than the input/card surface (#1f2937), not just a
+	   shadow — box-shadow barely reads against an already-dark page, so
+	   "floating above everything else" is expressed as a lighter surface
+	   instead (the same elevation convention used for dark UIs generally). */
+	background: #374151;
+	border: 1px solid #4ade80;
 	border-radius: 8px;
-	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+	box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
+}
+/* Flush against the input on the side that touches it — the other two
+   corners stay rounded. Paired with .guess-input__field--open-below/above. */
+.guess-suggestions--below {
+	border-top-left-radius: 0;
+	border-top-right-radius: 0;
+}
+.guess-suggestions--above {
+	border-bottom-left-radius: 0;
+	border-bottom-right-radius: 0;
 }
 .guess-suggestions li + li {
 	margin-top: 0.15rem;
@@ -243,7 +284,7 @@
 }
 .guess-suggestions button:hover,
 .guess-suggestions__item--active {
-	background: #374151;
+	background: #4b5563;
 	border-color: #4ade80;
 }
 

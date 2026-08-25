@@ -18,7 +18,13 @@ const DEBOUNCE_MS = 200;
 
 // Dropdown placement, in fixed-position (viewport) pixels — see
 // reposition() below for why this can't just be CSS.
-const DROPDOWN_GAP = 6;
+//
+// Flush against the input (0 gap), not floating a few pixels off it: a
+// visible gap reads as two separate panels that happen to be near each
+// other, where flush + a shared border + squared touching corners (see the
+// CSS) reads as one control that grew a list — the standard "attached
+// popover" treatment.
+const DROPDOWN_GAP = 0;
 const DROPDOWN_MAX_HEIGHT = 224; // 14rem at the default 16px root, matches the old CSS max-height
 const MIN_USABLE_SPACE = 80; // below this, prefer flipping even if it's not the bigger side
 
@@ -26,9 +32,11 @@ interface DropdownRect {
 	left: number;
 	width: number;
 	maxHeight: number;
-	// Exactly one of these is set: `top` opens downward from the input
-	// (the common case), `bottom` opens upward (the flipped case, used when
-	// there isn't room below within the visible viewport).
+	direction: "below" | "above";
+	// Exactly one of these is set, matching `direction`: `top` for "below"
+	// (opens downward from the input, the common case), `bottom` for "above"
+	// (the flipped case, used when there isn't room below within the
+	// visible viewport).
 	top?: number;
 	bottom?: number;
 }
@@ -74,6 +82,7 @@ export function GuessInput({ value, onChange, onPick, disabled, categorySlug }: 
 
 		if (spaceBelow >= MIN_USABLE_SPACE || spaceBelow >= spaceAbove) {
 			setDropdownRect({
+				direction: "below",
 				top: inputRect.bottom + DROPDOWN_GAP,
 				left: inputRect.left,
 				width: inputRect.width,
@@ -81,6 +90,7 @@ export function GuessInput({ value, onChange, onPick, disabled, categorySlug }: 
 			});
 		} else {
 			setDropdownRect({
+				direction: "above",
 				bottom: window.innerHeight - inputRect.top + DROPDOWN_GAP,
 				left: inputRect.left,
 				width: inputRect.width,
@@ -181,10 +191,16 @@ export function GuessInput({ value, onChange, onPick, disabled, categorySlug }: 
 				role="combobox"
 				aria-expanded={visible}
 				aria-autocomplete="list"
+				// While open, the border/corner flush with the list (see
+				// .guess-suggestions--below/above) so the input and its
+				// suggestions read as one control, not two floating panels.
+				className={
+					visible && dropdownRect ? `guess-input__field--open-${dropdownRect.direction}` : undefined
+				}
 			/>
 			{visible && dropdownRect && (
 				<ul
-					className="guess-suggestions"
+					className={`guess-suggestions guess-suggestions--${dropdownRect.direction}`}
 					role="listbox"
 					style={{
 						left: dropdownRect.left,
