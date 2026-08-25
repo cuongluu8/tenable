@@ -45,6 +45,7 @@ export function PlayScreen({ slug, onBack }: Props) {
 			.then((data) => {
 				setLoad({ status: "ready", category: data.category });
 				setProgress(data.progress);
+				setFound(new Map(data.foundAnswers.map((a) => [a.rank, a])));
 			})
 			.catch((err: Error) => setLoad({ status: "error", message: err.message }));
 	}, [slug]);
