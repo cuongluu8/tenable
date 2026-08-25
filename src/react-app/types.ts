@@ -43,6 +43,9 @@ export interface CategoriesResponse {
 export interface CategoryResponse {
 	category: Category;
 	progress: Progress | null;
+	// Names for ranks already found in a previous session (empty if none) —
+	// see the worker route for why this is safe to send unconditionally.
+	foundAnswers: RevealAnswer[];
 }
 
 export interface GuessResponse {
