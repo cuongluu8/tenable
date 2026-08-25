@@ -342,19 +342,19 @@ INSERT INTO answer_aliases (answer_id, alias)
 -- table below rank 3 (Genoa/Torino/Bologna/Pro Vercelli), which is lower-confidence.
 
 INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
-	('pl-2025-26-top-scorers', 'Top 10 Premier League 2025-26 top scorers', 'Golden Boot race, 2025-26 season', 'goals');
+	('pl-2025-26-top-scorers', 'Top 10 Premier League 2025-26 top scorers', 'Final Golden Boot standings, 2025-26 season', 'goals');
 
 INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
 	((SELECT id FROM categories WHERE slug = 'pl-2025-26-top-scorers'), 1, 'Erling Haaland', '27'),
 	((SELECT id FROM categories WHERE slug = 'pl-2025-26-top-scorers'), 2, 'Thiago', '22'),
-	((SELECT id FROM categories WHERE slug = 'pl-2025-26-top-scorers'), 3, 'Ollie Watkins', '16'),
-	((SELECT id FROM categories WHERE slug = 'pl-2025-26-top-scorers'), 4, 'Joao Pedro', '15'),
-	((SELECT id FROM categories WHERE slug = 'pl-2025-26-top-scorers'), 5, 'Morgan Gibbs-White', '15'),
-	((SELECT id FROM categories WHERE slug = 'pl-2025-26-top-scorers'), 6, 'Viktor Gyokeres', '14'),
-	((SELECT id FROM categories WHERE slug = 'pl-2025-26-top-scorers'), 7, 'Dominic Calvert-Lewin', '14'),
-	((SELECT id FROM categories WHERE slug = 'pl-2025-26-top-scorers'), 8, 'Daniel Welbeck', '13'),
-	((SELECT id FROM categories WHERE slug = 'pl-2025-26-top-scorers'), 9, 'Eli Kroupi', '13'),
-	((SELECT id FROM categories WHERE slug = 'pl-2025-26-top-scorers'), 10, 'Jean-Philippe Mateta', '12');
+	((SELECT id FROM categories WHERE slug = 'pl-2025-26-top-scorers'), 3, 'Antoine Semenyo', '17'),
+	((SELECT id FROM categories WHERE slug = 'pl-2025-26-top-scorers'), 4, 'Ollie Watkins', '16'),
+	((SELECT id FROM categories WHERE slug = 'pl-2025-26-top-scorers'), 5, 'Joao Pedro', '15'),
+	((SELECT id FROM categories WHERE slug = 'pl-2025-26-top-scorers'), 6, 'Morgan Gibbs-White', '15'),
+	((SELECT id FROM categories WHERE slug = 'pl-2025-26-top-scorers'), 7, 'Viktor Gyokeres', '14'),
+	((SELECT id FROM categories WHERE slug = 'pl-2025-26-top-scorers'), 8, 'Dominic Calvert-Lewin', '14'),
+	((SELECT id FROM categories WHERE slug = 'pl-2025-26-top-scorers'), 9, 'Daniel Welbeck', '13'),
+	((SELECT id FROM categories WHERE slug = 'pl-2025-26-top-scorers'), 10, 'Eli Kroupi', '13');
 
 INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'erling haaland' FROM answers a JOIN categories c ON a.category_id = c.id
@@ -366,52 +366,52 @@ INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'thiago' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'pl-2025-26-top-scorers' AND a.rank = 2;
 INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'antoine semenyo' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-2025-26-top-scorers' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'semenyo' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-2025-26-top-scorers' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'ollie watkins' FROM answers a JOIN categories c ON a.category_id = c.id
-	WHERE c.slug = 'pl-2025-26-top-scorers' AND a.rank = 3;
-INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'olly watkins' FROM answers a JOIN categories c ON a.category_id = c.id
-	WHERE c.slug = 'pl-2025-26-top-scorers' AND a.rank = 3;
-INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'watkins' FROM answers a JOIN categories c ON a.category_id = c.id
-	WHERE c.slug = 'pl-2025-26-top-scorers' AND a.rank = 3;
-INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'joao pedro' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'pl-2025-26-top-scorers' AND a.rank = 4;
 INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'gibbswhite' FROM answers a JOIN categories c ON a.category_id = c.id
+	SELECT a.id, 'olly watkins' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-2025-26-top-scorers' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'watkins' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-2025-26-top-scorers' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'joao pedro' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'pl-2025-26-top-scorers' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'gibbswhite' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-2025-26-top-scorers' AND a.rank = 6;
 INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'morgan gibbswhite' FROM answers a JOIN categories c ON a.category_id = c.id
-	WHERE c.slug = 'pl-2025-26-top-scorers' AND a.rank = 5;
+	WHERE c.slug = 'pl-2025-26-top-scorers' AND a.rank = 6;
 INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'gyokeres' FROM answers a JOIN categories c ON a.category_id = c.id
-	WHERE c.slug = 'pl-2025-26-top-scorers' AND a.rank = 6;
+	WHERE c.slug = 'pl-2025-26-top-scorers' AND a.rank = 7;
 INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'viktor gyokeres' FROM answers a JOIN categories c ON a.category_id = c.id
-	WHERE c.slug = 'pl-2025-26-top-scorers' AND a.rank = 6;
+	WHERE c.slug = 'pl-2025-26-top-scorers' AND a.rank = 7;
 INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'calvertlewin' FROM answers a JOIN categories c ON a.category_id = c.id
-	WHERE c.slug = 'pl-2025-26-top-scorers' AND a.rank = 7;
+	WHERE c.slug = 'pl-2025-26-top-scorers' AND a.rank = 8;
 INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'dominic calvertlewin' FROM answers a JOIN categories c ON a.category_id = c.id
-	WHERE c.slug = 'pl-2025-26-top-scorers' AND a.rank = 7;
+	WHERE c.slug = 'pl-2025-26-top-scorers' AND a.rank = 8;
 INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'daniel welbeck' FROM answers a JOIN categories c ON a.category_id = c.id
-	WHERE c.slug = 'pl-2025-26-top-scorers' AND a.rank = 8;
+	WHERE c.slug = 'pl-2025-26-top-scorers' AND a.rank = 9;
 INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'welbeck' FROM answers a JOIN categories c ON a.category_id = c.id
-	WHERE c.slug = 'pl-2025-26-top-scorers' AND a.rank = 8;
+	WHERE c.slug = 'pl-2025-26-top-scorers' AND a.rank = 9;
 INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'eli kroupi' FROM answers a JOIN categories c ON a.category_id = c.id
-	WHERE c.slug = 'pl-2025-26-top-scorers' AND a.rank = 9;
-INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'kroupi' FROM answers a JOIN categories c ON a.category_id = c.id
-	WHERE c.slug = 'pl-2025-26-top-scorers' AND a.rank = 9;
-INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'jeanphilippe mateta' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'pl-2025-26-top-scorers' AND a.rank = 10;
 INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'mateta' FROM answers a JOIN categories c ON a.category_id = c.id
+	SELECT a.id, 'kroupi' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'pl-2025-26-top-scorers' AND a.rank = 10;
 
 INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
