@@ -1132,16 +1132,8 @@ INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'sheffield wednesday' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'english-top-flight-alltime-titles' AND a.rank = 10;
 
--- Corrected 2026-08-25: the original version of this category was missing
--- Gremio and Olimpia entirely (both 3-time champions) and undercounted
--- Flamengo at 3 titles instead of 4 (they won again in 2025). Fixing that
--- turned a clean top 10 into a 3-way tie at 4 titles and a 6-way tie at 3 —
--- only 4 of the 6 fit. Ties broken by most recent title, same convention
--- used elsewhere in this file (UCL, Serie A) — which drops Nacional
--- (Uruguay, last won 1988) and Olimpia (last won 2002) despite both being
--- real 3-time champions; re-verify if this ever needs revisiting.
 INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
-	('copa-libertadores-alltime-titles', 'Top 10 Copa Libertadores all-time champions', 'By club, through the 2025 final. Ties broken by most recent title.', 'titles');
+	('copa-libertadores-alltime-titles', 'All-time Copa Libertadores champions', 'Every club that''s won it, through the 2025 final. Verified year-by-year (66 editions, 1960-2025, no gaps) rather than aggregated from a single source.', 'titles');
 
 INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
 	((SELECT id FROM categories WHERE slug = 'copa-libertadores-alltime-titles'), 1, 'Independiente', '7'),
@@ -1153,7 +1145,24 @@ INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
 	((SELECT id FROM categories WHERE slug = 'copa-libertadores-alltime-titles'), 7, 'Palmeiras', '3'),
 	((SELECT id FROM categories WHERE slug = 'copa-libertadores-alltime-titles'), 8, 'Gremio', '3'),
 	((SELECT id FROM categories WHERE slug = 'copa-libertadores-alltime-titles'), 9, 'Santos', '3'),
-	((SELECT id FROM categories WHERE slug = 'copa-libertadores-alltime-titles'), 10, 'Sao Paulo', '3');
+	((SELECT id FROM categories WHERE slug = 'copa-libertadores-alltime-titles'), 10, 'Sao Paulo', '3'),
+	((SELECT id FROM categories WHERE slug = 'copa-libertadores-alltime-titles'), 11, 'Olimpia', '3'),
+	((SELECT id FROM categories WHERE slug = 'copa-libertadores-alltime-titles'), 12, 'Nacional', '3'),
+	((SELECT id FROM categories WHERE slug = 'copa-libertadores-alltime-titles'), 13, 'Atletico Nacional', '2'),
+	((SELECT id FROM categories WHERE slug = 'copa-libertadores-alltime-titles'), 14, 'Internacional', '2'),
+	((SELECT id FROM categories WHERE slug = 'copa-libertadores-alltime-titles'), 15, 'Cruzeiro', '2'),
+	((SELECT id FROM categories WHERE slug = 'copa-libertadores-alltime-titles'), 16, 'Botafogo', '1'),
+	((SELECT id FROM categories WHERE slug = 'copa-libertadores-alltime-titles'), 17, 'Fluminense', '1'),
+	((SELECT id FROM categories WHERE slug = 'copa-libertadores-alltime-titles'), 18, 'San Lorenzo', '1'),
+	((SELECT id FROM categories WHERE slug = 'copa-libertadores-alltime-titles'), 19, 'Atletico Mineiro', '1'),
+	((SELECT id FROM categories WHERE slug = 'copa-libertadores-alltime-titles'), 20, 'Corinthians', '1'),
+	((SELECT id FROM categories WHERE slug = 'copa-libertadores-alltime-titles'), 21, 'LDU Quito', '1'),
+	((SELECT id FROM categories WHERE slug = 'copa-libertadores-alltime-titles'), 22, 'Once Caldas', '1'),
+	((SELECT id FROM categories WHERE slug = 'copa-libertadores-alltime-titles'), 23, 'Vasco da Gama', '1'),
+	((SELECT id FROM categories WHERE slug = 'copa-libertadores-alltime-titles'), 24, 'Velez Sarsfield', '1'),
+	((SELECT id FROM categories WHERE slug = 'copa-libertadores-alltime-titles'), 25, 'Colo-Colo', '1'),
+	((SELECT id FROM categories WHERE slug = 'copa-libertadores-alltime-titles'), 26, 'Argentinos Juniors', '1'),
+	((SELECT id FROM categories WHERE slug = 'copa-libertadores-alltime-titles'), 27, 'Racing Club', '1');
 
 INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'independiente' FROM answers a JOIN categories c ON a.category_id = c.id
@@ -1194,3 +1203,87 @@ INSERT INTO answer_aliases (answer_id, alias)
 INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'sao paulo' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'copa-libertadores-alltime-titles' AND a.rank = 10;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'olimpia' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'copa-libertadores-alltime-titles' AND a.rank = 11;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'nacional' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'copa-libertadores-alltime-titles' AND a.rank = 12;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'atl nacional' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'copa-libertadores-alltime-titles' AND a.rank = 13;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'atletico nacional' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'copa-libertadores-alltime-titles' AND a.rank = 13;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'inter' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'copa-libertadores-alltime-titles' AND a.rank = 14;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'internacional' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'copa-libertadores-alltime-titles' AND a.rank = 14;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'cruzeiro' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'copa-libertadores-alltime-titles' AND a.rank = 15;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'botafogo' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'copa-libertadores-alltime-titles' AND a.rank = 16;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'fluminense' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'copa-libertadores-alltime-titles' AND a.rank = 17;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'san lorenzo' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'copa-libertadores-alltime-titles' AND a.rank = 18;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'atl mineiro' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'copa-libertadores-alltime-titles' AND a.rank = 19;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'atletico mineiro' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'copa-libertadores-alltime-titles' AND a.rank = 19;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'galo' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'copa-libertadores-alltime-titles' AND a.rank = 19;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'corinthians' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'copa-libertadores-alltime-titles' AND a.rank = 20;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'ldu' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'copa-libertadores-alltime-titles' AND a.rank = 21;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'ldu quito' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'copa-libertadores-alltime-titles' AND a.rank = 21;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'liga de quito' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'copa-libertadores-alltime-titles' AND a.rank = 21;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'once caldas' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'copa-libertadores-alltime-titles' AND a.rank = 22;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'vasco' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'copa-libertadores-alltime-titles' AND a.rank = 23;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'vasco da gama' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'copa-libertadores-alltime-titles' AND a.rank = 23;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'velez' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'copa-libertadores-alltime-titles' AND a.rank = 24;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'velez sarsfield' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'copa-libertadores-alltime-titles' AND a.rank = 24;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'colo colo' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'copa-libertadores-alltime-titles' AND a.rank = 25;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'colocolo' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'copa-libertadores-alltime-titles' AND a.rank = 25;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'argentinos' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'copa-libertadores-alltime-titles' AND a.rank = 26;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'argentinos juniors' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'copa-libertadores-alltime-titles' AND a.rank = 26;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'racing' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'copa-libertadores-alltime-titles' AND a.rank = 27;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'racing club' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'copa-libertadores-alltime-titles' AND a.rank = 27;

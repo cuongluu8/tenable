@@ -60,8 +60,13 @@ db/
 
 ## Data model
 
-- `categories` — one row per Top 10 topic (slug, title, subtitle, stat_label).
-- `answers` — 10 rows per category (rank, canonical_name, stat_value).
+- `categories` — one row per topic (slug, title, subtitle, stat_label).
+- `answers` — usually 10 rows per category (rank, canonical_name, stat_value),
+  but **not a hard rule**: `answerCount` is always derived from `COUNT(*)`, so
+  a category can legitimately have more. `copa-libertadores-alltime-titles`
+  has 27 — it lists every club that's ever won, not a top-10-by-count, after
+  a "Top 10" cut turned out to arbitrarily exclude real champions on ties.
+  Prefer a title that doesn't promise "Top 10" for categories like this one.
 - `answer_aliases` — normalized match strings per answer (e.g. "psg", "paris
   saint-germain" both point at the "Paris Saint-Germain" answer). Guess
   matching (`matchGuess` in `src/worker/lib/categories.ts`) only ever compares
