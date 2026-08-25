@@ -1834,3 +1834,843 @@ UPDATE categories SET entity_type = 'country' WHERE slug IN (
 	'euro-titles-by-country',
 	'afcon-titles-by-country'
 );
+
+-- Reference countries: typeahead-only pool of national teams for
+-- 'country' categories (Euro/AFCON winners), scoped to UEFA + CAF membership
+-- (the confederations those categories actually cover). Same rules as the
+-- reference club pool: typeahead-only, best-effort, doesn't affect scoring.
+INSERT INTO reference_entities (canonical_name, category, entity_type) VALUES
+	('Albania', 'UEFA', 'country'),
+	('Andorra', 'UEFA', 'country'),
+	('Armenia', 'UEFA', 'country'),
+	('Austria', 'UEFA', 'country'),
+	('Azerbaijan', 'UEFA', 'country'),
+	('Belarus', 'UEFA', 'country'),
+	('Belgium', 'UEFA', 'country'),
+	('Bosnia and Herzegovina', 'UEFA', 'country'),
+	('Bulgaria', 'UEFA', 'country'),
+	('Croatia', 'UEFA', 'country'),
+	('Cyprus', 'UEFA', 'country'),
+	('Czechia', 'UEFA', 'country'),
+	('Denmark', 'UEFA', 'country'),
+	('England', 'UEFA', 'country'),
+	('Estonia', 'UEFA', 'country'),
+	('Faroe Islands', 'UEFA', 'country'),
+	('Finland', 'UEFA', 'country'),
+	('France', 'UEFA', 'country'),
+	('Georgia', 'UEFA', 'country'),
+	('Germany', 'UEFA', 'country'),
+	('Gibraltar', 'UEFA', 'country'),
+	('Greece', 'UEFA', 'country'),
+	('Hungary', 'UEFA', 'country'),
+	('Iceland', 'UEFA', 'country'),
+	('Israel', 'UEFA', 'country'),
+	('Italy', 'UEFA', 'country'),
+	('Kazakhstan', 'UEFA', 'country'),
+	('Kosovo', 'UEFA', 'country'),
+	('Latvia', 'UEFA', 'country'),
+	('Liechtenstein', 'UEFA', 'country'),
+	('Lithuania', 'UEFA', 'country'),
+	('Luxembourg', 'UEFA', 'country'),
+	('Malta', 'UEFA', 'country'),
+	('Moldova', 'UEFA', 'country'),
+	('Monaco', 'UEFA', 'country'),
+	('Montenegro', 'UEFA', 'country'),
+	('Netherlands', 'UEFA', 'country'),
+	('North Macedonia', 'UEFA', 'country'),
+	('Northern Ireland', 'UEFA', 'country'),
+	('Norway', 'UEFA', 'country'),
+	('Poland', 'UEFA', 'country'),
+	('Portugal', 'UEFA', 'country'),
+	('Republic of Ireland', 'UEFA', 'country'),
+	('Romania', 'UEFA', 'country'),
+	('Russia', 'UEFA', 'country'),
+	('San Marino', 'UEFA', 'country'),
+	('Scotland', 'UEFA', 'country'),
+	('Serbia', 'UEFA', 'country'),
+	('Slovakia', 'UEFA', 'country'),
+	('Slovenia', 'UEFA', 'country'),
+	('Spain', 'UEFA', 'country'),
+	('Sweden', 'UEFA', 'country'),
+	('Switzerland', 'UEFA', 'country'),
+	('Turkey', 'UEFA', 'country'),
+	('Ukraine', 'UEFA', 'country'),
+	('Wales', 'UEFA', 'country'),
+	('Algeria', 'CAF', 'country'),
+	('Angola', 'CAF', 'country'),
+	('Benin', 'CAF', 'country'),
+	('Botswana', 'CAF', 'country'),
+	('Burkina Faso', 'CAF', 'country'),
+	('Burundi', 'CAF', 'country'),
+	('Cameroon', 'CAF', 'country'),
+	('Cape Verde', 'CAF', 'country'),
+	('Central African Republic', 'CAF', 'country'),
+	('Chad', 'CAF', 'country'),
+	('Comoros', 'CAF', 'country'),
+	('Congo', 'CAF', 'country'),
+	('DR Congo', 'CAF', 'country'),
+	('Djibouti', 'CAF', 'country'),
+	('Egypt', 'CAF', 'country'),
+	('Equatorial Guinea', 'CAF', 'country'),
+	('Eritrea', 'CAF', 'country'),
+	('Eswatini', 'CAF', 'country'),
+	('Ethiopia', 'CAF', 'country'),
+	('Gabon', 'CAF', 'country'),
+	('Gambia', 'CAF', 'country'),
+	('Ghana', 'CAF', 'country'),
+	('Guinea', 'CAF', 'country'),
+	('Guinea-Bissau', 'CAF', 'country'),
+	('Ivory Coast', 'CAF', 'country'),
+	('Kenya', 'CAF', 'country'),
+	('Lesotho', 'CAF', 'country'),
+	('Liberia', 'CAF', 'country'),
+	('Libya', 'CAF', 'country'),
+	('Madagascar', 'CAF', 'country'),
+	('Malawi', 'CAF', 'country'),
+	('Mali', 'CAF', 'country'),
+	('Mauritania', 'CAF', 'country'),
+	('Mauritius', 'CAF', 'country'),
+	('Morocco', 'CAF', 'country'),
+	('Mozambique', 'CAF', 'country'),
+	('Namibia', 'CAF', 'country'),
+	('Niger', 'CAF', 'country'),
+	('Nigeria', 'CAF', 'country'),
+	('Rwanda', 'CAF', 'country'),
+	('Sao Tome and Principe', 'CAF', 'country'),
+	('Senegal', 'CAF', 'country'),
+	('Seychelles', 'CAF', 'country'),
+	('Sierra Leone', 'CAF', 'country'),
+	('Somalia', 'CAF', 'country'),
+	('South Africa', 'CAF', 'country'),
+	('South Sudan', 'CAF', 'country'),
+	('Sudan', 'CAF', 'country'),
+	('Tanzania', 'CAF', 'country'),
+	('Togo', 'CAF', 'country'),
+	('Tunisia', 'CAF', 'country'),
+	('Uganda', 'CAF', 'country'),
+	('Zambia', 'CAF', 'country'),
+	('Zimbabwe', 'CAF', 'country');
+
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'albania' FROM reference_entities WHERE canonical_name = 'Albania' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'andorra' FROM reference_entities WHERE canonical_name = 'Andorra' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'armenia' FROM reference_entities WHERE canonical_name = 'Armenia' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'austria' FROM reference_entities WHERE canonical_name = 'Austria' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'azerbaijan' FROM reference_entities WHERE canonical_name = 'Azerbaijan' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'belarus' FROM reference_entities WHERE canonical_name = 'Belarus' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'belgium' FROM reference_entities WHERE canonical_name = 'Belgium' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'bosnia and herzegovina' FROM reference_entities WHERE canonical_name = 'Bosnia and Herzegovina' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'bulgaria' FROM reference_entities WHERE canonical_name = 'Bulgaria' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'croatia' FROM reference_entities WHERE canonical_name = 'Croatia' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'cyprus' FROM reference_entities WHERE canonical_name = 'Cyprus' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'czech republic' FROM reference_entities WHERE canonical_name = 'Czechia' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'czechia' FROM reference_entities WHERE canonical_name = 'Czechia' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'denmark' FROM reference_entities WHERE canonical_name = 'Denmark' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'england' FROM reference_entities WHERE canonical_name = 'England' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'estonia' FROM reference_entities WHERE canonical_name = 'Estonia' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'faroe islands' FROM reference_entities WHERE canonical_name = 'Faroe Islands' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'finland' FROM reference_entities WHERE canonical_name = 'Finland' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'france' FROM reference_entities WHERE canonical_name = 'France' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'georgia' FROM reference_entities WHERE canonical_name = 'Georgia' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'germany' FROM reference_entities WHERE canonical_name = 'Germany' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'gibraltar' FROM reference_entities WHERE canonical_name = 'Gibraltar' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'greece' FROM reference_entities WHERE canonical_name = 'Greece' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'hungary' FROM reference_entities WHERE canonical_name = 'Hungary' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'iceland' FROM reference_entities WHERE canonical_name = 'Iceland' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'israel' FROM reference_entities WHERE canonical_name = 'Israel' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'italy' FROM reference_entities WHERE canonical_name = 'Italy' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'kazakhstan' FROM reference_entities WHERE canonical_name = 'Kazakhstan' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'kosovo' FROM reference_entities WHERE canonical_name = 'Kosovo' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'latvia' FROM reference_entities WHERE canonical_name = 'Latvia' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'liechtenstein' FROM reference_entities WHERE canonical_name = 'Liechtenstein' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'lithuania' FROM reference_entities WHERE canonical_name = 'Lithuania' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'luxembourg' FROM reference_entities WHERE canonical_name = 'Luxembourg' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'malta' FROM reference_entities WHERE canonical_name = 'Malta' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'moldova' FROM reference_entities WHERE canonical_name = 'Moldova' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'monaco' FROM reference_entities WHERE canonical_name = 'Monaco' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'montenegro' FROM reference_entities WHERE canonical_name = 'Montenegro' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'netherlands' FROM reference_entities WHERE canonical_name = 'Netherlands' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'north macedonia' FROM reference_entities WHERE canonical_name = 'North Macedonia' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'northern ireland' FROM reference_entities WHERE canonical_name = 'Northern Ireland' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'norway' FROM reference_entities WHERE canonical_name = 'Norway' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'poland' FROM reference_entities WHERE canonical_name = 'Poland' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'portugal' FROM reference_entities WHERE canonical_name = 'Portugal' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'ireland' FROM reference_entities WHERE canonical_name = 'Republic of Ireland' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'republic of ireland' FROM reference_entities WHERE canonical_name = 'Republic of Ireland' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'romania' FROM reference_entities WHERE canonical_name = 'Romania' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'russia' FROM reference_entities WHERE canonical_name = 'Russia' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'san marino' FROM reference_entities WHERE canonical_name = 'San Marino' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'scotland' FROM reference_entities WHERE canonical_name = 'Scotland' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'serbia' FROM reference_entities WHERE canonical_name = 'Serbia' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'slovakia' FROM reference_entities WHERE canonical_name = 'Slovakia' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'slovenia' FROM reference_entities WHERE canonical_name = 'Slovenia' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'spain' FROM reference_entities WHERE canonical_name = 'Spain' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'sweden' FROM reference_entities WHERE canonical_name = 'Sweden' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'switzerland' FROM reference_entities WHERE canonical_name = 'Switzerland' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'turkey' FROM reference_entities WHERE canonical_name = 'Turkey' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'ukraine' FROM reference_entities WHERE canonical_name = 'Ukraine' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'wales' FROM reference_entities WHERE canonical_name = 'Wales' AND category = 'UEFA' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'algeria' FROM reference_entities WHERE canonical_name = 'Algeria' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'angola' FROM reference_entities WHERE canonical_name = 'Angola' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'benin' FROM reference_entities WHERE canonical_name = 'Benin' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'botswana' FROM reference_entities WHERE canonical_name = 'Botswana' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'burkina faso' FROM reference_entities WHERE canonical_name = 'Burkina Faso' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'burundi' FROM reference_entities WHERE canonical_name = 'Burundi' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'cameroon' FROM reference_entities WHERE canonical_name = 'Cameroon' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'cape verde' FROM reference_entities WHERE canonical_name = 'Cape Verde' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'central african republic' FROM reference_entities WHERE canonical_name = 'Central African Republic' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'chad' FROM reference_entities WHERE canonical_name = 'Chad' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'comoros' FROM reference_entities WHERE canonical_name = 'Comoros' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'congo' FROM reference_entities WHERE canonical_name = 'Congo' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'congo dr' FROM reference_entities WHERE canonical_name = 'DR Congo' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'democratic republic of congo' FROM reference_entities WHERE canonical_name = 'DR Congo' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'dr congo' FROM reference_entities WHERE canonical_name = 'DR Congo' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'djibouti' FROM reference_entities WHERE canonical_name = 'Djibouti' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'egypt' FROM reference_entities WHERE canonical_name = 'Egypt' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'equatorial guinea' FROM reference_entities WHERE canonical_name = 'Equatorial Guinea' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'eritrea' FROM reference_entities WHERE canonical_name = 'Eritrea' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'eswatini' FROM reference_entities WHERE canonical_name = 'Eswatini' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'ethiopia' FROM reference_entities WHERE canonical_name = 'Ethiopia' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'gabon' FROM reference_entities WHERE canonical_name = 'Gabon' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'gambia' FROM reference_entities WHERE canonical_name = 'Gambia' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'ghana' FROM reference_entities WHERE canonical_name = 'Ghana' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'guinea' FROM reference_entities WHERE canonical_name = 'Guinea' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'guineabissau' FROM reference_entities WHERE canonical_name = 'Guinea-Bissau' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'cote divoire' FROM reference_entities WHERE canonical_name = 'Ivory Coast' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'ivory coast' FROM reference_entities WHERE canonical_name = 'Ivory Coast' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'kenya' FROM reference_entities WHERE canonical_name = 'Kenya' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'lesotho' FROM reference_entities WHERE canonical_name = 'Lesotho' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'liberia' FROM reference_entities WHERE canonical_name = 'Liberia' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'libya' FROM reference_entities WHERE canonical_name = 'Libya' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'madagascar' FROM reference_entities WHERE canonical_name = 'Madagascar' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'malawi' FROM reference_entities WHERE canonical_name = 'Malawi' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'mali' FROM reference_entities WHERE canonical_name = 'Mali' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'mauritania' FROM reference_entities WHERE canonical_name = 'Mauritania' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'mauritius' FROM reference_entities WHERE canonical_name = 'Mauritius' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'morocco' FROM reference_entities WHERE canonical_name = 'Morocco' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'mozambique' FROM reference_entities WHERE canonical_name = 'Mozambique' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'namibia' FROM reference_entities WHERE canonical_name = 'Namibia' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'niger' FROM reference_entities WHERE canonical_name = 'Niger' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'nigeria' FROM reference_entities WHERE canonical_name = 'Nigeria' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'rwanda' FROM reference_entities WHERE canonical_name = 'Rwanda' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'sao tome and principe' FROM reference_entities WHERE canonical_name = 'Sao Tome and Principe' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'senegal' FROM reference_entities WHERE canonical_name = 'Senegal' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'seychelles' FROM reference_entities WHERE canonical_name = 'Seychelles' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'sierra leone' FROM reference_entities WHERE canonical_name = 'Sierra Leone' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'somalia' FROM reference_entities WHERE canonical_name = 'Somalia' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'south africa' FROM reference_entities WHERE canonical_name = 'South Africa' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'south sudan' FROM reference_entities WHERE canonical_name = 'South Sudan' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'sudan' FROM reference_entities WHERE canonical_name = 'Sudan' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'tanzania' FROM reference_entities WHERE canonical_name = 'Tanzania' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'togo' FROM reference_entities WHERE canonical_name = 'Togo' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'tunisia' FROM reference_entities WHERE canonical_name = 'Tunisia' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'uganda' FROM reference_entities WHERE canonical_name = 'Uganda' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'zambia' FROM reference_entities WHERE canonical_name = 'Zambia' AND category = 'CAF' AND entity_type = 'country';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'zimbabwe' FROM reference_entities WHERE canonical_name = 'Zimbabwe' AND category = 'CAF' AND entity_type = 'country';
+
+-- Reference players: typeahead-only pool for 'player' categories (top
+-- scorers, Ballon d'Or). Best-effort and NOT exhaustive -- broadly
+-- recognizable footballers across eras/nationalities, not a verified
+-- complete roster of anything. Extend as needed; see agents.md.
+INSERT INTO reference_entities (canonical_name, category, entity_type) VALUES
+	('Lionel Messi', 'Argentina', 'player'),
+	('Cristiano Ronaldo', 'Portugal', 'player'),
+	('Ronaldo Nazario', 'Brazil', 'player'),
+	('Ronaldinho', 'Brazil', 'player'),
+	('Zinedine Zidane', 'France', 'player'),
+	('Neymar', 'Brazil', 'player'),
+	('Kylian Mbappe', 'France', 'player'),
+	('Erling Haaland', 'Norway', 'player'),
+	('Robert Lewandowski', 'Poland', 'player'),
+	('Karim Benzema', 'France', 'player'),
+	('Luka Modric', 'Croatia', 'player'),
+	('Kevin De Bruyne', 'Belgium', 'player'),
+	('Mohamed Salah', 'Egypt', 'player'),
+	('Sadio Mane', 'Senegal', 'player'),
+	('Harry Kane', 'England', 'player'),
+	('Thierry Henry', 'France', 'player'),
+	('Didier Drogba', 'Ivory Coast', 'player'),
+	('Samuel Eto''o', 'Cameroon', 'player'),
+	('George Weah', 'Liberia', 'player'),
+	('Roberto Baggio', 'Italy', 'player'),
+	('Michael Owen', 'England', 'player'),
+	('Alan Shearer', 'England', 'player'),
+	('Wayne Rooney', 'England', 'player'),
+	('Andriy Shevchenko', 'Ukraine', 'player'),
+	('Pavel Nedved', 'Czechia', 'player'),
+	('Fabio Cannavaro', 'Italy', 'player'),
+	('Kaka', 'Brazil', 'player'),
+	('Rivaldo', 'Brazil', 'player'),
+	('Romario', 'Brazil', 'player'),
+	('Pele', 'Brazil', 'player'),
+	('Diego Maradona', 'Argentina', 'player'),
+	('Johan Cruyff', 'Netherlands', 'player'),
+	('Franz Beckenbauer', 'Germany', 'player'),
+	('Gerd Muller', 'Germany', 'player'),
+	('Eusebio', 'Portugal', 'player'),
+	('Bobby Charlton', 'England', 'player'),
+	('Garrincha', 'Brazil', 'player'),
+	('George Best', 'Northern Ireland', 'player'),
+	('Marco van Basten', 'Netherlands', 'player'),
+	('Ruud Gullit', 'Netherlands', 'player'),
+	('Frank Rijkaard', 'Netherlands', 'player'),
+	('Dennis Bergkamp', 'Netherlands', 'player'),
+	('Ruud van Nistelrooy', 'Netherlands', 'player'),
+	('Ryan Giggs', 'Wales', 'player'),
+	('Paul Scholes', 'England', 'player'),
+	('David Beckham', 'England', 'player'),
+	('Steven Gerrard', 'England', 'player'),
+	('Frank Lampard', 'England', 'player'),
+	('John Terry', 'England', 'player'),
+	('Rio Ferdinand', 'England', 'player'),
+	('Xavi Hernandez', 'Spain', 'player'),
+	('Andres Iniesta', 'Spain', 'player'),
+	('Sergio Ramos', 'Spain', 'player'),
+	('Gerard Pique', 'Spain', 'player'),
+	('Carles Puyol', 'Spain', 'player'),
+	('Iker Casillas', 'Spain', 'player'),
+	('Gianluigi Buffon', 'Italy', 'player'),
+	('Paolo Maldini', 'Italy', 'player'),
+	('Alessandro Del Piero', 'Italy', 'player'),
+	('Francesco Totti', 'Italy', 'player'),
+	('Andrea Pirlo', 'Italy', 'player'),
+	('Gianfranco Zola', 'Italy', 'player'),
+	('Roberto Carlos', 'Brazil', 'player'),
+	('Cafu', 'Brazil', 'player'),
+	('Luis Suarez', 'Uruguay', 'player'),
+	('Edinson Cavani', 'Uruguay', 'player'),
+	('Radamel Falcao', 'Colombia', 'player'),
+	('James Rodriguez', 'Colombia', 'player'),
+	('Diego Forlan', 'Uruguay', 'player'),
+	('Zlatan Ibrahimovic', 'Sweden', 'player'),
+	('Thomas Muller', 'Germany', 'player'),
+	('Manuel Neuer', 'Germany', 'player'),
+	('Toni Kroos', 'Germany', 'player'),
+	('Sergio Aguero', 'Argentina', 'player'),
+	('David Villa', 'Spain', 'player'),
+	('Fernando Torres', 'Spain', 'player'),
+	('Xabi Alonso', 'Spain', 'player'),
+	('Wesley Sneijder', 'Netherlands', 'player'),
+	('Arjen Robben', 'Netherlands', 'player'),
+	('Marco Reus', 'Germany', 'player'),
+	('Mario Gotze', 'Germany', 'player'),
+	('Mesut Ozil', 'Germany', 'player'),
+	('Ilkay Gundogan', 'Germany', 'player'),
+	('N''Golo Kante', 'France', 'player'),
+	('Antoine Griezmann', 'France', 'player'),
+	('Ousmane Dembele', 'France', 'player'),
+	('Riyad Mahrez', 'Algeria', 'player'),
+	('Victor Osimhen', 'Nigeria', 'player'),
+	('Achraf Hakimi', 'Morocco', 'player'),
+	('Vinicius Junior', 'Brazil', 'player'),
+	('Jude Bellingham', 'England', 'player'),
+	('Pedri', 'Spain', 'player'),
+	('Gavi', 'Spain', 'player'),
+	('Bukayo Saka', 'England', 'player'),
+	('Phil Foden', 'England', 'player'),
+	('Declan Rice', 'England', 'player'),
+	('Marcus Rashford', 'England', 'player'),
+	('Son Heung-min', 'South Korea', 'player'),
+	('Kaoru Mitoma', 'Japan', 'player'),
+	('Takefusa Kubo', 'Japan', 'player'),
+	('Lautaro Martinez', 'Argentina', 'player'),
+	('Julian Alvarez', 'Argentina', 'player'),
+	('Rodrygo', 'Brazil', 'player'),
+	('Federico Valverde', 'Uruguay', 'player'),
+	('Casemiro', 'Brazil', 'player'),
+	('Fabinho', 'Brazil', 'player'),
+	('Virgil van Dijk', 'Netherlands', 'player'),
+	('Alisson Becker', 'Brazil', 'player'),
+	('Ederson', 'Brazil', 'player'),
+	('Thibaut Courtois', 'Belgium', 'player'),
+	('Jan Oblak', 'Slovenia', 'player'),
+	('David de Gea', 'Spain', 'player'),
+	('Petr Cech', 'Czechia', 'player'),
+	('Edwin van der Sar', 'Netherlands', 'player'),
+	('Oliver Kahn', 'Germany', 'player'),
+	('Peter Schmeichel', 'Denmark', 'player'),
+	('Gordon Banks', 'England', 'player'),
+	('Lev Yashin', 'Soviet Union', 'player'),
+	('Dino Zoff', 'Italy', 'player'),
+	('Fabien Barthez', 'France', 'player'),
+	('Michael Ballack', 'Germany', 'player'),
+	('Lothar Matthaus', 'Germany', 'player'),
+	('Jurgen Klinsmann', 'Germany', 'player'),
+	('Rudi Voller', 'Germany', 'player'),
+	('Karl-Heinz Rummenigge', 'Germany', 'player'),
+	('Uwe Seeler', 'Germany', 'player'),
+	('Bobby Moore', 'England', 'player'),
+	('Geoff Hurst', 'England', 'player'),
+	('Kenny Dalglish', 'Scotland', 'player'),
+	('Ian Rush', 'Wales', 'player'),
+	('Peter Crouch', 'England', 'player'),
+	('Jamie Vardy', 'England', 'player'),
+	('Sergio Busquets', 'Spain', 'player'),
+	('Marc-Andre ter Stegen', 'Germany', 'player'),
+	('Robert Pires', 'France', 'player'),
+	('Patrick Vieira', 'France', 'player'),
+	('Claude Makelele', 'France', 'player'),
+	('Marcel Desailly', 'France', 'player'),
+	('Lilian Thuram', 'France', 'player'),
+	('Youri Djorkaeff', 'France', 'player'),
+	('David Trezeguet', 'France', 'player'),
+	('Nicolas Anelka', 'France', 'player'),
+	('William Gallas', 'France', 'player'),
+	('Bacary Sagna', 'France', 'player'),
+	('Hugo Lloris', 'France', 'player'),
+	('Raphael Varane', 'France', 'player'),
+	('Paul Pogba', 'France', 'player'),
+	('Olivier Giroud', 'France', 'player'),
+	('Alexandre Lacazette', 'France', 'player'),
+	('Wissam Ben Yedder', 'France', 'player'),
+	('Moussa Dembele', 'France', 'player'),
+	('Gabriel Jesus', 'Brazil', 'player'),
+	('Roberto Firmino', 'Brazil', 'player'),
+	('Diogo Jota', 'Portugal', 'player'),
+	('Darwin Nunez', 'Uruguay', 'player'),
+	('Cody Gakpo', 'Netherlands', 'player'),
+	('Bruno Fernandes', 'Portugal', 'player'),
+	('Rasmus Hojlund', 'Denmark', 'player');
+
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'lionel messi' FROM reference_entities WHERE canonical_name = 'Lionel Messi' AND category = 'Argentina' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'cr7' FROM reference_entities WHERE canonical_name = 'Cristiano Ronaldo' AND category = 'Portugal' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'cristiano' FROM reference_entities WHERE canonical_name = 'Cristiano Ronaldo' AND category = 'Portugal' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'cristiano ronaldo' FROM reference_entities WHERE canonical_name = 'Cristiano Ronaldo' AND category = 'Portugal' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'r9' FROM reference_entities WHERE canonical_name = 'Ronaldo Nazario' AND category = 'Brazil' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'ronaldo nazario' FROM reference_entities WHERE canonical_name = 'Ronaldo Nazario' AND category = 'Brazil' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'ronaldinho' FROM reference_entities WHERE canonical_name = 'Ronaldinho' AND category = 'Brazil' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'zinedine zidane' FROM reference_entities WHERE canonical_name = 'Zinedine Zidane' AND category = 'France' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'neymar' FROM reference_entities WHERE canonical_name = 'Neymar' AND category = 'Brazil' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'neymar jr' FROM reference_entities WHERE canonical_name = 'Neymar' AND category = 'Brazil' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'kylian mbappe' FROM reference_entities WHERE canonical_name = 'Kylian Mbappe' AND category = 'France' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'erling haaland' FROM reference_entities WHERE canonical_name = 'Erling Haaland' AND category = 'Norway' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'robert lewandowski' FROM reference_entities WHERE canonical_name = 'Robert Lewandowski' AND category = 'Poland' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'karim benzema' FROM reference_entities WHERE canonical_name = 'Karim Benzema' AND category = 'France' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'luka modric' FROM reference_entities WHERE canonical_name = 'Luka Modric' AND category = 'Croatia' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'kevin de bruyne' FROM reference_entities WHERE canonical_name = 'Kevin De Bruyne' AND category = 'Belgium' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'mohamed salah' FROM reference_entities WHERE canonical_name = 'Mohamed Salah' AND category = 'Egypt' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'sadio mane' FROM reference_entities WHERE canonical_name = 'Sadio Mane' AND category = 'Senegal' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'harry kane' FROM reference_entities WHERE canonical_name = 'Harry Kane' AND category = 'England' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'thierry henry' FROM reference_entities WHERE canonical_name = 'Thierry Henry' AND category = 'France' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'didier drogba' FROM reference_entities WHERE canonical_name = 'Didier Drogba' AND category = 'Ivory Coast' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'samuel etoo' FROM reference_entities WHERE canonical_name = 'Samuel Eto''o' AND category = 'Cameroon' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'george weah' FROM reference_entities WHERE canonical_name = 'George Weah' AND category = 'Liberia' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'roberto baggio' FROM reference_entities WHERE canonical_name = 'Roberto Baggio' AND category = 'Italy' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'michael owen' FROM reference_entities WHERE canonical_name = 'Michael Owen' AND category = 'England' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'alan shearer' FROM reference_entities WHERE canonical_name = 'Alan Shearer' AND category = 'England' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'wayne rooney' FROM reference_entities WHERE canonical_name = 'Wayne Rooney' AND category = 'England' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'andriy shevchenko' FROM reference_entities WHERE canonical_name = 'Andriy Shevchenko' AND category = 'Ukraine' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'pavel nedved' FROM reference_entities WHERE canonical_name = 'Pavel Nedved' AND category = 'Czechia' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'fabio cannavaro' FROM reference_entities WHERE canonical_name = 'Fabio Cannavaro' AND category = 'Italy' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'kaka' FROM reference_entities WHERE canonical_name = 'Kaka' AND category = 'Brazil' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'rivaldo' FROM reference_entities WHERE canonical_name = 'Rivaldo' AND category = 'Brazil' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'romario' FROM reference_entities WHERE canonical_name = 'Romario' AND category = 'Brazil' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'pele' FROM reference_entities WHERE canonical_name = 'Pele' AND category = 'Brazil' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'diego maradona' FROM reference_entities WHERE canonical_name = 'Diego Maradona' AND category = 'Argentina' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'johan cruyff' FROM reference_entities WHERE canonical_name = 'Johan Cruyff' AND category = 'Netherlands' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'franz beckenbauer' FROM reference_entities WHERE canonical_name = 'Franz Beckenbauer' AND category = 'Germany' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'gerd muller' FROM reference_entities WHERE canonical_name = 'Gerd Muller' AND category = 'Germany' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'eusebio' FROM reference_entities WHERE canonical_name = 'Eusebio' AND category = 'Portugal' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'bobby charlton' FROM reference_entities WHERE canonical_name = 'Bobby Charlton' AND category = 'England' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'garrincha' FROM reference_entities WHERE canonical_name = 'Garrincha' AND category = 'Brazil' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'george best' FROM reference_entities WHERE canonical_name = 'George Best' AND category = 'Northern Ireland' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'marco van basten' FROM reference_entities WHERE canonical_name = 'Marco van Basten' AND category = 'Netherlands' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'ruud gullit' FROM reference_entities WHERE canonical_name = 'Ruud Gullit' AND category = 'Netherlands' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'frank rijkaard' FROM reference_entities WHERE canonical_name = 'Frank Rijkaard' AND category = 'Netherlands' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'dennis bergkamp' FROM reference_entities WHERE canonical_name = 'Dennis Bergkamp' AND category = 'Netherlands' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'ruud van nistelrooy' FROM reference_entities WHERE canonical_name = 'Ruud van Nistelrooy' AND category = 'Netherlands' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'ryan giggs' FROM reference_entities WHERE canonical_name = 'Ryan Giggs' AND category = 'Wales' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'paul scholes' FROM reference_entities WHERE canonical_name = 'Paul Scholes' AND category = 'England' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'david beckham' FROM reference_entities WHERE canonical_name = 'David Beckham' AND category = 'England' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'steven gerrard' FROM reference_entities WHERE canonical_name = 'Steven Gerrard' AND category = 'England' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'frank lampard' FROM reference_entities WHERE canonical_name = 'Frank Lampard' AND category = 'England' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'john terry' FROM reference_entities WHERE canonical_name = 'John Terry' AND category = 'England' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'rio ferdinand' FROM reference_entities WHERE canonical_name = 'Rio Ferdinand' AND category = 'England' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'xavi' FROM reference_entities WHERE canonical_name = 'Xavi Hernandez' AND category = 'Spain' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'xavi hernandez' FROM reference_entities WHERE canonical_name = 'Xavi Hernandez' AND category = 'Spain' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'andres iniesta' FROM reference_entities WHERE canonical_name = 'Andres Iniesta' AND category = 'Spain' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'sergio ramos' FROM reference_entities WHERE canonical_name = 'Sergio Ramos' AND category = 'Spain' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'gerard pique' FROM reference_entities WHERE canonical_name = 'Gerard Pique' AND category = 'Spain' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'carles puyol' FROM reference_entities WHERE canonical_name = 'Carles Puyol' AND category = 'Spain' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'iker casillas' FROM reference_entities WHERE canonical_name = 'Iker Casillas' AND category = 'Spain' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'gianluigi buffon' FROM reference_entities WHERE canonical_name = 'Gianluigi Buffon' AND category = 'Italy' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'paolo maldini' FROM reference_entities WHERE canonical_name = 'Paolo Maldini' AND category = 'Italy' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'alessandro del piero' FROM reference_entities WHERE canonical_name = 'Alessandro Del Piero' AND category = 'Italy' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'francesco totti' FROM reference_entities WHERE canonical_name = 'Francesco Totti' AND category = 'Italy' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'andrea pirlo' FROM reference_entities WHERE canonical_name = 'Andrea Pirlo' AND category = 'Italy' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'gianfranco zola' FROM reference_entities WHERE canonical_name = 'Gianfranco Zola' AND category = 'Italy' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'roberto carlos' FROM reference_entities WHERE canonical_name = 'Roberto Carlos' AND category = 'Brazil' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'cafu' FROM reference_entities WHERE canonical_name = 'Cafu' AND category = 'Brazil' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'luis suarez' FROM reference_entities WHERE canonical_name = 'Luis Suarez' AND category = 'Uruguay' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'edinson cavani' FROM reference_entities WHERE canonical_name = 'Edinson Cavani' AND category = 'Uruguay' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'radamel falcao' FROM reference_entities WHERE canonical_name = 'Radamel Falcao' AND category = 'Colombia' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'james rodriguez' FROM reference_entities WHERE canonical_name = 'James Rodriguez' AND category = 'Colombia' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'diego forlan' FROM reference_entities WHERE canonical_name = 'Diego Forlan' AND category = 'Uruguay' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'zlatan ibrahimovic' FROM reference_entities WHERE canonical_name = 'Zlatan Ibrahimovic' AND category = 'Sweden' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'thomas muller' FROM reference_entities WHERE canonical_name = 'Thomas Muller' AND category = 'Germany' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'manuel neuer' FROM reference_entities WHERE canonical_name = 'Manuel Neuer' AND category = 'Germany' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'toni kroos' FROM reference_entities WHERE canonical_name = 'Toni Kroos' AND category = 'Germany' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'sergio aguero' FROM reference_entities WHERE canonical_name = 'Sergio Aguero' AND category = 'Argentina' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'david villa' FROM reference_entities WHERE canonical_name = 'David Villa' AND category = 'Spain' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'fernando torres' FROM reference_entities WHERE canonical_name = 'Fernando Torres' AND category = 'Spain' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'xabi alonso' FROM reference_entities WHERE canonical_name = 'Xabi Alonso' AND category = 'Spain' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'wesley sneijder' FROM reference_entities WHERE canonical_name = 'Wesley Sneijder' AND category = 'Netherlands' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'arjen robben' FROM reference_entities WHERE canonical_name = 'Arjen Robben' AND category = 'Netherlands' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'marco reus' FROM reference_entities WHERE canonical_name = 'Marco Reus' AND category = 'Germany' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'mario gotze' FROM reference_entities WHERE canonical_name = 'Mario Gotze' AND category = 'Germany' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'mesut ozil' FROM reference_entities WHERE canonical_name = 'Mesut Ozil' AND category = 'Germany' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'ilkay gundogan' FROM reference_entities WHERE canonical_name = 'Ilkay Gundogan' AND category = 'Germany' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'ngolo kante' FROM reference_entities WHERE canonical_name = 'N''Golo Kante' AND category = 'France' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'antoine griezmann' FROM reference_entities WHERE canonical_name = 'Antoine Griezmann' AND category = 'France' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'ousmane dembele' FROM reference_entities WHERE canonical_name = 'Ousmane Dembele' AND category = 'France' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'riyad mahrez' FROM reference_entities WHERE canonical_name = 'Riyad Mahrez' AND category = 'Algeria' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'victor osimhen' FROM reference_entities WHERE canonical_name = 'Victor Osimhen' AND category = 'Nigeria' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'achraf hakimi' FROM reference_entities WHERE canonical_name = 'Achraf Hakimi' AND category = 'Morocco' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'vinicius junior' FROM reference_entities WHERE canonical_name = 'Vinicius Junior' AND category = 'Brazil' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'jude bellingham' FROM reference_entities WHERE canonical_name = 'Jude Bellingham' AND category = 'England' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'pedri' FROM reference_entities WHERE canonical_name = 'Pedri' AND category = 'Spain' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'gavi' FROM reference_entities WHERE canonical_name = 'Gavi' AND category = 'Spain' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'bukayo saka' FROM reference_entities WHERE canonical_name = 'Bukayo Saka' AND category = 'England' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'phil foden' FROM reference_entities WHERE canonical_name = 'Phil Foden' AND category = 'England' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'declan rice' FROM reference_entities WHERE canonical_name = 'Declan Rice' AND category = 'England' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'marcus rashford' FROM reference_entities WHERE canonical_name = 'Marcus Rashford' AND category = 'England' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'son heungmin' FROM reference_entities WHERE canonical_name = 'Son Heung-min' AND category = 'South Korea' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'kaoru mitoma' FROM reference_entities WHERE canonical_name = 'Kaoru Mitoma' AND category = 'Japan' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'takefusa kubo' FROM reference_entities WHERE canonical_name = 'Takefusa Kubo' AND category = 'Japan' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'lautaro martinez' FROM reference_entities WHERE canonical_name = 'Lautaro Martinez' AND category = 'Argentina' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'julian alvarez' FROM reference_entities WHERE canonical_name = 'Julian Alvarez' AND category = 'Argentina' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'rodrygo' FROM reference_entities WHERE canonical_name = 'Rodrygo' AND category = 'Brazil' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'federico valverde' FROM reference_entities WHERE canonical_name = 'Federico Valverde' AND category = 'Uruguay' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'casemiro' FROM reference_entities WHERE canonical_name = 'Casemiro' AND category = 'Brazil' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'fabinho' FROM reference_entities WHERE canonical_name = 'Fabinho' AND category = 'Brazil' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'virgil van dijk' FROM reference_entities WHERE canonical_name = 'Virgil van Dijk' AND category = 'Netherlands' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'alisson' FROM reference_entities WHERE canonical_name = 'Alisson Becker' AND category = 'Brazil' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'alisson becker' FROM reference_entities WHERE canonical_name = 'Alisson Becker' AND category = 'Brazil' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'ederson' FROM reference_entities WHERE canonical_name = 'Ederson' AND category = 'Brazil' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'thibaut courtois' FROM reference_entities WHERE canonical_name = 'Thibaut Courtois' AND category = 'Belgium' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'jan oblak' FROM reference_entities WHERE canonical_name = 'Jan Oblak' AND category = 'Slovenia' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'david de gea' FROM reference_entities WHERE canonical_name = 'David de Gea' AND category = 'Spain' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'petr cech' FROM reference_entities WHERE canonical_name = 'Petr Cech' AND category = 'Czechia' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'edwin van der sar' FROM reference_entities WHERE canonical_name = 'Edwin van der Sar' AND category = 'Netherlands' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'oliver kahn' FROM reference_entities WHERE canonical_name = 'Oliver Kahn' AND category = 'Germany' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'peter schmeichel' FROM reference_entities WHERE canonical_name = 'Peter Schmeichel' AND category = 'Denmark' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'gordon banks' FROM reference_entities WHERE canonical_name = 'Gordon Banks' AND category = 'England' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'lev yashin' FROM reference_entities WHERE canonical_name = 'Lev Yashin' AND category = 'Soviet Union' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'dino zoff' FROM reference_entities WHERE canonical_name = 'Dino Zoff' AND category = 'Italy' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'fabien barthez' FROM reference_entities WHERE canonical_name = 'Fabien Barthez' AND category = 'France' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'michael ballack' FROM reference_entities WHERE canonical_name = 'Michael Ballack' AND category = 'Germany' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'lothar matthaus' FROM reference_entities WHERE canonical_name = 'Lothar Matthaus' AND category = 'Germany' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'jurgen klinsmann' FROM reference_entities WHERE canonical_name = 'Jurgen Klinsmann' AND category = 'Germany' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'rudi voller' FROM reference_entities WHERE canonical_name = 'Rudi Voller' AND category = 'Germany' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'karlheinz rummenigge' FROM reference_entities WHERE canonical_name = 'Karl-Heinz Rummenigge' AND category = 'Germany' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'uwe seeler' FROM reference_entities WHERE canonical_name = 'Uwe Seeler' AND category = 'Germany' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'bobby moore' FROM reference_entities WHERE canonical_name = 'Bobby Moore' AND category = 'England' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'geoff hurst' FROM reference_entities WHERE canonical_name = 'Geoff Hurst' AND category = 'England' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'kenny dalglish' FROM reference_entities WHERE canonical_name = 'Kenny Dalglish' AND category = 'Scotland' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'ian rush' FROM reference_entities WHERE canonical_name = 'Ian Rush' AND category = 'Wales' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'peter crouch' FROM reference_entities WHERE canonical_name = 'Peter Crouch' AND category = 'England' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'jamie vardy' FROM reference_entities WHERE canonical_name = 'Jamie Vardy' AND category = 'England' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'sergio busquets' FROM reference_entities WHERE canonical_name = 'Sergio Busquets' AND category = 'Spain' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'marcandre ter stegen' FROM reference_entities WHERE canonical_name = 'Marc-Andre ter Stegen' AND category = 'Germany' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'robert pires' FROM reference_entities WHERE canonical_name = 'Robert Pires' AND category = 'France' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'patrick vieira' FROM reference_entities WHERE canonical_name = 'Patrick Vieira' AND category = 'France' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'claude makelele' FROM reference_entities WHERE canonical_name = 'Claude Makelele' AND category = 'France' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'marcel desailly' FROM reference_entities WHERE canonical_name = 'Marcel Desailly' AND category = 'France' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'lilian thuram' FROM reference_entities WHERE canonical_name = 'Lilian Thuram' AND category = 'France' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'youri djorkaeff' FROM reference_entities WHERE canonical_name = 'Youri Djorkaeff' AND category = 'France' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'david trezeguet' FROM reference_entities WHERE canonical_name = 'David Trezeguet' AND category = 'France' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'nicolas anelka' FROM reference_entities WHERE canonical_name = 'Nicolas Anelka' AND category = 'France' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'william gallas' FROM reference_entities WHERE canonical_name = 'William Gallas' AND category = 'France' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'bacary sagna' FROM reference_entities WHERE canonical_name = 'Bacary Sagna' AND category = 'France' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'hugo lloris' FROM reference_entities WHERE canonical_name = 'Hugo Lloris' AND category = 'France' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'raphael varane' FROM reference_entities WHERE canonical_name = 'Raphael Varane' AND category = 'France' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'paul pogba' FROM reference_entities WHERE canonical_name = 'Paul Pogba' AND category = 'France' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'olivier giroud' FROM reference_entities WHERE canonical_name = 'Olivier Giroud' AND category = 'France' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'alexandre lacazette' FROM reference_entities WHERE canonical_name = 'Alexandre Lacazette' AND category = 'France' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'wissam ben yedder' FROM reference_entities WHERE canonical_name = 'Wissam Ben Yedder' AND category = 'France' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'moussa dembele' FROM reference_entities WHERE canonical_name = 'Moussa Dembele' AND category = 'France' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'gabriel jesus' FROM reference_entities WHERE canonical_name = 'Gabriel Jesus' AND category = 'Brazil' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'roberto firmino' FROM reference_entities WHERE canonical_name = 'Roberto Firmino' AND category = 'Brazil' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'diogo jota' FROM reference_entities WHERE canonical_name = 'Diogo Jota' AND category = 'Portugal' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'darwin nunez' FROM reference_entities WHERE canonical_name = 'Darwin Nunez' AND category = 'Uruguay' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'cody gakpo' FROM reference_entities WHERE canonical_name = 'Cody Gakpo' AND category = 'Netherlands' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'bruno fernandes' FROM reference_entities WHERE canonical_name = 'Bruno Fernandes' AND category = 'Portugal' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'rasmus hojlund' FROM reference_entities WHERE canonical_name = 'Rasmus Hojlund' AND category = 'Denmark' AND entity_type = 'player';
