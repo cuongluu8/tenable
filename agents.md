@@ -119,14 +119,13 @@ entry here is a much smaller problem than an error in `answers`. Extend the
 same way for other regions/entity types as new categories get added — don't
 grow `answers` past its category's actual Top N to solve a typeahead gap.
 
-**Production sync note (as of the country+player expansion):** the club and
-country pools are applied to production D1; the player pool was generated
-and is in `db/seed.sql`/local D1 but **not yet applied to production** — the
-Cloudflare MCP connection expired mid-apply. Check
+All three pools (club, country, player) are applied to production D1 and
+match `db/seed.sql` exactly — confirmed via
 `SELECT entity_type, COUNT(*) FROM reference_entities GROUP BY entity_type;`
-against production before assuming this is done; if it still shows 0 players,
-apply the player `INSERT` statements from `db/seed.sql` (the block after the
-country one) the same way prior reference-data batches were applied.
+(182 / 110 / 158) and the equivalent join through `reference_entity_aliases`
+(219 / 115 / 164). If a future reference-data batch is added to `seed.sql`
+without reaching production (e.g. an MCP auth expiry mid-apply, as happened
+once here), that query is the fast way to check before assuming it's done.
 
 **Type-scoped**: both `categories` and `reference_entities` carry an
 `entity_type` column (`'club'` | `'player'` | `'country'`, extend as new
