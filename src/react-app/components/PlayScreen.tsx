@@ -175,6 +175,7 @@ export function PlayScreen({ slug, onBack }: Props) {
 								onChange={setGuessInput}
 								onPick={pickSuggestion}
 								disabled={submitting}
+								categorySlug={slug}
 							/>
 							<button type="submit" disabled={submitting || !guessInput.trim()}>
 								Guess

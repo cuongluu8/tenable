@@ -106,6 +106,22 @@ occasional stale or missing club here is a much smaller problem than an
 error in `answers`. Extend it the same way for other regions/entity types
 (e.g. European clubs, players) as those categories get added — don't grow
 `answers` past its category's actual Top N to solve a typeahead gap.
+
+**Type-scoped**: both `categories` and `reference_entities` carry an
+`entity_type` column (`'club'` | `'player'` | `'country'`, extend as new
+category shapes are added — defaults to `'club'`). `suggestNames()` takes
+the *playing* category's own `entity_type` and filters both sources to it,
+so a players category (e.g. Ballon d'Or) never suggests a club and a clubs
+category never suggests a player. The `/api/suggest` route
+(`src/worker/routes/suggest.ts`) requires a `category` query param for this
+— it looks up that category's `entity_type` via `getCategoryBySlug` and
+returns no suggestions at all if the slug is missing or unknown, rather than
+falling back to an unscoped, mixed-type list. The frontend
+(`GuessInput.tsx`, via a `categorySlug` prop threaded from `PlayScreen.tsx`)
+always sends it. When adding a new category whose answers aren't clubs,
+players, or countries, add the new `entity_type` value here and to any
+seed data using it — the column has no CHECK constraint, so a typo silently
+creates a type nothing will ever match against.
 - Categories are **not** date-gated — every category is playable any time.
   Per-device progress lives in KV, keyed by `progress:{deviceId}:{slug}`, kept
   indefinitely (no TTL) so a finished category is remembered and never
