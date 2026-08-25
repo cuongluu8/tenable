@@ -2,11 +2,7 @@ import { Hono } from "hono";
 import { getOrSetDeviceId } from "../lib/device";
 import { todayKey } from "../lib/dailyKey";
 import { normalize } from "../lib/normalize";
-import {
-	getCategoryForDate,
-	getAnswerCount,
-	matchGuess,
-} from "../lib/categories";
+import { getCategoryBySlug, getAnswerCount, matchGuess } from "../lib/categories";
 import {
 	getProgress,
 	startProgress,
@@ -18,28 +14,33 @@ import { TENSION_LIVES, type Mode } from "../lib/types";
 const guess = new Hono<{ Bindings: Env }>();
 
 interface GuessBody {
+	slug?: string;
 	guess?: string;
 	mode?: Mode;
 }
 
 guess.post("/", async (c) => {
-	const date = todayKey();
 	const deviceId = getOrSetDeviceId(c);
 	const body = await c.req.json<GuessBody>().catch(() => ({}) as GuessBody);
 
-	const category = await getCategoryForDate(c.env.DB, date);
-	if (!category) {
-		return c.json({ error: "No puzzle scheduled for today" }, 404);
+	const slug = body.slug;
+	if (!slug) {
+		return c.json({ error: "Missing category slug" }, 400);
 	}
 
-	let progress = await getProgress(c.env.PROGRESS, deviceId, date);
+	const category = await getCategoryBySlug(c.env.DB, slug);
+	if (!category) {
+		return c.json({ error: "Unknown category" }, 404);
+	}
+
+	let progress = await getProgress(c.env.PROGRESS, deviceId, slug);
 	if (!progress) {
 		const mode: Mode = body.mode === "tension" ? "tension" : "classic";
-		progress = await startProgress(c.env.PROGRESS, deviceId, date, mode);
+		progress = await startProgress(c.env.PROGRESS, deviceId, slug, mode);
 	}
 
 	if (progress.completed) {
-		return c.json({ error: "Today's round is already finished" }, 409);
+		return c.json({ error: "This category is already finished" }, 409);
 	}
 
 	const rawGuess = (body.guess ?? "").trim();
@@ -73,11 +74,16 @@ guess.post("/", async (c) => {
 		progress.completedAt = new Date().toISOString();
 	}
 
-	await saveProgress(c.env.PROGRESS, deviceId, date, progress);
+	await saveProgress(c.env.PROGRESS, deviceId, slug, progress);
 
-	let streak = null;
+	let streakUpdate = null;
 	if (progress.completed) {
-		streak = await recordCompletion(c.env.PROGRESS, deviceId, date, progress.won);
+		streakUpdate = await recordCompletion(
+			c.env.PROGRESS,
+			deviceId,
+			todayKey(),
+			progress.won,
+		);
 	}
 
 	return c.json({
@@ -89,7 +95,8 @@ guess.post("/", async (c) => {
 		progress,
 		livesRemaining:
 			progress.mode === "tension" ? TENSION_LIVES - progress.wrongGuesses : null,
-		streak,
+		streak: streakUpdate?.streak ?? null,
+		lifetime: streakUpdate?.lifetime ?? null,
 	});
 });
 

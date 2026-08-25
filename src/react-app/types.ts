@@ -1,11 +1,17 @@
 export type Mode = "classic" | "tension";
 
-export interface DailyCategory {
+export type CategoryStatus = "new" | "in_progress" | "won" | "lost";
+
+export interface Category {
 	slug: string;
 	title: string;
 	subtitle: string | null;
 	statLabel: string;
 	answerCount: number;
+}
+
+export interface CategorySummary extends Category {
+	status: CategoryStatus;
 }
 
 export interface Progress {
@@ -23,11 +29,20 @@ export interface Streak {
 	lastCompletedDate: string | null;
 }
 
-export interface DailyResponse {
-	date: string;
-	category: DailyCategory;
-	progress: Progress | null;
+export interface Lifetime {
+	totalPlayed: number;
+	totalWon: number;
+}
+
+export interface CategoriesResponse {
+	categories: CategorySummary[];
 	streak: Streak;
+	lifetime: Lifetime;
+}
+
+export interface CategoryResponse {
+	category: Category;
+	progress: Progress | null;
 }
 
 export interface GuessResponse {
@@ -36,6 +51,7 @@ export interface GuessResponse {
 	progress: Progress;
 	livesRemaining: number | null;
 	streak: Streak | null;
+	lifetime: Lifetime | null;
 }
 
 export interface RevealAnswer {

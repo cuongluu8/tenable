@@ -1,9 +1,14 @@
--- Seed content for local/dev testing and to prove out the daily pipeline.
+-- Seed content for local/dev testing and to prove out the category-library
+-- pipeline.
 --
 -- IMPORTANT: this is a small starter set, not a fact-checked content library.
 -- Before real launch, expand this using FBref.com (manual research) and/or
 -- the API-Football integration described in the project plan, and re-verify
 -- every stat/rank — football records change every season.
+--
+-- scheduled_date is unused by the app now (categories are all playable any
+-- time, not gated to a calendar date) — kept on existing rows only to avoid
+-- churn; new categories below leave it NULL.
 
 INSERT INTO categories (slug, title, subtitle, stat_label, scheduled_date) VALUES
 	('ucl-titles-by-club', 'Top 10 UEFA Champions League / European Cup winners', 'By club, through the 2023-24 final', 'titles', '2026-08-25'),
@@ -118,3 +123,120 @@ INSERT INTO answer_aliases (answer_id, alias)
 	SELECT id, 'ronaldo nazario' FROM answers WHERE canonical_name = 'Ronaldo Nazario';
 INSERT INTO answer_aliases (answer_id, alias)
 	SELECT id, 'r9' FROM answers WHERE canonical_name = 'Ronaldo Nazario';
+
+-- Category 3: UEFA European Championship (Euros) titles by country.
+-- Exactly 10 nations have ever won it, so this fills a clean top 10 with no
+-- padding — ties among 1-time winners are ordered by year of that win.
+INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
+	('euro-titles-by-country', 'Top 10 UEFA European Championship winners', 'By country, through Euro 2024', 'titles');
+
+INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
+	((SELECT id FROM categories WHERE slug = 'euro-titles-by-country'), 1, 'Spain', '4'),
+	((SELECT id FROM categories WHERE slug = 'euro-titles-by-country'), 2, 'Germany', '3'),
+	((SELECT id FROM categories WHERE slug = 'euro-titles-by-country'), 3, 'Italy', '2'),
+	((SELECT id FROM categories WHERE slug = 'euro-titles-by-country'), 4, 'France', '2'),
+	((SELECT id FROM categories WHERE slug = 'euro-titles-by-country'), 5, 'Soviet Union', '1'),
+	((SELECT id FROM categories WHERE slug = 'euro-titles-by-country'), 6, 'Czechoslovakia', '1'),
+	((SELECT id FROM categories WHERE slug = 'euro-titles-by-country'), 7, 'Netherlands', '1'),
+	((SELECT id FROM categories WHERE slug = 'euro-titles-by-country'), 8, 'Denmark', '1'),
+	((SELECT id FROM categories WHERE slug = 'euro-titles-by-country'), 9, 'Greece', '1'),
+	((SELECT id FROM categories WHERE slug = 'euro-titles-by-country'), 10, 'Portugal', '1');
+
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'spain' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'euro-titles-by-country' AND a.canonical_name = 'Spain';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'germany' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'euro-titles-by-country' AND a.canonical_name = 'Germany';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'west germany' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'euro-titles-by-country' AND a.canonical_name = 'Germany';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'italy' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'euro-titles-by-country' AND a.canonical_name = 'Italy';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'france' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'euro-titles-by-country' AND a.canonical_name = 'France';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'soviet union' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'euro-titles-by-country' AND a.canonical_name = 'Soviet Union';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'ussr' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'euro-titles-by-country' AND a.canonical_name = 'Soviet Union';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'czechoslovakia' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'euro-titles-by-country' AND a.canonical_name = 'Czechoslovakia';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'netherlands' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'euro-titles-by-country' AND a.canonical_name = 'Netherlands';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'holland' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'euro-titles-by-country' AND a.canonical_name = 'Netherlands';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'denmark' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'euro-titles-by-country' AND a.canonical_name = 'Denmark';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'greece' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'euro-titles-by-country' AND a.canonical_name = 'Greece';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'portugal' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'euro-titles-by-country' AND a.canonical_name = 'Portugal';
+
+-- Category 4: Africa Cup of Nations (AFCON) titles by country. Lower
+-- confidence than the others (more nations, more ties) — flagged here as an
+-- extra reason to re-verify this one specifically before treating it as
+-- authoritative.
+INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
+	('afcon-titles-by-country', 'Top 10 Africa Cup of Nations winners', 'By country, through AFCON 2023', 'titles');
+
+INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
+	((SELECT id FROM categories WHERE slug = 'afcon-titles-by-country'), 1, 'Egypt', '7'),
+	((SELECT id FROM categories WHERE slug = 'afcon-titles-by-country'), 2, 'Cameroon', '5'),
+	((SELECT id FROM categories WHERE slug = 'afcon-titles-by-country'), 3, 'Ghana', '4'),
+	((SELECT id FROM categories WHERE slug = 'afcon-titles-by-country'), 4, 'Nigeria', '3'),
+	((SELECT id FROM categories WHERE slug = 'afcon-titles-by-country'), 5, 'Ivory Coast', '3'),
+	((SELECT id FROM categories WHERE slug = 'afcon-titles-by-country'), 6, 'DR Congo', '2'),
+	((SELECT id FROM categories WHERE slug = 'afcon-titles-by-country'), 7, 'Algeria', '2'),
+	((SELECT id FROM categories WHERE slug = 'afcon-titles-by-country'), 8, 'Zambia', '1'),
+	((SELECT id FROM categories WHERE slug = 'afcon-titles-by-country'), 9, 'Tunisia', '1'),
+	((SELECT id FROM categories WHERE slug = 'afcon-titles-by-country'), 10, 'Morocco', '1');
+
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'egypt' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'afcon-titles-by-country' AND a.canonical_name = 'Egypt';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'cameroon' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'afcon-titles-by-country' AND a.canonical_name = 'Cameroon';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'ghana' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'afcon-titles-by-country' AND a.canonical_name = 'Ghana';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'nigeria' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'afcon-titles-by-country' AND a.canonical_name = 'Nigeria';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'ivory coast' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'afcon-titles-by-country' AND a.canonical_name = 'Ivory Coast';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'cote divoire' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'afcon-titles-by-country' AND a.canonical_name = 'Ivory Coast';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'dr congo' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'afcon-titles-by-country' AND a.canonical_name = 'DR Congo';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'congo' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'afcon-titles-by-country' AND a.canonical_name = 'DR Congo';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'zaire' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'afcon-titles-by-country' AND a.canonical_name = 'DR Congo';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'algeria' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'afcon-titles-by-country' AND a.canonical_name = 'Algeria';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'zambia' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'afcon-titles-by-country' AND a.canonical_name = 'Zambia';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'tunisia' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'afcon-titles-by-country' AND a.canonical_name = 'Tunisia';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'morocco' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'afcon-titles-by-country' AND a.canonical_name = 'Morocco';

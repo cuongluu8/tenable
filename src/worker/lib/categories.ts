@@ -1,4 +1,4 @@
-import type { DailyCategoryPublic } from "./types";
+import type { CategoryPublic } from "./types";
 
 interface CategoryRow {
 	id: number;
@@ -8,16 +8,39 @@ interface CategoryRow {
 	stat_label: string;
 }
 
-export async function getCategoryForDate(
+interface CategoryRowWithCount extends CategoryRow {
+	answer_count: number;
+}
+
+// The full category library, in a stable order — every category is playable
+// any time (no per-day gating), so this is what powers the "pick a category"
+// list on the client.
+export async function getAllCategories(
 	db: D1Database,
-	date: string,
+): Promise<CategoryRowWithCount[]> {
+	const result = await db
+		.prepare(
+			`SELECT c.id, c.slug, c.title, c.subtitle, c.stat_label,
+			        COUNT(a.id) as answer_count
+			 FROM categories c
+			 LEFT JOIN answers a ON a.category_id = c.id
+			 GROUP BY c.id
+			 ORDER BY c.id ASC`,
+		)
+		.all<CategoryRowWithCount>();
+	return result.results ?? [];
+}
+
+export async function getCategoryBySlug(
+	db: D1Database,
+	slug: string,
 ): Promise<CategoryRow | null> {
 	const row = await db
 		.prepare(
 			`SELECT id, slug, title, subtitle, stat_label
-			 FROM categories WHERE scheduled_date = ?`,
+			 FROM categories WHERE slug = ?`,
 		)
-		.bind(date)
+		.bind(slug)
 		.first<CategoryRow>();
 	return row ?? null;
 }
@@ -36,7 +59,7 @@ export async function getAnswerCount(
 export function toPublic(
 	row: CategoryRow,
 	answerCount: number,
-): DailyCategoryPublic {
+): CategoryPublic {
 	return {
 		slug: row.slug,
 		title: row.title,
