@@ -1,44 +1,23 @@
-# React + Vite + Hono + Cloudflare Workers
+# Tenable
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/cloudflare/templates/tree/main/vite-react-template)
+A daily-playable "Top 10" football trivia game (inspired by
+[Football Tenable](https://playfootball.games/football-tenable/) / the ITV
+show *Tenable*). Browse a library of categories (e.g. "Top 10 Champions
+League winners by club") and guess entries in Classic (unlimited guesses) or
+Tension (5 lives) mode.
 
-This template provides a minimal setup for building a React application with TypeScript and Vite, designed to run on Cloudflare Workers. It features hot module replacement, ESLint integration, and the flexibility of Workers deployments.
+- **Live**: https://tenable.cuong-luu.workers.dev
 
-![React + TypeScript + Vite + Cloudflare Workers](https://imagedelivery.net/wSMYJvS3Xw-n339CbDyDIA/fc7b4b62-442b-4769-641b-ad4422d74300/public)
+**For architecture, data model, deployment, and Cloudflare cost details, see
+[`agents.md`](./agents.md)** — that's the maintained source of truth for how
+this app is built and run; keep this README as the quick-start only.
 
-<!-- dash-content-start -->
+## Stack
 
-🚀 Supercharge your web development with this powerful stack:
-
-- [**React**](https://react.dev/) - A modern UI library for building interactive interfaces
-- [**Vite**](https://vite.dev/) - Lightning-fast build tooling and development server
-- [**Hono**](https://hono.dev/) - Ultralight, modern backend framework
-- [**Cloudflare Workers**](https://developers.cloudflare.com/workers/) - Edge computing platform for global deployment
-
-### ✨ Key Features
-
-- 🔥 Hot Module Replacement (HMR) for rapid development
-- 📦 TypeScript support out of the box
-- 🛠️ ESLint configuration included
-- ⚡ Zero-config deployment to Cloudflare's global network
-- 🎯 API routes with Hono's elegant routing
-- 🔄 Full-stack development setup
-- 🔎 Built-in Observability to monitor your Worker
-
-Get started in minutes with local development or deploy directly via the Cloudflare dashboard. Perfect for building modern, performant web applications at the edge.
-
-<!-- dash-content-end -->
-
-## Getting Started
-
-To start a new project with this template, run:
-
-```bash
-npm create cloudflare@latest -- --template=cloudflare/templates/vite-react-template
-```
-
-A live deployment of this template is available at:
-[https://react-vite-template.templates.workers.dev](https://react-vite-template.templates.workers.dev)
+- [**React**](https://react.dev/) + [**Vite**](https://vite.dev/) — frontend, in `src/react-app/`
+- [**Hono**](https://hono.dev/) — backend on [**Cloudflare Workers**](https://developers.cloudflare.com/workers/), in `src/worker/`
+- **Cloudflare D1** — quiz content (categories, answers, typeahead reference data)
+- **Cloudflare KV** — per-device progress/streak state
 
 ## Development
 
@@ -48,13 +27,30 @@ Install dependencies:
 npm install
 ```
 
-Start the development server with:
+Start the frontend dev server:
 
 ```bash
 npm run dev
 ```
 
 Your application will be available at [http://localhost:5173](http://localhost:5173).
+
+For the full worker (API routes, D1, KV bindings) locally:
+
+```bash
+# Local D1 + KV (separate from production, stored under .wrangler/state):
+npx wrangler d1 execute tenable-content --local --file=./db/schema.sql
+npx wrangler d1 execute tenable-content --local --file=./db/seed.sql
+npx wrangler dev --port 8787   # http://localhost:8787
+```
+
+`wrangler dev` here runs against a prebuilt bundle (`dist/tenable/wrangler.json`),
+not `src/worker/` directly — always run `npm run build` before testing a
+worker-code change locally, or you'll silently get the stale bundle.
+
+```bash
+npm run lint
+```
 
 ## Production
 
@@ -70,13 +66,13 @@ Preview your build locally:
 npm run preview
 ```
 
-Deploy your project to Cloudflare Workers:
+**Deployment is not `npm run deploy`** — this project deploys via Cloudflare
+Workers Builds (Cloudflare's own Git integration; every push to `main` is
+auto-built and deployed by Cloudflare's infrastructure). See the Deployment
+section in [`agents.md`](./agents.md) for details on why, and why a GitHub
+Actions deploy step should not be re-added.
 
-```bash
-npm run build && npm run deploy
-```
-
-Monitor your workers:
+Monitor the live worker:
 
 ```bash
 npx wrangler tail

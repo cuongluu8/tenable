@@ -1,4 +1,5 @@
 import type { CategoryPublic } from "./types";
+import { toFtsPrefixQuery } from "./normalize";
 
 interface CategoryRow {
 	id: number;
@@ -137,30 +138,47 @@ export async function getAllAnswers(
 // entity_type, e.g. 'club' or 'player') so a player-guessing category never
 // suggests a club name and vice versa — matching the kind of answer a player
 // is actually looking for, without touching which guess is correct.
+//
+// The main match is `entity_search`, an FTS5 index (see schema.sql) that
+// tokenizes every canonical name on word boundaries, so a prefix query finds
+// ANY word in the name — "szo" finds "Dominik Szoboszlai" via its second
+// word — without a per-name alias row. The alias tables are still unioned in
+// on top of that, but only earn their keep for real nicknames that aren't a
+// substring of the canonical name at all ("psg", "barca", "vvd") — those
+// can't be derived by tokenizing the name, so they still need a curated row.
 export async function suggestNames(
 	db: D1Database,
 	normalizedPrefix: string,
 	entityType: string,
 	limit: number,
 ): Promise<string[]> {
+	const ftsQuery = toFtsPrefixQuery(normalizedPrefix);
+	if (!ftsQuery) return [];
+
 	const result = await db
 		.prepare(
 			`SELECT name FROM (
+				-- Tokenized full-text match: any word of the name, not just its start
+				SELECT name FROM entity_search
+				WHERE entity_search MATCH ?1 AND entity_type = ?3
+				UNION
+				-- Curated nickname aliases (answers)
 				SELECT a.canonical_name AS name
 				FROM answer_aliases al
 				JOIN answers a ON al.answer_id = a.id
 				JOIN categories c ON a.category_id = c.id
-				WHERE al.alias LIKE ?1 || '%' AND c.entity_type = ?2
+				WHERE al.alias LIKE ?2 || '%' AND c.entity_type = ?3
 				UNION
+				-- Curated nickname aliases (reference pool)
 				SELECT re.canonical_name AS name
 				FROM reference_entity_aliases rel
 				JOIN reference_entities re ON rel.entity_id = re.id
-				WHERE rel.alias LIKE ?1 || '%' AND re.entity_type = ?2
+				WHERE rel.alias LIKE ?2 || '%' AND re.entity_type = ?3
 			 )
 			 ORDER BY LENGTH(name) ASC, name ASC
-			 LIMIT ?3`,
+			 LIMIT ?4`,
 		)
-		.bind(normalizedPrefix, entityType, limit)
+		.bind(ftsQuery, normalizedPrefix, entityType, limit)
 		.all<{ name: string }>();
 	return (result.results ?? []).map((r) => r.name);
 }

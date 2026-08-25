@@ -93,23 +93,53 @@ pool before touching `answers` — the Libertadores category was expanded to
 
 This is implemented via `reference_entities` / `reference_entity_aliases`
 (see schema.sql) — a typeahead-only pool, decoupled from `answers`.
-`suggestNames()` (`src/worker/lib/categories.ts`) unions both
-`answer_aliases` and `reference_entity_aliases`, deduped by canonical name.
-`matchGuess` (guess validation/scoring) never reads these tables, so adding
-a name here can't make a wrong guess "count" — it only helps typing. Seeded
+`matchGuess` (guess validation/scoring) never reads these tables (or
+`entity_search`, below), so adding a name here can't make a wrong guess
+"count" — it only helps typing.
+
+**`suggestNames()` matches primarily through `entity_search`, an FTS5
+virtual table (added 2026-08-25), not through the alias tables.**
+`entity_search` indexes the canonical name of every `answers` row and every
+`reference_entities` row, tokenized on word boundaries (`unicode61
+remove_diacritics 2`), and is queried with a per-word prefix `MATCH` (see
+`toFtsPrefixQuery()` in `normalize.ts`) — so a search matches ANY word of a
+name, not just its start: typing "szo" finds "Dominik Szoboszlai" via its
+second word, with no alias row required. It's kept in sync automatically by
+triggers on `answers`, `reference_entities`, and `categories` (the last one
+matters: `categories.entity_type` can be corrected by an `UPDATE` *after*
+that category's answers already exist — seed.sql itself does this — and
+`entity_search` denormalizes `entity_type` onto each answer row, so without
+a trigger watching that `UPDATE` too, answers inserted before the fix-up
+would carry a stale type forever; don't drop that trigger when touching this
+area). `answer_aliases` / `reference_entity_aliases` are still unioned in on
+top of the FTS match, but only earn their keep now for genuine nicknames
+that aren't a substring of the canonical name at all and so can't be found
+by tokenizing it — "psg", "barca", "spurs", "vvd". A missing nickname alias
+is a minor, expected gap (add one if a real one is reported missing); it is
+**not** the same class of bug as a missing `reference_entity_aliases` row
+used to be before this change (see the incident below) — first/last-name
+search no longer depends on alias rows existing at all.
+
+**Adding a new `reference_entities` row (or answer) needs nothing beyond
+the plain `INSERT`** — the trigger populates `entity_search` for you. Only
+add alias rows for actual nicknames, not for the name itself or its parts.
+
+Seeded
 so far (see the bottom of `db/seed.sql`):
-- ~180 South American football clubs, `entity_type = 'club'` (current
-  top-flight rosters across the 10 CONMEBOL countries, `category` column
-  holds the country).
+- Several hundred football clubs, `entity_type = 'club'` (South American
+  top-flight rosters plus a full English/Scottish league expansion added
+  later, `category` column holds the country).
 - ~110 countries, `entity_type = 'country'` (UEFA + CAF members — scoped to
   the confederations the two 'country' categories actually cover, `category`
   column holds the confederation).
-- ~160 players, `entity_type = 'player'` (broadly recognizable
-  attackers/Ballon d'Or-calibre names across eras and nationalities,
-  `category` column holds nationality). **Explicitly not exhaustive** —
-  unlike the club/country lists (which are objectively bounded: "current
-  top-flight roster", "confederation members"), "notable players" has no
-  natural boundary. Expand as gaps show up rather than trying to front-load
+- **~7,800+ players and growing toward ~18,000**, `entity_type = 'player'`
+  (originally a curated ~160 broadly-recognizable Ballon d'Or-calibre names;
+  as of 2026-08-25 this is mid-expansion to a much broader "every player
+  since 1992" pool sourced from a cleaned FIFA 21 dataset — see "In-progress
+  player expansion" below). **Explicitly not exhaustive** — unlike the
+  club/country lists (which are objectively bounded: "current top-flight
+  roster", "confederation members"), "notable players" has no natural
+  boundary. Expand as gaps show up rather than trying to front-load
   completeness.
 
 This pool is **best-effort, not held to the same fact-checking bar as
@@ -119,13 +149,46 @@ entry here is a much smaller problem than an error in `answers`. Extend the
 same way for other regions/entity types as new categories get added — don't
 grow `answers` past its category's actual Top N to solve a typeahead gap.
 
-All three pools (club, country, player) are applied to production D1 and
-match `db/seed.sql` exactly — confirmed via
+**`db/seed.sql` and production D1 have diverged for `reference_entities`
+and no longer match 1:1.** The original intent (see git history) was that
+every reference-data addition gets appended to `seed.sql` and then mirrored
+to production by hand via the Cloudflare MCP `d1_database_query` tool. The
+large player-pool expansion (2026-08-25 onward, see below) broke that
+invariant: those batches were applied directly to production only, never
+back-ported into `seed.sql`, because the volume (17,000+ players across 70
+SQL files) made hand-editing `seed.sql` impractical mid-session. **Production
+D1 is the source of truth for the current reference-entity counts**, not
+`seed.sql` — confirm live counts via
 `SELECT entity_type, COUNT(*) FROM reference_entities GROUP BY entity_type;`
-(182 / 110 / 158) and the equivalent join through `reference_entity_aliases`
-(219 / 115 / 164). If a future reference-data batch is added to `seed.sql`
-without reaching production (e.g. an MCP auth expiry mid-apply, as happened
-once here), that query is the fast way to check before assuming it's done.
+rather than trusting numbers written here or in `seed.sql`. If you pick this
+back-porting work up, either bulk-append the executed batch files (see
+`db/pending_player_batches/` for the ones not yet run) into `seed.sql` in one
+pass, or explicitly decide `seed.sql`'s reference-entity section is legacy/
+bootstrap-only and stop treating it as authoritative — don't let it drift
+silently either way.
+
+### In-progress player expansion (started 2026-08-25)
+
+At the user's request ("I want every player since 1992"), the player
+typeahead pool is being expanded from ~160 curated names to ~17,577 real
+players, sourced from a cleaned FIFA 21 player dataset (EA's fabricated/
+placeholder players — an entire fake Brazilian Série A, detected via
+uniform-squad-size statistical fingerprinting — were filtered out first).
+Names are normalized and aliased to match `normalize()` in
+`src/worker/lib/normalize.ts`, deduped against pre-existing content, and
+split into 70 batch files of ~250 players each (sorted by FIFA overall
+rating descending, so the most recognizable players load first in case the
+job is interrupted). No bulk-upload API exists for D1 from this environment,
+so each batch is a separate `d1_database_query` MCP call.
+
+**Progress and exact resume instructions live in
+`db/pending_player_batches/PROGRESS.md`** — read that file before continuing
+this work in any new session. In short: batches up through the number still
+present in that directory (lowest-numbered `batch_NNN.sql` file) remain
+unexecuted; delete each one and commit the removal as you run it, so the
+directory's contents always reflect what's left. This is long-running,
+mechanical, multi-session work the user has explicitly authorized to
+completion — no need to re-ask before resuming it.
 
 **Type-scoped**: both `categories` and `reference_entities` carry an
 `entity_type` column (`'club'` | `'player'` | `'country'`, extend as new
@@ -162,6 +225,71 @@ factually contested (e.g. an appealed match result), leave it out of seed
 content rather than guess. See git history on `db/seed.sql` for precedent
 (PSG's Champions League tiebreak, the AFCON 2025/26 dispute left
 deliberately unmodeled).
+
+**A wrong answer is not a minor bug — a user found one in
+`pl-2025-26-top-scorers` (Antoine Semenyo missing from rank 3 entirely, fixed
+2026-08-25) and correctly called that out as disillusioning, not cosmetic.**
+Getting the Top 10 wrong is the one thing this app cannot do and still be
+trustworthy — a player who catches an error has no reason to believe *any*
+other category is right, which undermines the whole game, not just the one
+category. Two things follow from this:
+
+1. **When content is added or changed, verify every ranked entry it touches
+   against multiple independent, reputable sources before it goes live** —
+   not just the entry that prompted the change. A single source (including
+   this agent's own training knowledge, or one aggregator site synthesizing
+   a WebSearch answer) is not sufficient for anything from a real, checkable
+   season/tournament; cross-reference at least two independent outlets
+   (official league/competition sites, major sports media — AP, ESPN, Sky
+   Sports, BBC, NBC Sports, Yahoo Sports, etc.) and prefer ones that show
+   the same number from multiple angles (e.g. a full points table, not just
+   a headline claim). WebSearch result summaries can themselves lean on a
+   low-quality aggregator (seen in practice: a `yen.com.gh`-sourced summary
+   claiming a player had transferred clubs mid-search that better sources
+   didn't corroborate) — check which underlying source each claim actually
+   traces to, don't take the search tool's synthesized answer at face value.
+2. **After any bug report on `answers` content, don't just fix the one
+   reported item — audit the rest of that category, and give the other
+   time-sensitive categories (anything with "2025-26", "2026", or "through
+   <season>" in its subtitle) the same pass.** One bug found by a user is a
+   strong signal there may be others not yet found; a category-by-category
+   spot check (query production for the full category list, verify every
+   "current season" / "through <year>" category, not just the one reported)
+   is exactly what surfaced no further errors after the Semenyo incident —
+   that audit is the standard to repeat, not a one-time response. Categories
+   without a season/year in the subtitle (e.g. Ballon d'Or all-time wins,
+   Euro Championship by country through a named past tournament) are lower
+   risk since they don't require folding in a just-finished season, but
+   still worth a quick sanity check when touching content generally.
+
+**Incident that motivated `entity_search` (2026-08-25):** a user reported
+Dominik Szoboszlai missing from typeahead despite Liverpool's current squad
+supposedly being covered. At the time, `suggestNames()` only ever matched
+through `reference_entity_aliases`/`answer_aliases` — never `canonical_name`
+directly — so a `reference_entities` row with zero alias rows was invisible
+forever, with no error anywhere: the `INSERT` into `reference_entities`
+succeeds, the follow-up alias `INSERT` can silently not happen (wrong join
+key, a step that was never written, a batch that only did half the job),
+and nothing surfaces it except a player noticing a name doesn't
+autocomplete. Auditing the actual scope (not just the one reported player)
+found **199 players and 157 clubs** — effectively every current-season
+Premier League squad member plus every top-flight club across the big five
+leagues and more — with no aliases at all, plus 65 exact-duplicate club rows
+from a batch that had evidently run twice. That was patched in production
+the same day (aliases backfilled, duplicates deleted), but the *fix that
+actually matters* was structural: `suggestNames()` was rebuilt around
+`entity_search` (see above) so first/last-name matching no longer depends
+on any alias row existing in the first place — the bug class, not just this
+instance of it, is closed. If you're ever debugging a "can't find this name"
+report again, confirm `entity_search` actually contains the row and that
+its `entity_type` matches what's being searched for:
+```sql
+SELECT * FROM entity_search WHERE entity_search MATCH 'yourprefix*';
+```
+An empty result there (rather than a missing alias) is now the thing to
+chase — e.g. a trigger that didn't fire, or a bulk load that wrote
+`reference_entities` some other way than a plain `INSERT` (bypassing the
+trigger).
 
 **Production D1 is not auto-applied from `db/seed.sql`.** Workers Builds
 (see Deployment) only builds and deploys the Worker/frontend code — it does

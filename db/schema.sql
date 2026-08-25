@@ -60,3 +60,80 @@ CREATE TABLE IF NOT EXISTS reference_entity_aliases (
 CREATE INDEX IF NOT EXISTS idx_reference_entities_category ON reference_entities(category);
 CREATE INDEX IF NOT EXISTS idx_reference_entity_aliases_entity ON reference_entity_aliases(entity_id);
 CREATE INDEX IF NOT EXISTS idx_reference_entity_aliases_alias ON reference_entity_aliases(alias);
+
+-- Full-text search index backing suggestNames() typeahead. Indexes the
+-- canonical name of every answer and every reference_entities row, tokenized
+-- on word boundaries (unicode61, diacritics stripped) so a prefix query
+-- matches ANY word in the name, not just its start — "szo" finds "Dominik
+-- Szoboszlai", "arnold" finds "Trent Alexander-Arnold" — with no per-name
+-- alias row required. That's the fix for a whole class of bug found
+-- 2026-08-25: an answer_aliases/reference_entity_aliases row is still the
+-- only way to match a name that ISN'T a substring of canonical_name at all
+-- (a real nickname — "psg", "barca", "vvd" — not derivable by tokenizing the
+-- name itself), so those alias tables stay and suggestNames() still unions
+-- them in; they're just no longer required just to make first/last-name
+-- search work.
+--
+-- Not "external content" FTS5 (which ties the index to exactly one source
+-- table) because this indexes two: answers and reference_entities. Kept in
+-- sync by the triggers below instead — INSERT/UPDATE/DELETE on either source
+-- table mirrors into entity_search. `source`/`source_id` identify which row
+-- produced an entity_search row (for the DELETE side of an UPDATE); neither
+-- is otherwise used by suggestNames() and both are UNINDEXED (stored, not
+-- full-text-searched), same as entity_type.
+CREATE VIRTUAL TABLE IF NOT EXISTS entity_search USING fts5(
+	name,
+	entity_type UNINDEXED,
+	source UNINDEXED,
+	source_id UNINDEXED,
+	tokenize = 'unicode61 remove_diacritics 2'
+);
+
+CREATE TRIGGER IF NOT EXISTS entity_search_answers_ai AFTER INSERT ON answers BEGIN
+	INSERT INTO entity_search (name, entity_type, source, source_id)
+	SELECT NEW.canonical_name, c.entity_type, 'answer', NEW.id
+	FROM categories c WHERE c.id = NEW.category_id;
+END;
+
+CREATE TRIGGER IF NOT EXISTS entity_search_answers_au AFTER UPDATE ON answers BEGIN
+	DELETE FROM entity_search WHERE source = 'answer' AND source_id = OLD.id;
+	INSERT INTO entity_search (name, entity_type, source, source_id)
+	SELECT NEW.canonical_name, c.entity_type, 'answer', NEW.id
+	FROM categories c WHERE c.id = NEW.category_id;
+END;
+
+CREATE TRIGGER IF NOT EXISTS entity_search_answers_ad AFTER DELETE ON answers BEGIN
+	DELETE FROM entity_search WHERE source = 'answer' AND source_id = OLD.id;
+END;
+
+-- entity_search denormalizes categories.entity_type onto every one of that
+-- category's answer rows (so a lookup never needs to join out to categories
+-- just to filter by type). That denormalization goes stale if a category's
+-- entity_type is corrected *after* its answers already exist — which seed.sql
+-- itself does (categories are inserted with entity_type defaulting to
+-- 'club', then `UPDATE categories SET entity_type = 'player' WHERE slug IN
+-- (...)` fixes up player/country categories afterward) — so this trigger is
+-- required, not optional, for entity_search to end up correct even on a
+-- fresh seed.
+CREATE TRIGGER IF NOT EXISTS entity_search_categories_au AFTER UPDATE OF entity_type ON categories BEGIN
+	DELETE FROM entity_search WHERE source = 'answer'
+		AND source_id IN (SELECT id FROM answers WHERE category_id = NEW.id);
+	INSERT INTO entity_search (name, entity_type, source, source_id)
+	SELECT canonical_name, NEW.entity_type, 'answer', id
+	FROM answers WHERE category_id = NEW.id;
+END;
+
+CREATE TRIGGER IF NOT EXISTS entity_search_reference_ai AFTER INSERT ON reference_entities BEGIN
+	INSERT INTO entity_search (name, entity_type, source, source_id)
+	VALUES (NEW.canonical_name, NEW.entity_type, 'reference', NEW.id);
+END;
+
+CREATE TRIGGER IF NOT EXISTS entity_search_reference_au AFTER UPDATE ON reference_entities BEGIN
+	DELETE FROM entity_search WHERE source = 'reference' AND source_id = OLD.id;
+	INSERT INTO entity_search (name, entity_type, source, source_id)
+	VALUES (NEW.canonical_name, NEW.entity_type, 'reference', NEW.id);
+END;
+
+CREATE TRIGGER IF NOT EXISTS entity_search_reference_ad AFTER DELETE ON reference_entities BEGIN
+	DELETE FROM entity_search WHERE source = 'reference' AND source_id = OLD.id;
+END;
