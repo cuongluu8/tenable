@@ -125,6 +125,12 @@ export async function getAllAnswers(
 // category's names/aliases, not just the one being played — scoping it to
 // the current category would turn "which names autocomplete" into a list of
 // the correct answers. This only helps with spelling, not with cheating.
+//
+// Also unions in `reference_entities` — real names that aren't necessarily a
+// correct answer anywhere (e.g. clubs that have never won the category
+// they'd be guessed in). That keeps the answer set itself bounded (Top N)
+// while letting players type/select any real name, right or wrong. See the
+// "Generic rule" section in agents.md.
 export async function suggestNames(
 	db: D1Database,
 	normalizedPrefix: string,
@@ -132,14 +138,21 @@ export async function suggestNames(
 ): Promise<string[]> {
 	const result = await db
 		.prepare(
-			`SELECT DISTINCT a.canonical_name
-			 FROM answer_aliases al
-			 JOIN answers a ON al.answer_id = a.id
-			 WHERE al.alias LIKE ?1 || '%'
-			 ORDER BY LENGTH(a.canonical_name) ASC, a.canonical_name ASC
+			`SELECT name FROM (
+				SELECT a.canonical_name AS name
+				FROM answer_aliases al
+				JOIN answers a ON al.answer_id = a.id
+				WHERE al.alias LIKE ?1 || '%'
+				UNION
+				SELECT re.canonical_name AS name
+				FROM reference_entity_aliases rel
+				JOIN reference_entities re ON rel.entity_id = re.id
+				WHERE rel.alias LIKE ?1 || '%'
+			 )
+			 ORDER BY LENGTH(name) ASC, name ASC
 			 LIMIT ?2`,
 		)
 		.bind(normalizedPrefix, limit)
-		.all<{ canonical_name: string }>();
-	return (result.results ?? []).map((r) => r.canonical_name);
+		.all<{ name: string }>();
+	return (result.results ?? []).map((r) => r.name);
 }
