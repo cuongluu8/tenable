@@ -137,6 +137,9 @@ export async function getAllAnswers(
 // entity_type, e.g. 'club' or 'player') so a player-guessing category never
 // suggests a club name and vice versa — matching the kind of answer a player
 // is actually looking for, without touching which guess is correct.
+//
+// Searches both aliases AND canonical names so any name is findable by
+// typing its first or last name, not just pre-defined aliases.
 export async function suggestNames(
 	db: D1Database,
 	normalizedPrefix: string,
@@ -145,17 +148,30 @@ export async function suggestNames(
 ): Promise<string[]> {
 	const result = await db
 		.prepare(
-			`SELECT name FROM (
+			`SELECT DISTINCT name FROM (
+				-- Answer aliases
 				SELECT a.canonical_name AS name
 				FROM answer_aliases al
 				JOIN answers a ON al.answer_id = a.id
 				JOIN categories c ON a.category_id = c.id
 				WHERE al.alias LIKE ?1 || '%' AND c.entity_type = ?2
 				UNION
+				-- Answer canonical names (direct prefix match)
+				SELECT a.canonical_name AS name
+				FROM answers a
+				JOIN categories c ON a.category_id = c.id
+				WHERE a.canonical_name LIKE ?1 || '%' AND c.entity_type = ?2
+				UNION
+				-- Reference pool aliases
 				SELECT re.canonical_name AS name
 				FROM reference_entity_aliases rel
 				JOIN reference_entities re ON rel.entity_id = re.id
 				WHERE rel.alias LIKE ?1 || '%' AND re.entity_type = ?2
+				UNION
+				-- Reference pool canonical names (direct prefix match)
+				SELECT re.canonical_name AS name
+				FROM reference_entities re
+				WHERE re.canonical_name LIKE ?1 || '%' AND re.entity_type = ?2
 			 )
 			 ORDER BY LENGTH(name) ASC, name ASC
 			 LIMIT ?3`,
