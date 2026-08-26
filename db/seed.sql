@@ -361,7 +361,7 @@ INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
 
 INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
 	((SELECT id FROM categories WHERE slug = 'pl-2025-26-top-scorers'), 1, 'Erling Haaland', '27'),
-	((SELECT id FROM categories WHERE slug = 'pl-2025-26-top-scorers'), 2, 'Thiago', '22'),
+	((SELECT id FROM categories WHERE slug = 'pl-2025-26-top-scorers'), 2, 'Igor Thiago', '22'),
 	((SELECT id FROM categories WHERE slug = 'pl-2025-26-top-scorers'), 3, 'Antoine Semenyo', '17'),
 	((SELECT id FROM categories WHERE slug = 'pl-2025-26-top-scorers'), 4, 'Ollie Watkins', '16'),
 	((SELECT id FROM categories WHERE slug = 'pl-2025-26-top-scorers'), 5, 'Joao Pedro', '15'),
@@ -379,6 +379,9 @@ INSERT INTO answer_aliases (answer_id, alias)
 	WHERE c.slug = 'pl-2025-26-top-scorers' AND a.rank = 1;
 INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'thiago' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-2025-26-top-scorers' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'igor thiago' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'pl-2025-26-top-scorers' AND a.rank = 2;
 INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'antoine semenyo' FROM answers a JOIN categories c ON a.category_id = c.id
