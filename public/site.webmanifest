@@ -1,0 +1,13 @@
+{
+	"name": "Tenable — Top 10 Football Trivia",
+	"short_name": "Tenable",
+	"description": "Top 10 football trivia — guess the answers to Top 10 lists across Premier League, Champions League, World Cup and more.",
+	"icons": [
+		{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+		{ "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+	],
+	"theme_color": "#14181f",
+	"background_color": "#14181f",
+	"display": "standalone",
+	"start_url": "/"
+}
