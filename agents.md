@@ -298,6 +298,53 @@ applied to production D1 by hand via the Cloudflare MCP `d1_database_query`
 tool, mirroring whatever changed in `db/seed.sql`. If that ever changes (e.g.
 a migration step gets added to the build), update this paragraph.
 
+**Incident: an answer's name silently drifting from its reference-pool
+counterpart (2026-08-26).** A user guessed "Igor Thiago" in
+`pl-2025-26-top-scorers` and was told he wasn't on the list, despite
+genuinely being rank 2 — the answer's `canonical_name` had been entered as
+just "Thiago" (a name shared by many players in the reference pool), so a
+correctly-spelled guess of his real name never matched any alias. The same
+mismatch also made typeahead show what looked like two different people for
+one real player, since the answer row and the reference-pool row disagreed
+on the name string and so didn't collapse into a single suggestion. A
+follow-up manual audit (comparing every answer's aliases against
+`reference_entity_aliases` for an unambiguous same-alias owner with a
+different name) found two more live instances the same day (Daniel Welbeck
+vs. the real "Danny Welbeck"; Raul Gonzalez vs. the reference pool's
+"Raul") — then, once that audit was turned into a real script and run
+against the *entire* answer set (not just the categories that prompted the
+report), it found two more genuine mismatches (Bournemouth/Brighton's
+`answers.canonical_name` using the common short club name while their
+`reference_entities` row used the fuller official name) alongside several
+confirmed-different-people alias collisions that are fine as-is (Tim vs.
+Gary Cahill, Andy Cole vs. Ashley Cole, etc. — see `KNOWN_COLLISIONS` in the
+script below).
+
+**`npm run verify:name-sync` (`scripts/verify-name-sync.ts`) is the standing
+check for this bug class, and it runs in CI on every push/PR to `main`** —
+same enforcement pattern as `verify:matching` below, for the same reason: a
+manual audit someone claims to have done is not a guarantee the next
+category addition won't reintroduce this. **Whenever a new category (or new
+answers in an existing one) is added, this must pass before it's considered
+done** — it's not an optional follow-up step. What it checks: for every
+answer, if one of its aliases is *unambiguously* claimed by exactly one
+`reference_entities` row (i.e. no other real entity in the pool shares that
+alias) and that row's `canonical_name` differs from the answer's own, that's
+flagged as a likely same-entity mismatch needing a fix — *unless* it's
+already in the script's `KNOWN_COLLISIONS` allowlist as a confirmed
+different real person/club that happens to share a surname or short name
+(e.g. Tim Cahill vs. Gary Cahill). When it fires on something new: **first
+figure out whether it's actually the same real-world entity** (the honest
+default assumption — that's what it was in 3 of the 5 categories of finding
+uncovered so far) **or a genuine different-entity collision.** Same entity →
+sync the names (pick whichever form the game already uses as its
+convention for that kind of entity — e.g. bare mononyms like "Pele"/"Raul"
+for players known that way, short common club names like "Bournemouth" over
+"AFC Bournemouth" to match how every other club in that category is
+named — and add any alias forms that changed) and re-run both `verify:matching`
+and `verify:name-sync`. Confirmed different entity → add one line to
+`KNOWN_COLLISIONS` with the reason, don't touch the data.
+
 ## Local development
 
 ```
@@ -312,6 +359,7 @@ npx wrangler dev --port 8787   # full worker + bindings, http://localhost:8787
 npm run lint
 npm run build             # tsc -b && vite build
 npm run verify:matching   # re-seed local D1 first — see scripts/verify-guess-matching.ts
+npm run verify:name-sync # re-seed local D1 first — see scripts/verify-name-sync.ts
 npm run playtest          # self-resets local D1 + KV — see scripts/playtest.ts
 ```
 
@@ -321,6 +369,14 @@ canonical name actually matches one of its own aliases (the class of bug that sh
 times in production before this existed — see git history around 2026-08-26), and no two
 different answers in the same category collapse to the same alias. A passing run is not
 optional evidence you can skip and still claim you checked — it's the actual check.
+
+**Run `npm run verify:name-sync` after any change to `db/seed.sql`'s answers, and always
+when adding a new category — this is a required step, not an optional one.** It checks
+every answer's `canonical_name` against `reference_entities` for the same real-world entity
+under an unambiguous shared alias, catching the class of bug where an answer's name has
+drifted from (or was entered wrong relative to) its reference-pool counterpart — see the
+incident writeup in "Content accuracy" above for what this looks like in practice and how to
+resolve a finding. **This also runs in CI** (`.github/workflows/ci.yml`).
 
 **Run `npm run playtest` before merging any change touching a route, `matchGuess()`,
 `normalize.ts`, `suggestNames()`, or `db/seed.sql`.** It's a black-box end-to-end test —

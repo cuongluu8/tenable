@@ -9,9 +9,14 @@ name: CI
 # KV, no Cloudflare credentials needed — `--local` mode never talks to the
 # real account) through every category the way an actual player would,
 # deliberately using obscure aliases, mixed case, and punctuation swapped
-# between space/hyphen to try to break guess matching. See
-# scripts/playtest.ts and scripts/verify-guess-matching.ts for what each
-# check actually asserts, and agents.md for how to run both locally.
+# between space/hyphen to try to break guess matching. verify-name-sync
+# catches a related but different bug class: an answer whose canonical name
+# has drifted from the same real person/club's reference_entities row (e.g.
+# "Thiago" vs. the real "Igor Thiago"), which can both silently reject a
+# correctly-spelled guess and make one entity look like two in typeahead.
+# See scripts/playtest.ts, scripts/verify-guess-matching.ts, and
+# scripts/verify-name-sync.ts for what each check actually asserts, and
+# agents.md for how to run all three locally.
 
 on:
   push:
@@ -52,6 +57,9 @@ jobs:
 
       - name: Verify guess-matching correctness (all answers/aliases)
         run: npm run verify:matching
+
+      - name: Verify answer names stay in sync with the reference pool
+        run: npm run verify:name-sync
 
       - name: Playtest every category end to end
         run: npm run playtest
