@@ -96,20 +96,24 @@ export async function matchGuess(
 	// always includes the full normalized name as one of a name's aliases.
 	//
 	// The fallback OR clause is a safety net found 2026-08-26: normalize()
-	// strips punctuation (including hyphens) without inserting a space, so
-	// "Paris Saint-Germain" normalizes to "paris saintgermain" (one merged
-	// word) — but the alias seed data for that answer only had "paris
-	// saint-germain" (hyphen kept literally) and "paris saint germain"
-	// (space kept), neither of which is what a real guess ever normalizes
-	// to. Selecting the exact suggestion text from the typeahead reproduced
-	// it directly. That specific gap is backfilled in seed.sql, but the
-	// same authoring mistake is easy to repeat for the next hyphenated name
-	// added, so this also compares both sides with spaces AND hyphens
-	// stripped entirely — "paris saint-germain", "paris saint germain" and
-	// "paris saintgermain" all collapse to the same "parissaintgermain" —
-	// as a second-chance match when the exact-normalized-form alias wasn't
-	// authored. Purely additive (only ever matches more, never less), and
-	// scoped to this one category's answers like the exact match already is.
+	// strips ALL punctuation without ever inserting a space, so any
+	// canonical name with a punctuation-joined word boundary — a hyphen
+	// ("Paris Saint-Germain" -> "paris saintgermain"), an ampersand
+	// ("Oleg Salenko & Hristo Stoichkov" -> "oleg salenko hristo
+	// stoichkov", both halves collapsed into one phrase since the spaces
+	// around the "&" survive but the "&" itself doesn't) — normalizes a
+	// real guess (including one selected verbatim off the typeahead, which
+	// is exactly how the PSG case was first reported) to a form that isn't
+	// guaranteed to be among that answer's authored aliases unless someone
+	// remembered to add that *exact* collapsed spelling by hand. Audited
+	// every answer in the database for this on 2026-08-26 and found two
+	// real gaps (PSG, Karl-Heinz Rummenigge — both backfilled in seed.sql);
+	// this compares both sides with spaces AND the handful of word-joining
+	// punctuation marks seen in this data (hyphen, ampersand) stripped
+	// entirely, so the same authoring mistake on the next name like this
+	// doesn't silently reject a correct guess again. Purely additive (only
+	// ever matches more, never less), and scoped to this one category's
+	// answers like the exact match already is.
 	//
 	// A handful of categories are "one row per occurrence" rather than "one
 	// row per entity" — e.g. a World Cup Golden Boot winner who won it in
@@ -132,7 +136,8 @@ export async function matchGuess(
 			 WHERE a.category_id = ?
 			   AND (
 			     al.alias = ?
-			     OR REPLACE(REPLACE(al.alias, ' ', ''), '-', '') = REPLACE(?, ' ', '')
+			     OR REPLACE(REPLACE(REPLACE(al.alias, ' ', ''), '-', ''), '&', '')
+			        = REPLACE(REPLACE(REPLACE(?, ' ', ''), '-', ''), '&', '')
 			   )
 			 ORDER BY (a.rank IN (${foundList})) ASC
 			 LIMIT 1`,
