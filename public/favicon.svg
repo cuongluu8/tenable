@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+	<!-- Static (unanimated) rendering of src/react-app/components/Logo.tsx's
+	     badge, for use as a favicon/app icon — its animations are driven
+	     entirely by App.css classes, which aren't loaded in this context, so
+	     this is the same markup with those classes and the animated shine
+	     sweep dropped (a favicon should be a clean, resting mark, not a
+	     frozen frame of a sweep) and currentColor resolved to a literal
+	     color (no .logo { color } to inherit from here). Keep this in sync
+	     by hand if Logo.tsx's shape data ever changes. -->
+	<defs>
+		<linearGradient id="logoStroke" x1="0" y1="0" x2="1" y2="1">
+			<stop offset="0%" stop-color="#bbf7d0" />
+			<stop offset="55%" stop-color="#4ade80" />
+			<stop offset="100%" stop-color="#16a34a" />
+		</linearGradient>
+	</defs>
+	<circle cx="60" cy="60" r="52" stroke="url(#logoStroke)" stroke-width="3" />
+	<g transform="translate(8 28) scale(1.13)" stroke="url(#logoStroke)" stroke-linecap="round" stroke-linejoin="round">
+		<path d="M11 17 20 7 20 51M11 51 29 51" stroke-width="5" />
+		<circle cx="64" cy="29" r="21" stroke-width="4.5" />
+		<path d="M64 21.3 71.3 26.6 68.5 35.2 59.5 35.2 56.7 26.6Z" stroke-width="3" fill="#4ade80" fill-opacity="0.15" />
+		<path
+			d="M64 21.3 64 8M71.3 26.6 84 22.5M68.5 35.2 76.4 46M59.5 35.2 51.7 46M56.7 26.6 44 22.5"
+			stroke-width="3"
+		/>
+	</g>
+</svg>
