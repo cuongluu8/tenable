@@ -9,52 +9,99 @@
 	margin-bottom: 1.5rem;
 }
 .logo {
-	width: 4.5rem;
+	width: 5.5rem;
 	height: auto;
 	color: #4ade80;
 	margin-bottom: 0.35rem;
-	/* Faint lift off the dark background — restrained, not a heavy glow. */
-	filter: drop-shadow(0 0 10px rgba(74, 222, 128, 0.35));
+	/* Restrained resting glow — the breathing animation below pulses this,
+	   but this static value is also what prefers-reduced-motion falls back
+	   to, so it has to look right standing alone too. */
+	filter: drop-shadow(0 0 8px rgba(74, 222, 128, 0.35));
+	animation: logo-glow 4s ease-in-out infinite;
 }
+@keyframes logo-glow {
+	0%,
+	100% {
+		filter: drop-shadow(0 0 8px rgba(74, 222, 128, 0.35));
+	}
+	50% {
+		filter: drop-shadow(0 0 16px rgba(74, 222, 128, 0.6));
+	}
+}
+
+/* Entrance: the rim scales up from a slight shrink and fades in first,
+   before any of the mark inside it starts drawing — reads as the badge
+   "arriving" a beat ahead of its own detail. */
+.logo__ring {
+	transform-box: fill-box;
+	transform-origin: center;
+	opacity: 0;
+	animation: logo-ring-in 0.6s ease-out forwards;
+}
+@keyframes logo-ring-in {
+	from {
+		opacity: 0;
+		transform: scale(0.7);
+	}
+	to {
+		opacity: 1;
+		transform: scale(1);
+	}
+}
+
 /* Draw-in: each stroke reveals from stroke-dashoffset rather than just
    appearing, staggered digit → ball rim → panel → spokes so the mark reads
-   as sketching itself in one fluid motion. 320 is a round number safely
-   longer than any of these paths' real length (the longest, the outer
-   circle, is ~132) — dasharray only needs to be "long enough", the visual
-   result is identical whether it's exactly the path length or generously
-   over it. */
+   as sketching itself in one fluid motion, starting once the rim has
+   mostly arrived.
+   dasharray/dashoffset are each element's own measured path length
+   (via getTotalLength() — 75.5/131.1/45.1/66.7, rounded up a touch for a
+   safety margin), not a shared round number. A dasharray much longer than
+   the real path — the initial version of this used 320 for everything —
+   makes the "gap" segment of the dash pattern far longer than the path
+   itself, so nearly the whole reveal collapses into nothing right after
+   the animation-delay fires instead of drawing smoothly across the
+   declared duration. Caught only by reading the animations back with
+   getAnimations()/currentTime seeking, not by eyeballing the CSS. */
 .logo__digit,
 .logo__ball-outline,
 .logo__ball-panel,
 .logo__ball-spokes {
-	stroke-dasharray: 320;
-	stroke-dashoffset: 320;
 	animation: logo-draw 0.9s ease-out forwards;
 }
 .logo__digit {
-	animation-delay: 0s;
+	stroke-dasharray: 76;
+	stroke-dashoffset: 76;
+	animation-delay: 0.35s;
 }
 .logo__ball-outline {
-	animation-delay: 0.15s;
+	stroke-dasharray: 132;
+	stroke-dashoffset: 132;
+	animation-delay: 0.5s;
 }
 .logo__ball-panel {
-	animation-delay: 0.5s;
-	/* The panel's fill would otherwise sit fully visible under its own
-	   still-drawing outline — fade it in over the same window instead. */
-	animation: logo-draw 0.9s ease-out forwards, logo-fill-in 0.5s ease-out 0.5s forwards;
+	stroke-dasharray: 46;
+	stroke-dashoffset: 46;
+	/* Both delays have to be written inside this shorthand, not as a
+	   separate animation-delay — the `animation` shorthand resets every
+	   longhand in the group it covers, so a delay set outside it here would
+	   silently get reset back to 0 for the first (undelayed-looking)
+	   animation. Also caught via getAnimations(), not by reading the CSS. */
+	animation: logo-draw 0.9s ease-out 0.85s forwards, logo-fill-in 0.5s ease-out 0.85s forwards;
 	fill-opacity: 0;
 }
 .logo__ball-spokes {
-	animation-delay: 0.6s;
+	stroke-dasharray: 68;
+	stroke-dashoffset: 68;
+	animation-delay: 0.95s;
 }
 /* Only the ball spins — the "1" stays put, which is what keeps this
    reading as a numeral instead of a spinning number. Starts once the
-   draw-in has finished (spokes finish at 0.6s + 0.9s ≈ 1.5s). */
+   draw-in has finished (spokes finish at 0.95s + 0.9s ≈ 1.85s). */
 .logo__ball {
 	transform-box: fill-box;
 	transform-origin: center;
 	animation: logo-spin 20s linear infinite;
-	animation-delay: 1.5s;
+	animation-delay: 1.9s;
 }
 @keyframes logo-draw {
 	to {
@@ -71,7 +118,41 @@
 		transform: rotate(360deg);
 	}
 }
+
+/* Periodic shine: a soft skewed highlight sweeps across the badge (clipped
+   to its rim, see Logo.tsx) every 5s — a quick glint, then a long pause,
+   not a constant scroll. Resting position is off-canvas left so there's no
+   flash-of-shine before the animation engine has picked this up. */
+.logo__shine {
+	transform: translateX(-70px) skewX(-20deg);
+	animation: logo-shine 5s ease-in-out infinite;
+	animation-delay: 2s;
+	/* Screen-blend so the highlight brightens the mark's own strokes as it
+	   crosses them, not just the dark gaps around them (that's what makes
+	   this read as light hitting the badge, rather than a white bar drawn
+	   on top of it). */
+	mix-blend-mode: screen;
+}
+@keyframes logo-shine {
+	0% {
+		transform: translateX(-70px) skewX(-20deg);
+	}
+	14% {
+		transform: translateX(220px) skewX(-20deg);
+	}
+	100% {
+		transform: translateX(220px) skewX(-20deg);
+	}
+}
+
 @media (prefers-reduced-motion: reduce) {
+	.logo {
+		animation: none;
+	}
+	.logo__ring {
+		opacity: 1;
+		animation: none;
+	}
 	.logo__digit,
 	.logo__ball-outline,
 	.logo__ball-panel,
@@ -84,6 +165,10 @@
 	}
 	.logo__ball {
 		animation: none;
+	}
+	.logo__shine {
+		animation: none;
+		transform: translateX(-70px) skewX(-20deg); /* parked off-canvas — no static glint */
 	}
 }
 .header h1 {
