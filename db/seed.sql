@@ -368,7 +368,7 @@ INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
 	((SELECT id FROM categories WHERE slug = 'pl-2025-26-top-scorers'), 6, 'Morgan Gibbs-White', '15'),
 	((SELECT id FROM categories WHERE slug = 'pl-2025-26-top-scorers'), 7, 'Viktor Gyokeres', '14'),
 	((SELECT id FROM categories WHERE slug = 'pl-2025-26-top-scorers'), 8, 'Dominic Calvert-Lewin', '14'),
-	((SELECT id FROM categories WHERE slug = 'pl-2025-26-top-scorers'), 9, 'Daniel Welbeck', '13'),
+	((SELECT id FROM categories WHERE slug = 'pl-2025-26-top-scorers'), 9, 'Danny Welbeck', '13'),
 	((SELECT id FROM categories WHERE slug = 'pl-2025-26-top-scorers'), 10, 'Eli Kroupi', '13');
 
 INSERT INTO answer_aliases (answer_id, alias)
@@ -424,6 +424,9 @@ INSERT INTO answer_aliases (answer_id, alias)
 	WHERE c.slug = 'pl-2025-26-top-scorers' AND a.rank = 9;
 INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'welbeck' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-2025-26-top-scorers' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'danny welbeck' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'pl-2025-26-top-scorers' AND a.rank = 9;
 INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'eli kroupi' FROM answers a JOIN categories c ON a.category_id = c.id
@@ -957,7 +960,7 @@ INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
 	((SELECT id FROM categories WHERE slug = 'cl-alltime-top-scorers'), 2, 'Lionel Messi', '129'),
 	((SELECT id FROM categories WHERE slug = 'cl-alltime-top-scorers'), 3, 'Robert Lewandowski', '106'),
 	((SELECT id FROM categories WHERE slug = 'cl-alltime-top-scorers'), 4, 'Karim Benzema', '90'),
-	((SELECT id FROM categories WHERE slug = 'cl-alltime-top-scorers'), 5, 'Raul Gonzalez', '71'),
+	((SELECT id FROM categories WHERE slug = 'cl-alltime-top-scorers'), 5, 'Raul', '71'),
 	((SELECT id FROM categories WHERE slug = 'cl-alltime-top-scorers'), 6, 'Kylian Mbappe', '70'),
 	((SELECT id FROM categories WHERE slug = 'cl-alltime-top-scorers'), 7, 'Thomas Muller', '56'),
 	((SELECT id FROM categories WHERE slug = 'cl-alltime-top-scorers'), 8, 'Ruud van Nistelrooy', '56'),
