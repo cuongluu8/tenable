@@ -49,12 +49,12 @@ export function GuessInput({ value, onChange, onPick, disabled, categorySlug }: 
 	const [dismissed, setDismissed] = useState(false);
 	const [highlight, setHighlight] = useState(-1);
 	const [dropdownRect, setDropdownRect] = useState<DropdownRect | null>(null);
-	// The query whose response is currently reflected in `suggestions` (or
-	// that a request has definitively finished for, on error). Compared
-	// against the live `query` below to derive `loading` — that avoids a
-	// separate "am I loading" flag we'd otherwise have to set synchronously
-	// inside the effect body just to mirror state we already have.
-	const [resolvedQuery, setResolvedQuery] = useState("");
+	// True once a suggestion request has actually been dispatched and hasn't
+	// resolved yet — set right when the fetch fires (after the debounce
+	// delay), not while the debounce timer is still counting down, so the
+	// skeleton reflects "we're asking the server", not "you're still
+	// typing".
+	const [loading, setLoading] = useState(false);
 	const requestId = useRef(0);
 	const inputRef = useRef<HTMLInputElement>(null);
 	// Picking a suggestion changes `value` too (it fills the input), which
@@ -62,11 +62,6 @@ export function GuessInput({ value, onChange, onPick, disabled, categorySlug }: 
 	const justPickedRef = useRef(false);
 
 	const query = value.trim();
-	// A request for the current query hasn't resolved yet — covers both the
-	// debounce delay and the fetch itself, so the dropdown can open with a
-	// "still searching" skeleton as soon as the player has typed enough,
-	// rather than sitting empty/closed until the response lands.
-	const loading = query.length >= 2 && resolvedQuery !== query;
 	const visible = !dismissed && query.length >= 2 && (suggestions.length > 0 || loading);
 
 	// Scrolls the input into the safe zone as soon as it's focused — before
@@ -134,19 +129,19 @@ export function GuessInput({ value, onChange, onPick, disabled, categorySlug }: 
 
 		const id = ++requestId.current;
 		const timer = setTimeout(() => {
+			setLoading(true); // the request is actually going out now
 			const params = new URLSearchParams({ q: query, category: categorySlug });
 			fetch(`/api/suggest?${params}`)
 				.then((res) => (res.ok ? (res.json() as Promise<{ suggestions: string[] }>) : null))
 				.then((data) => {
-					if (id !== requestId.current) return; // stale response — a newer request owns resolution
-					setResolvedQuery(query);
-					if (!data) return; // request failed — leave suggestions as-is, just stop showing loading
+					if (!data || id !== requestId.current) return; // stale response
 					setSuggestions(data.suggestions);
 					setDismissed(false);
 					setHighlight(-1);
 				})
-				.catch(() => {
-					if (id === requestId.current) setResolvedQuery(query);
+				.catch(() => {})
+				.finally(() => {
+					if (id === requestId.current) setLoading(false); // guard: a newer request may already own loading
 				});
 		}, DEBOUNCE_MS);
 
