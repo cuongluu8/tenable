@@ -227,11 +227,25 @@ async function startDevServer(): Promise<ChildProcess> {
 	execFileSync("npm", ["run", "build"], { cwd: REPO_ROOT, stdio: "inherit" });
 
 	console.log(`Starting wrangler dev on port ${PORT}...`);
-	const child = spawn("npx", ["wrangler", "dev", "--port", String(PORT)], {
-		cwd: REPO_ROOT,
-		stdio: ["ignore", "pipe", "pipe"],
-		detached: true,
-	});
+	// --local and --show-interactive-dev-session=false explicitly, rather
+	// than relying on wrangler's own non-TTY autodetection: this process's
+	// stdio is piped/ignored, not a real terminal, and on a fresh CI runner
+	// (no prior wrangler config, real unrestricted internet access, unlike
+	// this sandbox's proxy that fails fast) that autodetection is exactly
+	// the kind of thing that behaves differently than it does locally —
+	// found live as a run that hung for 9+ minutes in GitHub Actions after
+	// passing every earlier step (including an earlier `wrangler d1
+	// execute` call, so it wasn't a first-ever-invocation config prompt)
+	// while finishing in ~60s every time locally.
+	const child = spawn(
+		"npx",
+		["wrangler", "dev", "--port", String(PORT), "--local", "--show-interactive-dev-session=false"],
+		{
+			cwd: REPO_ROOT,
+			stdio: ["ignore", "pipe", "pipe"],
+			detached: true,
+		},
+	);
 	let output = "";
 	child.stdout?.on("data", (d) => (output += d.toString()));
 	child.stderr?.on("data", (d) => (output += d.toString()));

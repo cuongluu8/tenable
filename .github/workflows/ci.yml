@@ -22,6 +22,13 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    # A hang here should fail loudly within a bounded window, not run until
+    # GitHub's default 6-hour job timeout — found live: the first real run
+    # of this workflow hung on the playtest step for 9+ minutes (wrangler
+    # dev behaving differently on a fresh runner than it does locally; see
+    # scripts/playtest.ts's startDevServer for the actual fix) with nothing
+    # to distinguish "hung" from "just slow" until someone went and checked.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
