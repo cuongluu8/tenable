@@ -8,14 +8,37 @@
 	text-align: center;
 	margin-bottom: 1.5rem;
 }
+.logo {
+	width: 4.5rem;
+	height: auto;
+	color: #4ade80;
+	margin-bottom: 0.35rem;
+	/* Faint lift off the dark background — restrained, not a heavy glow. */
+	filter: drop-shadow(0 0 10px rgba(74, 222, 128, 0.35));
+}
 .header h1 {
 	margin: 0;
-	font-size: 2.4rem;
-	letter-spacing: -0.02em;
+	font-size: 2.6rem;
+	font-weight: 800;
+	letter-spacing: -0.03em;
+	color: #4ade80; /* fallback if background-clip: text isn't supported */
+}
+/* Gradient wordmark — layered over the plain fallback color above so a
+   browser without background-clip: text support still gets solid, legible
+   text instead of accidentally-transparent text. */
+@supports (background-clip: text) or (-webkit-background-clip: text) {
+	.header h1 {
+		background: linear-gradient(135deg, #bbf7d0 0%, #4ade80 55%, #16a34a 100%);
+		-webkit-background-clip: text;
+		background-clip: text;
+		color: transparent;
+	}
 }
 .subtitle {
-	margin: 0.25rem 0 0;
+	margin: 0.4rem 0 0;
 	color: #9ca3af;
+	font-size: 0.95rem;
+	letter-spacing: 0.03em;
 }
 .streak {
 	margin: 0.5rem 0 0;
