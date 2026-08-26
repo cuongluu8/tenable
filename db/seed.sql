@@ -2217,6 +2217,328 @@ UPDATE categories SET entity_type = 'player' WHERE slug IN (
 	'wc-recent-golden-boot'
 );
 
+-- Categories 22-26: top 10 Premier-League-only goalscorers (not all
+-- competitions) for five clubs. Every single figure below was individually
+-- verified via web search rather than recalled — general "top scorer"
+-- listicles kept conflating all-competition club totals with PL-only
+-- totals (e.g. one source's "185 goals" for Ian Wright was his Arsenal
+-- all-comp tally; his real PL-only total, used here, is 104), so each name
+-- was confirmed with its own targeted query. Two clubs have a genuine tie
+-- for their final spot, broken by recency (matching this app's existing
+-- tie-break convention elsewhere, e.g. ucl-titles-by-club): Arsenal's Saka
+-- and Sanchez both on 60, Man City's Jesus and Tevez both on 58.
+--
+-- Category 22: Arsenal
+INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
+	('arsenal-pl-top-scorers', 'Top 10 Arsenal Premier League goalscorers', 'By Premier League goals only (not all competitions), through the 2025-26 season. Saka and Sanchez are tied on 60 — ties broken by recency.', 'goals');
+
+INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
+	((SELECT id FROM categories WHERE slug = 'arsenal-pl-top-scorers'), 1, 'Thierry Henry', '175'),
+	((SELECT id FROM categories WHERE slug = 'arsenal-pl-top-scorers'), 2, 'Ian Wright', '104'),
+	((SELECT id FROM categories WHERE slug = 'arsenal-pl-top-scorers'), 3, 'Robin van Persie', '96'),
+	((SELECT id FROM categories WHERE slug = 'arsenal-pl-top-scorers'), 4, 'Dennis Bergkamp', '87'),
+	((SELECT id FROM categories WHERE slug = 'arsenal-pl-top-scorers'), 5, 'Olivier Giroud', '73'),
+	((SELECT id FROM categories WHERE slug = 'arsenal-pl-top-scorers'), 6, 'Pierre-Emerick Aubameyang', '68'),
+	((SELECT id FROM categories WHERE slug = 'arsenal-pl-top-scorers'), 7, 'Theo Walcott', '65'),
+	((SELECT id FROM categories WHERE slug = 'arsenal-pl-top-scorers'), 8, 'Robert Pires', '62'),
+	((SELECT id FROM categories WHERE slug = 'arsenal-pl-top-scorers'), 9, 'Bukayo Saka', '60'),
+	((SELECT id FROM categories WHERE slug = 'arsenal-pl-top-scorers'), 10, 'Alexis Sanchez', '60');
+
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'thierry henry' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'arsenal-pl-top-scorers' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'henry' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'arsenal-pl-top-scorers' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'ian wright' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'arsenal-pl-top-scorers' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'wright' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'arsenal-pl-top-scorers' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'robin van persie' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'arsenal-pl-top-scorers' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'van persie' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'arsenal-pl-top-scorers' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'rvp' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'arsenal-pl-top-scorers' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'dennis bergkamp' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'arsenal-pl-top-scorers' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'bergkamp' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'arsenal-pl-top-scorers' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'olivier giroud' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'arsenal-pl-top-scorers' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'giroud' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'arsenal-pl-top-scorers' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'pierreemerick aubameyang' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'arsenal-pl-top-scorers' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'aubameyang' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'arsenal-pl-top-scorers' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'auba' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'arsenal-pl-top-scorers' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'theo walcott' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'arsenal-pl-top-scorers' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'walcott' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'arsenal-pl-top-scorers' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'robert pires' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'arsenal-pl-top-scorers' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'pires' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'arsenal-pl-top-scorers' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'bukayo saka' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'arsenal-pl-top-scorers' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'saka' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'arsenal-pl-top-scorers' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'alexis sanchez' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'arsenal-pl-top-scorers' AND a.rank = 10;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'sanchez' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'arsenal-pl-top-scorers' AND a.rank = 10;
+
+-- Category 23: Liverpool
+INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
+	('liverpool-pl-top-scorers', 'Top 10 Liverpool Premier League goalscorers', 'By Premier League goals only (not all competitions), through the 2025-26 season.', 'goals');
+
+INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
+	((SELECT id FROM categories WHERE slug = 'liverpool-pl-top-scorers'), 1, 'Mohamed Salah', '191'),
+	((SELECT id FROM categories WHERE slug = 'liverpool-pl-top-scorers'), 2, 'Robbie Fowler', '128'),
+	((SELECT id FROM categories WHERE slug = 'liverpool-pl-top-scorers'), 3, 'Steven Gerrard', '120'),
+	((SELECT id FROM categories WHERE slug = 'liverpool-pl-top-scorers'), 4, 'Michael Owen', '118'),
+	((SELECT id FROM categories WHERE slug = 'liverpool-pl-top-scorers'), 5, 'Sadio Mane', '90'),
+	((SELECT id FROM categories WHERE slug = 'liverpool-pl-top-scorers'), 6, 'Roberto Firmino', '82'),
+	((SELECT id FROM categories WHERE slug = 'liverpool-pl-top-scorers'), 7, 'Luis Suarez', '69'),
+	((SELECT id FROM categories WHERE slug = 'liverpool-pl-top-scorers'), 8, 'Fernando Torres', '65'),
+	((SELECT id FROM categories WHERE slug = 'liverpool-pl-top-scorers'), 9, 'Dirk Kuyt', '51'),
+	((SELECT id FROM categories WHERE slug = 'liverpool-pl-top-scorers'), 10, 'Daniel Sturridge', '50');
+
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'mohamed salah' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'liverpool-pl-top-scorers' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'salah' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'liverpool-pl-top-scorers' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'mo salah' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'liverpool-pl-top-scorers' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'robbie fowler' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'liverpool-pl-top-scorers' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'fowler' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'liverpool-pl-top-scorers' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'steven gerrard' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'liverpool-pl-top-scorers' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'gerrard' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'liverpool-pl-top-scorers' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'michael owen' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'liverpool-pl-top-scorers' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'owen' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'liverpool-pl-top-scorers' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'sadio mane' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'liverpool-pl-top-scorers' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'mane' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'liverpool-pl-top-scorers' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'roberto firmino' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'liverpool-pl-top-scorers' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'firmino' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'liverpool-pl-top-scorers' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'luis suarez' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'liverpool-pl-top-scorers' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'suarez' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'liverpool-pl-top-scorers' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'fernando torres' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'liverpool-pl-top-scorers' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'torres' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'liverpool-pl-top-scorers' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'dirk kuyt' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'liverpool-pl-top-scorers' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'kuyt' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'liverpool-pl-top-scorers' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'daniel sturridge' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'liverpool-pl-top-scorers' AND a.rank = 10;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'sturridge' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'liverpool-pl-top-scorers' AND a.rank = 10;
+
+-- Category 24: Everton
+INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
+	('everton-pl-top-scorers', 'Top 10 Everton Premier League goalscorers', 'By Premier League goals only (not all competitions), through the 2025-26 season.', 'goals');
+
+INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
+	((SELECT id FROM categories WHERE slug = 'everton-pl-top-scorers'), 1, 'Romelu Lukaku', '68'),
+	((SELECT id FROM categories WHERE slug = 'everton-pl-top-scorers'), 2, 'Duncan Ferguson', '60'),
+	((SELECT id FROM categories WHERE slug = 'everton-pl-top-scorers'), 3, 'Dominic Calvert-Lewin', '57'),
+	((SELECT id FROM categories WHERE slug = 'everton-pl-top-scorers'), 4, 'Tim Cahill', '56'),
+	((SELECT id FROM categories WHERE slug = 'everton-pl-top-scorers'), 5, 'Kevin Campbell', '45'),
+	((SELECT id FROM categories WHERE slug = 'everton-pl-top-scorers'), 6, 'Leon Osman', '44'),
+	((SELECT id FROM categories WHERE slug = 'everton-pl-top-scorers'), 7, 'Leighton Baines', '29'),
+	((SELECT id FROM categories WHERE slug = 'everton-pl-top-scorers'), 8, 'Louis Saha', '27'),
+	((SELECT id FROM categories WHERE slug = 'everton-pl-top-scorers'), 9, 'Marouane Fellaini', '25'),
+	((SELECT id FROM categories WHERE slug = 'everton-pl-top-scorers'), 10, 'Graham Stuart', '22');
+
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'romelu lukaku' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'everton-pl-top-scorers' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'lukaku' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'everton-pl-top-scorers' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'duncan ferguson' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'everton-pl-top-scorers' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'ferguson' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'everton-pl-top-scorers' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'big dunc' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'everton-pl-top-scorers' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'dominic calvertlewin' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'everton-pl-top-scorers' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'calvertlewin' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'everton-pl-top-scorers' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'calvert lewin' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'everton-pl-top-scorers' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'tim cahill' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'everton-pl-top-scorers' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'cahill' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'everton-pl-top-scorers' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'kevin campbell' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'everton-pl-top-scorers' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'campbell' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'everton-pl-top-scorers' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'leon osman' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'everton-pl-top-scorers' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'osman' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'everton-pl-top-scorers' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'leighton baines' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'everton-pl-top-scorers' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'baines' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'everton-pl-top-scorers' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'louis saha' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'everton-pl-top-scorers' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'saha' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'everton-pl-top-scorers' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'marouane fellaini' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'everton-pl-top-scorers' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'fellaini' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'everton-pl-top-scorers' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'graham stuart' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'everton-pl-top-scorers' AND a.rank = 10;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'stuart' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'everton-pl-top-scorers' AND a.rank = 10;
+
+-- Category 25: Manchester United
+INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
+	('man-utd-pl-top-scorers', 'Top 10 Manchester United Premier League goalscorers', 'By Premier League goals only (not all competitions), through the 2025-26 season. Van Persie edges Dwight Yorke (both retired on 48) for the final spot — ties broken by recency.', 'goals');
+
+INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
+	((SELECT id FROM categories WHERE slug = 'man-utd-pl-top-scorers'), 1, 'Wayne Rooney', '183'),
+	((SELECT id FROM categories WHERE slug = 'man-utd-pl-top-scorers'), 2, 'Ruud van Nistelrooy', '150'),
+	((SELECT id FROM categories WHERE slug = 'man-utd-pl-top-scorers'), 3, 'Ryan Giggs', '109'),
+	((SELECT id FROM categories WHERE slug = 'man-utd-pl-top-scorers'), 4, 'Paul Scholes', '107'),
+	((SELECT id FROM categories WHERE slug = 'man-utd-pl-top-scorers'), 5, 'Cristiano Ronaldo', '103'),
+	((SELECT id FROM categories WHERE slug = 'man-utd-pl-top-scorers'), 6, 'Andy Cole', '93'),
+	((SELECT id FROM categories WHERE slug = 'man-utd-pl-top-scorers'), 7, 'Ole Gunnar Solskjaer', '91'),
+	((SELECT id FROM categories WHERE slug = 'man-utd-pl-top-scorers'), 8, 'Marcus Rashford', '87'),
+	((SELECT id FROM categories WHERE slug = 'man-utd-pl-top-scorers'), 9, 'Eric Cantona', '70'),
+	((SELECT id FROM categories WHERE slug = 'man-utd-pl-top-scorers'), 10, 'Robin van Persie', '48');
+
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'wayne rooney' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-utd-pl-top-scorers' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'rooney' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-utd-pl-top-scorers' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'ruud van nistelrooy' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-utd-pl-top-scorers' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'van nistelrooy' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-utd-pl-top-scorers' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'nistelrooy' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-utd-pl-top-scorers' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'ryan giggs' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-utd-pl-top-scorers' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'giggs' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-utd-pl-top-scorers' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'paul scholes' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-utd-pl-top-scorers' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'scholes' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-utd-pl-top-scorers' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'cristiano ronaldo' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-utd-pl-top-scorers' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'ronaldo' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-utd-pl-top-scorers' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'cr7' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-utd-pl-top-scorers' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'andy cole' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-utd-pl-top-scorers' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'cole' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-utd-pl-top-scorers' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'ole gunnar solskjaer' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-utd-pl-top-scorers' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'solskjaer' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-utd-pl-top-scorers' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'marcus rashford' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-utd-pl-top-scorers' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'rashford' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-utd-pl-top-scorers' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'eric cantona' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-utd-pl-top-scorers' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'cantona' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-utd-pl-top-scorers' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'robin van persie' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-utd-pl-top-scorers' AND a.rank = 10;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'van persie' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-utd-pl-top-scorers' AND a.rank = 10;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'rvp' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-utd-pl-top-scorers' AND a.rank = 10;
+
+-- Category 26: Manchester City
+INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
+	('man-city-pl-top-scorers', 'Top 10 Manchester City Premier League goalscorers', 'By Premier League goals only (not all competitions), through the 2025-26 season. Jesus edges Tevez (both on 58) for 8th — ties broken by recency.', 'goals');
+
+INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
+	((SELECT id FROM categories WHERE slug = 'man-city-pl-top-scorers'), 1, 'Sergio Aguero', '184'),
+	((SELECT id FROM categories WHERE slug = 'man-city-pl-top-scorers'), 2, 'Erling Haaland', '105'),
+	((SELECT id FROM categories WHERE slug = 'man-city-pl-top-scorers'), 3, 'Raheem Sterling', '85'),
+	((SELECT id FROM categories WHERE slug = 'man-city-pl-top-scorers'), 4, 'Kevin De Bruyne', '72'),
+	((SELECT id FROM categories WHERE slug = 'man-city-pl-top-scorers'), 5, 'Yaya Toure', '62'),
+	((SELECT id FROM categories WHERE slug = 'man-city-pl-top-scorers'), 6, 'Phil Foden', '61'),
+	((SELECT id FROM categories WHERE slug = 'man-city-pl-top-scorers'), 7, 'David Silva', '60'),
+	((SELECT id FROM categories WHERE slug = 'man-city-pl-top-scorers'), 8, 'Gabriel Jesus', '58'),
+	((SELECT id FROM categories WHERE slug = 'man-city-pl-top-scorers'), 9, 'Carlos Tevez', '58'),
+	((SELECT id FROM categories WHERE slug = 'man-city-pl-top-scorers'), 10, 'Edin Dzeko', '50');
+
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'sergio aguero' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-city-pl-top-scorers' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'aguero' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-city-pl-top-scorers' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'erling haaland' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-city-pl-top-scorers' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'haaland' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-city-pl-top-scorers' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'raheem sterling' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-city-pl-top-scorers' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'sterling' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-city-pl-top-scorers' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'kevin de bruyne' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-city-pl-top-scorers' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'de bruyne' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-city-pl-top-scorers' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'kdb' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-city-pl-top-scorers' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'yaya toure' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-city-pl-top-scorers' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'toure' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-city-pl-top-scorers' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'phil foden' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-city-pl-top-scorers' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'foden' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-city-pl-top-scorers' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'david silva' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-city-pl-top-scorers' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'silva' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-city-pl-top-scorers' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'gabriel jesus' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-city-pl-top-scorers' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'jesus' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-city-pl-top-scorers' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'carlos tevez' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-city-pl-top-scorers' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'tevez' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-city-pl-top-scorers' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'edin dzeko' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-city-pl-top-scorers' AND a.rank = 10;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'dzeko' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'man-city-pl-top-scorers' AND a.rank = 10;
+
+UPDATE categories SET entity_type = 'player' WHERE slug IN (
+	'arsenal-pl-top-scorers',
+	'liverpool-pl-top-scorers',
+	'everton-pl-top-scorers',
+	'man-utd-pl-top-scorers',
+	'man-city-pl-top-scorers'
+);
+
 -- Reference countries: typeahead-only pool of national teams for
 -- 'country' categories (Euro/AFCON winners), scoped to UEFA + CAF membership
 -- (the confederations those categories actually cover). Same rules as the
