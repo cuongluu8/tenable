@@ -41,7 +41,8 @@
 		"dev": "vite",
 		"lint": "eslint .",
 		"preview": "npm run build && vite preview",
-		"verify:matching": "node --experimental-strip-types scripts/verify-guess-matching.ts"
+		"verify:matching": "node --experimental-strip-types scripts/verify-guess-matching.ts",
+		"playtest": "node --experimental-strip-types scripts/playtest.ts"
 	},
 	"type": "module"
 }
