@@ -6551,6 +6551,89 @@ INSERT INTO reference_entity_aliases (entity_id, alias)
 SELECT re.id, v.alias FROM v
 JOIN reference_entities re ON re.canonical_name = v.name AND re.entity_type = 'club';
 
+-- Spanish clubs beyond the current (2025-26) La Liga top flight — found
+-- 2026-08-26 via a report that Deportivo La Coruna (La Liga champions
+-- 1999-2000, UCL semi-finalists 2004, the "Super Depor" era) was missing
+-- from typeahead. The existing Spain club pool (see the block above near
+-- the England/Italy/Germany 2025-26 clubs) was exactly and only that
+-- season's 20 top-flight teams — unlike England's pool, which already goes
+-- well beyond the current Premier League into well-known clubs that aren't
+-- top-flight right now (Sunderland, Leeds, Sheffield Wednesday, etc.).
+-- This closes that gap for Spain: major/historic clubs with real name
+-- recognition, not currently in the 2025-26 top flight. Typeahead-only, so
+-- being generous with "well-known enough to include" here doesn't touch
+-- correctness the way it would for an actual Top-10 answer.
+INSERT INTO reference_entities (canonical_name, category, entity_type) VALUES
+	('Deportivo La Coruna', 'Spain', 'club'),
+	('Malaga', 'Spain', 'club'),
+	('Real Zaragoza', 'Spain', 'club'),
+	('Real Valladolid', 'Spain', 'club'),
+	('Sporting Gijon', 'Spain', 'club'),
+	('Racing Santander', 'Spain', 'club'),
+	('Cadiz', 'Spain', 'club'),
+	('Almeria', 'Spain', 'club'),
+	('Las Palmas', 'Spain', 'club'),
+	('Granada', 'Spain', 'club'),
+	('Eibar', 'Spain', 'club'),
+	('Leganes', 'Spain', 'club'),
+	('Huesca', 'Spain', 'club'),
+	('Numancia', 'Spain', 'club'),
+	('Real Murcia', 'Spain', 'club'),
+	('Hercules', 'Spain', 'club'),
+	('Tenerife', 'Spain', 'club'),
+	('Cordoba', 'Spain', 'club'),
+	('Recreativo Huelva', 'Spain', 'club');
+
+WITH v(name, alias) AS (VALUES
+	('Deportivo La Coruna', 'deportivo la coruna'),
+	('Deportivo La Coruna', 'deportivo'),
+	('Deportivo La Coruna', 'depor'),
+	('Deportivo La Coruna', 'la coruna'),
+	('Deportivo La Coruna', 'rc deportivo'),
+	('Malaga', 'malaga'),
+	('Malaga', 'malaga cf'),
+	('Real Zaragoza', 'real zaragoza'),
+	('Real Zaragoza', 'zaragoza'),
+	('Real Valladolid', 'real valladolid'),
+	('Real Valladolid', 'valladolid'),
+	('Sporting Gijon', 'sporting gijon'),
+	('Sporting Gijon', 'sporting de gijon'),
+	('Sporting Gijon', 'gijon'),
+	('Racing Santander', 'racing santander'),
+	('Racing Santander', 'racing de santander'),
+	('Racing Santander', 'racing'),
+	('Cadiz', 'cadiz'),
+	('Cadiz', 'cadiz cf'),
+	('Almeria', 'almeria'),
+	('Almeria', 'ud almeria'),
+	('Las Palmas', 'las palmas'),
+	('Las Palmas', 'ud las palmas'),
+	('Granada', 'granada'),
+	('Granada', 'granada cf'),
+	('Eibar', 'eibar'),
+	('Eibar', 'sd eibar'),
+	('Leganes', 'leganes'),
+	('Leganes', 'cd leganes'),
+	('Huesca', 'huesca'),
+	('Huesca', 'sd huesca'),
+	('Numancia', 'numancia'),
+	('Numancia', 'cd numancia'),
+	('Real Murcia', 'real murcia'),
+	('Real Murcia', 'murcia'),
+	('Hercules', 'hercules'),
+	('Hercules', 'hercules cf'),
+	('Tenerife', 'tenerife'),
+	('Tenerife', 'cd tenerife'),
+	('Cordoba', 'cordoba'),
+	('Cordoba', 'cordoba cf'),
+	('Recreativo Huelva', 'recreativo'),
+	('Recreativo Huelva', 'recreativo de huelva'),
+	('Recreativo Huelva', 'huelva')
+)
+INSERT INTO reference_entity_aliases (entity_id, alias)
+SELECT re.id, v.alias FROM v
+JOIN reference_entities re ON re.canonical_name = v.name AND re.category = 'Spain' AND re.entity_type = 'club';
+
 -- No manual entity_search backfill needed here: the triggers in schema.sql
 -- populate it as a side effect of the INSERT/UPDATE statements above (each
 -- `INSERT INTO answers`/`reference_entities` and each
