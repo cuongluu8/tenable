@@ -2220,6 +2220,15 @@ INSERT INTO answer_aliases (answer_id, alias)
 INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'stoichkov' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'wc-recent-golden-boot' AND a.rank = 9;
+-- Same normalize()-collapses-punctuation gap as Paris Saint-Germain, found
+-- by the same 2026-08-26 database-wide audit — this canonical name is
+-- 'Oleg Salenko & Hristo Stoichkov' (a tied Golden Boot), which normalizes
+-- to 'oleg salenko hristo stoichkov' (the '&' vanishes, its surrounding
+-- spaces survive and merge). Neither surname alone is that string, so the
+-- exact combined form needs its own alias too.
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'oleg salenko hristo stoichkov' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-recent-golden-boot' AND a.rank = 9;
 INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'salvatore schillaci' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'wc-recent-golden-boot' AND a.rank = 10;
