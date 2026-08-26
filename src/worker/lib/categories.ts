@@ -12,22 +12,24 @@ interface CategoryRow {
 
 interface CategoryRowWithCount extends CategoryRow {
 	answer_count: number;
+	group_label: string;
 }
 
-// The full category library, in a stable order — every category is playable
-// any time (no per-day gating), so this is what powers the "pick a category"
-// list on the client.
+// The full category library, grouped for the "pick a category" list on the
+// client (see schema.sql's group_label/group_order) — categories stay in id
+// order within a group, so adding a new one to an existing group is just an
+// UPDATE, never a reshuffle of the others.
 export async function getAllCategories(
 	db: D1Database,
 ): Promise<CategoryRowWithCount[]> {
 	const result = await db
 		.prepare(
-			`SELECT c.id, c.slug, c.title, c.subtitle, c.stat_label,
+			`SELECT c.id, c.slug, c.title, c.subtitle, c.stat_label, c.group_label,
 			        COUNT(a.id) as answer_count
 			 FROM categories c
 			 LEFT JOIN answers a ON a.category_id = c.id
 			 GROUP BY c.id
-			 ORDER BY c.id ASC`,
+			 ORDER BY c.group_order ASC, c.id ASC`,
 		)
 		.all<CategoryRowWithCount>();
 	return result.results ?? [];

@@ -2539,6 +2539,48 @@ UPDATE categories SET entity_type = 'player' WHERE slug IN (
 	'man-city-pl-top-scorers'
 );
 
+-- Category list groups (see schema.sql's group_label/group_order): now that
+-- the library has grown to 26 categories, the client sections the "pick a
+-- category" list under these headings instead of one long flat list.
+-- Every category gets an explicit group — none are left on the
+-- 'All-Time Records' default by omission, it's assigned here like the rest
+-- so a future reviewer doesn't have to guess whether a slug's group was a
+-- deliberate choice or a forgotten one.
+UPDATE categories SET group_label = 'This Season', group_order = 0 WHERE slug IN (
+	'pl-2025-26-top-scorers',
+	'pl-2025-26-final-table',
+	'la-liga-2025-26-table',
+	'serie-a-2025-26-table',
+	'bundesliga-2025-26-table',
+	'cl-2025-26-top-scorers',
+	'wc-2026-top-scorers'
+);
+UPDATE categories SET group_label = 'Club Goalscorers', group_order = 1 WHERE slug IN (
+	'arsenal-pl-top-scorers',
+	'liverpool-pl-top-scorers',
+	'everton-pl-top-scorers',
+	'man-utd-pl-top-scorers',
+	'man-city-pl-top-scorers'
+);
+UPDATE categories SET group_label = 'Recent Winners', group_order = 2 WHERE slug IN (
+	'pl-recent-title-managers',
+	'ucl-recent-unique-winners',
+	'wc-recent-golden-boot'
+);
+UPDATE categories SET group_label = 'All-Time Records', group_order = 3 WHERE slug IN (
+	'ucl-titles-by-club',
+	'ballon-dor-most-wins',
+	'euro-titles-by-country',
+	'afcon-titles-by-country',
+	'wc-alltime-goalscorers',
+	'pl-alltime-top-scorers',
+	'cl-alltime-top-scorers',
+	'serie-a-alltime-titles',
+	'english-top-flight-alltime-titles',
+	'copa-libertadores-alltime-titles',
+	'pl-alltime-appearances'
+);
+
 -- Reference countries: typeahead-only pool of national teams for
 -- 'country' categories (Euro/AFCON winners), scoped to UEFA + CAF membership
 -- (the confederations those categories actually cover). Same rules as the

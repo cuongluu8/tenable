@@ -10,10 +10,21 @@ CREATE TABLE IF NOT EXISTS categories (
 	subtitle TEXT,                   -- optional extra context shown in the UI
 	stat_label TEXT NOT NULL,        -- e.g. "goals" — shown next to each revealed answer
 	scheduled_date TEXT UNIQUE,      -- YYYY-MM-DD, the day this category is "today's puzzle"
-	entity_type TEXT NOT NULL DEFAULT 'club'
+	entity_type TEXT NOT NULL DEFAULT 'club',
 		-- what kind of thing every answer in this category is: 'club', 'player',
 		-- or 'country' (extend as new category shapes are added). Used to scope
 		-- typeahead suggestions to the same kind of thing — see suggestNames().
+	group_label TEXT NOT NULL DEFAULT 'All-Time Records',
+		-- heading the category list groups under on the client, e.g.
+		-- "This Season", "Club Goalscorers" — purely presentational, doesn't
+		-- affect play. Free-form text, not an enum, same rationale as
+		-- entity_type: adding a new section is just a new label, no migration.
+	group_order INTEGER NOT NULL DEFAULT 0
+		-- display order of group_label sections on the client (ascending);
+		-- categories within a group stay in id order. Ties within the same
+		-- group_order are harmless (falls back to id), but every category in
+		-- one section should share the same group_order or the section will
+		-- render out of its intended position.
 );
 
 CREATE TABLE IF NOT EXISTS answers (
