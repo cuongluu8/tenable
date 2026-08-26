@@ -227,16 +227,22 @@ async function startDevServer(): Promise<ChildProcess> {
 	execFileSync("npm", ["run", "build"], { cwd: REPO_ROOT, stdio: "inherit" });
 
 	console.log(`Starting wrangler dev on port ${PORT}...`);
-	// --local and --show-interactive-dev-session=false explicitly, rather
-	// than relying on wrangler's own non-TTY autodetection: this process's
-	// stdio is piped/ignored, not a real terminal, and on a fresh CI runner
-	// (no prior wrangler config, real unrestricted internet access, unlike
-	// this sandbox's proxy that fails fast) that autodetection is exactly
-	// the kind of thing that behaves differently than it does locally —
-	// found live as a run that hung for 9+ minutes in GitHub Actions after
-	// passing every earlier step (including an earlier `wrangler d1
-	// execute` call, so it wasn't a first-ever-invocation config prompt)
-	// while finishing in ~60s every time locally.
+	// --local and --show-interactive-dev-session=false: explicit rather than
+	// relying on wrangler's own non-TTY autodetection, since this process's
+	// stdio is piped/ignored, not a real terminal. Not fixing an actual bug
+	// (see below) — just removing an assumption this doesn't need to make.
+	//
+	// CI runs this whole suite in ~2.5-4 minutes (~4s/category over a real
+	// HTTP round trip on a shared runner, vs. ~2.3s locally) — noted here
+	// because an *early* run of this workflow looked hung well past that
+	// window, and it wasn't: GitHub's per-step job status (what
+	// list_workflow_jobs reports) lagged the actual run by several minutes,
+	// so polling it made two runs that were either already finished or
+	// progressing completely normally look stuck, and got them cancelled
+	// for nothing. The run-level status/conclusion (list_workflow_runs) and
+	// the actual job logs (get_job_logs) both correctly showed a clean
+	// "playtest: OK" pass at the true completion time. If a future run
+	// looks stuck, check those before assuming a hang and cancelling it.
 	const child = spawn(
 		"npx",
 		["wrangler", "dev", "--port", String(PORT), "--local", "--show-interactive-dev-session=false"],
