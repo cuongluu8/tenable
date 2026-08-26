@@ -29,7 +29,13 @@ suggest.get("/", async (c) => {
 		return c.json({ suggestions: [] });
 	}
 
-	const suggestions = await suggestNames(c.env.DB, prefix, category.entity_type, MAX_RESULTS);
+	const suggestions = await suggestNames(
+		c.env.DB,
+		prefix,
+		category.entity_type,
+		MAX_RESULTS,
+		category.reference_scope,
+	);
 	return c.json({ suggestions });
 });
 

@@ -19,12 +19,27 @@ CREATE TABLE IF NOT EXISTS categories (
 		-- "This Season", "Club Goalscorers" — purely presentational, doesn't
 		-- affect play. Free-form text, not an enum, same rationale as
 		-- entity_type: adding a new section is just a new label, no migration.
-	group_order INTEGER NOT NULL DEFAULT 0
+	group_order INTEGER NOT NULL DEFAULT 0,
 		-- display order of group_label sections on the client (ascending);
 		-- categories within a group stay in id order. Ties within the same
 		-- group_order are harmless (falls back to id), but every category in
 		-- one section should share the same group_order or the section will
 		-- render out of its intended position.
+	reference_scope TEXT
+		-- optional reference_entities.category value (e.g. 'Spain', 'England')
+		-- this category's answers belong to. NULL means "no single scope" —
+		-- e.g. a pan-European or all-time-across-many-countries category —
+		-- and suggestNames() falls back to its previous global-reference
+		-- behavior. Set only on single-country club-table categories (found
+		-- 2026-08-26: searching "re" while playing La Liga returned Remo,
+		-- Rennes, Reading, Recoleta — clubs from four other countries —
+		-- ahead of Real Oviedo, an actual 2025-26 La Liga club, because the
+		-- reference pool was searched globally with no notion of which
+		-- country's clubs this category's answers are drawn from; see
+		-- suggestNames() for how this narrows that without hiding the rest
+		-- of the world's names entirely, which would remove the
+		-- "type any name for spelling help" behavior that global search was
+		-- deliberately built for).
 );
 
 CREATE TABLE IF NOT EXISTS answers (

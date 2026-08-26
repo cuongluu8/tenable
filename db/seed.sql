@@ -2581,6 +2581,23 @@ UPDATE categories SET group_label = 'All-Time Records', group_order = 3 WHERE sl
 	'pl-alltime-appearances'
 );
 
+-- Reference scope (see schema.sql's reference_scope, added 2026-08-26 after
+-- a report that typing a real La Liga club into the guess box during that
+-- category often didn't surface it): single-country club-table categories
+-- get the matching reference_entities.category value, so suggestNames()
+-- ranks that country's reference clubs ahead of same-length/shorter clubs
+-- from every other country in the (otherwise global) reference pool.
+-- Deliberately NOT set on pan-European or multi-country all-time
+-- categories (UCL winners, Copa Libertadores, Serie A/English top-flight
+-- all-time titles span many eras' worth of clubs, not one current table) —
+-- those keep the previous unscoped behavior.
+UPDATE categories SET reference_scope = 'England' WHERE slug = 'pl-2025-26-final-table';
+UPDATE categories SET reference_scope = 'Spain' WHERE slug = 'la-liga-2025-26-table';
+UPDATE categories SET reference_scope = 'Italy' WHERE slug = 'serie-a-2025-26-table';
+UPDATE categories SET reference_scope = 'Germany' WHERE slug = 'bundesliga-2025-26-table';
+UPDATE categories SET reference_scope = 'Italy' WHERE slug = 'serie-a-alltime-titles';
+UPDATE categories SET reference_scope = 'England' WHERE slug = 'english-top-flight-alltime-titles';
+
 -- Reference countries: typeahead-only pool of national teams for
 -- 'country' categories (Euro/AFCON winners), scoped to UEFA + CAF membership
 -- (the confederations those categories actually cover). Same rules as the

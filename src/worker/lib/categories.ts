@@ -8,6 +8,7 @@ interface CategoryRow {
 	subtitle: string | null;
 	stat_label: string;
 	entity_type: string;
+	reference_scope: string | null;
 }
 
 interface CategoryRowWithCount extends CategoryRow {
@@ -41,7 +42,7 @@ export async function getCategoryBySlug(
 ): Promise<CategoryRow | null> {
 	const row = await db
 		.prepare(
-			`SELECT id, slug, title, subtitle, stat_label, entity_type
+			`SELECT id, slug, title, subtitle, stat_label, entity_type, reference_scope
 			 FROM categories WHERE slug = ?`,
 		)
 		.bind(slug)
@@ -165,24 +166,38 @@ export async function getAllAnswers(
 // substring of the canonical name at all ("psg", "barca", "vvd") — those
 // can't be derived by tokenizing the name, so they still need a curated row.
 //
-// Ranked "answer" matches first, THEN by name length: `limit` is small (the
-// guess box only shows a handful of suggestions), and the reference pool
-// (~7,800+ players, most of them not famous — a bulk FIFA-dataset load, see
-// agents.md) is far bigger than the actual quiz answers. Sorting by length
-// alone let short, obscure reference-pool names bury a real answer — e.g.
-// searching "ronal" put "Ronald Matarrita" and "Ronald de la Fuente" ahead
-// of "Cristiano Ronaldo", an actual Top-10 answer in three categories,
-// pushing him to the edge of the limit. A name that's a real answer
-// somewhere is definitionally notable (it's the correct answer to a
-// trivia question); one that's only in the reference pool might not be —
-// so answers win the tiebreak regardless of name length. `source` already
-// distinguishes the two on every entity_search row; the alias branches are
-// tagged to match since they draw from the same two tables.
+// Ranked "answer" matches first, THEN reference matches that share this
+// category's `scope` (e.g. 'Spain' for a La Liga table — see
+// categories.reference_scope), THEN everything else, THEN by name length
+// within a tier: `limit` is small (the guess box only shows a handful of
+// suggestions), and the reference pool (~7,800+ players, most of them not
+// famous — a bulk FIFA-dataset load, see agents.md) is far bigger than the
+// actual quiz answers. Sorting by length alone let short, obscure
+// reference-pool names bury a real answer — e.g. searching "ronal" put
+// "Ronald Matarrita" and "Ronald de la Fuente" ahead of "Cristiano Ronaldo",
+// an actual Top-10 answer in three categories, pushing him to the edge of
+// the limit. A name that's a real answer somewhere is definitionally
+// notable (it's the correct answer to a trivia question); one that's only
+// in the reference pool might not be — so answers win the tiebreak
+// regardless of name length.
+//
+// The `scope` tier (found 2026-08-26) fixes the same kind of burying one
+// level down: playing the La Liga table and typing "re" returned Remo
+// (Brazil), Rennes (France), Reading (England) and Recoleta (Argentina)
+// ahead of Real Oviedo — an actual 2025-26 La Liga club — purely because
+// they're shorter names, with no notion that Real Oviedo is the one
+// actually relevant to what's being played. `scope` (nullable — most
+// categories, e.g. pan-European or all-time-across-many-countries ones,
+// have none and this tier is a no-op for them) lets a same-country
+// reference match win that tiebreak without hiding the rest of the world's
+// names outright, which would undo the "type any name for spelling help"
+// behavior global search was deliberately built for.
 export async function suggestNames(
 	db: D1Database,
 	normalizedPrefix: string,
 	entityType: string,
 	limit: number,
+	scope: string | null,
 ): Promise<string[]> {
 	const ftsQuery = toFtsPrefixQuery(normalizedPrefix);
 	if (!ftsQuery) return [];
@@ -190,21 +205,33 @@ export async function suggestNames(
 	const result = await db
 		.prepare(
 			`SELECT name FROM (
-				SELECT name, MIN(CASE WHEN source = 'answer' THEN 0 ELSE 1 END) AS priority
+				SELECT name, MIN(priority) AS priority
 				FROM (
-					-- Tokenized full-text match: any word of the name, not just its start
-					SELECT name, source FROM entity_search
-					WHERE entity_search MATCH ?1 AND entity_type = ?3
+					-- Tokenized full-text match against answers: any word of the
+					-- name, not just its start. Always top-tier.
+					SELECT name, 0 AS priority
+					FROM entity_search
+					WHERE entity_search MATCH ?1 AND entity_type = ?3 AND source = 'answer'
+					UNION ALL
+					-- Tokenized full-text match against the reference pool, ranked
+					-- ahead of the rest of the world when it shares this category's
+					-- scope (e.g. reference_entities.category = 'Spain').
+					SELECT es.name,
+					       CASE WHEN ?5 IS NOT NULL AND re.category = ?5 THEN 1 ELSE 2 END AS priority
+					FROM entity_search es
+					JOIN reference_entities re ON re.id = es.source_id AND es.source = 'reference'
+					WHERE es.entity_search MATCH ?1 AND es.entity_type = ?3
 					UNION ALL
 					-- Curated nickname aliases (answers)
-					SELECT a.canonical_name AS name, 'answer' AS source
+					SELECT a.canonical_name AS name, 0 AS priority
 					FROM answer_aliases al
 					JOIN answers a ON al.answer_id = a.id
 					JOIN categories c ON a.category_id = c.id
 					WHERE al.alias LIKE ?2 || '%' AND c.entity_type = ?3
 					UNION ALL
 					-- Curated nickname aliases (reference pool)
-					SELECT re.canonical_name AS name, 'reference' AS source
+					SELECT re.canonical_name AS name,
+					       CASE WHEN ?5 IS NOT NULL AND re.category = ?5 THEN 1 ELSE 2 END AS priority
 					FROM reference_entity_aliases rel
 					JOIN reference_entities re ON rel.entity_id = re.id
 					WHERE rel.alias LIKE ?2 || '%' AND re.entity_type = ?3
@@ -214,7 +241,7 @@ export async function suggestNames(
 			 ORDER BY priority ASC, LENGTH(name) ASC, name ASC
 			 LIMIT ?4`,
 		)
-		.bind(ftsQuery, normalizedPrefix, entityType, limit)
+		.bind(ftsQuery, normalizedPrefix, entityType, limit, scope)
 		.all<{ name: string }>();
 	return (result.results ?? []).map((r) => r.name);
 }
