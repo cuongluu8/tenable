@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import "./App.css";
 import { CategoryList } from "./components/CategoryList";
+import { Logo } from "./components/Logo";
 import { PlayScreen } from "./components/PlayScreen";
 import type { CategoriesResponse, Category } from "./types";
 
@@ -66,6 +67,7 @@ function App() {
 	return (
 		<div className="screen">
 			<header className="header">
+				<Logo className="logo" />
 				<h1>Tenable</h1>
 				<p className="subtitle">Top 10 football trivia</p>
 			</header>
