@@ -311,7 +311,15 @@ npx wrangler dev --port 8787   # full worker + bindings, http://localhost:8787
 
 npm run lint
 npm run build             # tsc -b && vite build
+npm run verify:matching   # re-seed local D1 first — see scripts/verify-guess-matching.ts
 ```
+
+**Run `npm run verify:matching` after any change to `db/seed.sql`'s answers/aliases, or to
+`matchGuess()`/`normalize.ts`.** It checks two things against local D1: every answer's own
+canonical name actually matches one of its own aliases (the class of bug that shipped three
+times in production before this existed — see git history around 2026-08-26), and no two
+different answers in the same category collapse to the same alias. A passing run is not
+optional evidence you can skip and still claim you checked — it's the actual check.
 
 `wrangler dev` in this sandboxed environment logs harmless
 `Request.cf` / "Request was cancelled" warnings on startup — ignore them, the
