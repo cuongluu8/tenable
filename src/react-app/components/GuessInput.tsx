@@ -28,7 +28,13 @@ const DEBOUNCE_MS = 200;
 // popover" treatment.
 const DROPDOWN_GAP = 0;
 const DROPDOWN_MAX_HEIGHT = 224; // 14rem at the default 16px root, matches the old CSS max-height
-const MIN_USABLE_SPACE = 80; // floor on how short the list is allowed to get
+// Floor on how short the list is allowed to get, even when the input sits
+// right at the top of the safe zone (little space above it). Sized to fit 4
+// suggestion rows without scrolling — measured empirically (row height ~35px
+// + inter-row gap + container padding, see .guess-suggestions in App.css)
+// rather than derived from those CSS values, since this constant has to be
+// known in JS before layout happens.
+const MIN_USABLE_SPACE = 160;
 
 // Varied widths so the loading skeleton reads as placeholder text rather
 // than a repeated decorative bar.
