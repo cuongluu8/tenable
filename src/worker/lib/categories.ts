@@ -95,6 +95,22 @@ export async function matchGuess(
 	// because aliases are pre-normalized the same way guesses are; seed data
 	// always includes the full normalized name as one of a name's aliases.
 	//
+	// The fallback OR clause is a safety net found 2026-08-26: normalize()
+	// strips punctuation (including hyphens) without inserting a space, so
+	// "Paris Saint-Germain" normalizes to "paris saintgermain" (one merged
+	// word) — but the alias seed data for that answer only had "paris
+	// saint-germain" (hyphen kept literally) and "paris saint germain"
+	// (space kept), neither of which is what a real guess ever normalizes
+	// to. Selecting the exact suggestion text from the typeahead reproduced
+	// it directly. That specific gap is backfilled in seed.sql, but the
+	// same authoring mistake is easy to repeat for the next hyphenated name
+	// added, so this also compares both sides with spaces AND hyphens
+	// stripped entirely — "paris saint-germain", "paris saint germain" and
+	// "paris saintgermain" all collapse to the same "parissaintgermain" —
+	// as a second-chance match when the exact-normalized-form alias wasn't
+	// authored. Purely additive (only ever matches more, never less), and
+	// scoped to this one category's answers like the exact match already is.
+	//
 	// A handful of categories are "one row per occurrence" rather than "one
 	// row per entity" — e.g. a World Cup Golden Boot winner who won it in
 	// two different tournaments gets two answer rows with the same
@@ -113,11 +129,15 @@ export async function matchGuess(
 			`SELECT a.id, a.rank, a.canonical_name, a.stat_value
 			 FROM answers a
 			 JOIN answer_aliases al ON al.answer_id = a.id
-			 WHERE a.category_id = ? AND al.alias = ?
+			 WHERE a.category_id = ?
+			   AND (
+			     al.alias = ?
+			     OR REPLACE(REPLACE(al.alias, ' ', ''), '-', '') = REPLACE(?, ' ', '')
+			   )
 			 ORDER BY (a.rank IN (${foundList})) ASC
 			 LIMIT 1`,
 		)
-		.bind(categoryId, normalizedGuess, ...foundRanks)
+		.bind(categoryId, normalizedGuess, normalizedGuess, ...foundRanks)
 		.first<AnswerMatchRow>();
 	return row ?? null;
 }

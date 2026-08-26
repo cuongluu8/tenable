@@ -83,6 +83,16 @@ INSERT INTO answer_aliases (answer_id, alias)
 	SELECT id, 'paris saint-germain' FROM answers WHERE canonical_name = 'Paris Saint-Germain';
 INSERT INTO answer_aliases (answer_id, alias)
 	SELECT id, 'paris saint germain' FROM answers WHERE canonical_name = 'Paris Saint-Germain';
+-- normalize() strips hyphens without inserting a space, so a guess of the
+-- exact canonical name ("Paris Saint-Germain", e.g. selected straight from
+-- the typeahead) normalizes to "paris saintgermain" (merged) — neither of
+-- the two aliases above, both of which keep a hyphen or a space at that
+-- join. Found 2026-08-26 as a real "selected from typeahead, guess
+-- rejected" report. matchGuess() also has a hyphen/space-collapsing
+-- fallback match as a safety net for the next name like this, but the
+-- correctly-normalized form belongs here too, same as every other alias.
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT id, 'paris saintgermain' FROM answers WHERE canonical_name = 'Paris Saint-Germain';
 INSERT INTO answer_aliases (answer_id, alias)
 	SELECT id, 'psg' FROM answers WHERE canonical_name = 'Paris Saint-Germain';
 INSERT INTO answer_aliases (answer_id, alias)
@@ -124,6 +134,11 @@ INSERT INTO answer_aliases (answer_id, alias)
 	SELECT id, 'keegan' FROM answers WHERE canonical_name = 'Kevin Keegan';
 INSERT INTO answer_aliases (answer_id, alias)
 	SELECT id, 'karl-heinz rummenigge' FROM answers WHERE canonical_name = 'Karl-Heinz Rummenigge';
+-- Same "paris saintgermain" gap, see the comment there — the exact
+-- canonical name normalizes to "karlheinz rummenigge" (hyphen merged, no
+-- space), which wasn't among this name's aliases either.
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT id, 'karlheinz rummenigge' FROM answers WHERE canonical_name = 'Karl-Heinz Rummenigge';
 INSERT INTO answer_aliases (answer_id, alias)
 	SELECT id, 'rummenigge' FROM answers WHERE canonical_name = 'Karl-Heinz Rummenigge';
 INSERT INTO answer_aliases (answer_id, alias)
@@ -2043,6 +2058,9 @@ INSERT INTO answer_aliases (answer_id, alias)
 	WHERE c.slug = 'ucl-recent-unique-winners' AND a.rank = 1;
 INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'paris saint germain' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ucl-recent-unique-winners' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'paris saintgermain' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'ucl-recent-unique-winners' AND a.rank = 1;
 INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'psg' FROM answers a JOIN categories c ON a.category_id = c.id
