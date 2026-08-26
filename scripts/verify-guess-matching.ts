@@ -42,7 +42,10 @@ function queryLocalD1<T>(sql: string): T[] {
 	const raw = execFileSync(
 		"npx",
 		["wrangler", "d1", "execute", "tenable-content", "--local", "--json", "--command", sql],
-		{ encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+		// maxBuffer: only answers/answer_aliases today (small), but see
+		// verify-name-sync.ts's identical fix (2026-08-26) for why this needs
+		// headroom well beyond execFileSync's 1MB default as content grows.
+		{ encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], maxBuffer: 200 * 1024 * 1024 },
 	);
 	const parsed = JSON.parse(raw) as { results: T[] }[];
 	return parsed[0]?.results ?? [];

@@ -62,7 +62,11 @@ function queryLocalD1<T>(sql: string): T[] {
 	const raw = execFileSync(
 		"npx",
 		["wrangler", "d1", "execute", "tenable-content", "--local", "--json", "--command", sql],
-		{ encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+		// maxBuffer: default (1MB) is too small once the reference pool is fully
+		// populated (~16k entities / ~32k aliases, seen 2026-08-26) -- execFileSync
+		// throws ENOBUFS well before that with the default. 200MB comfortably
+		// covers this dataset's growth for a long while.
+		{ encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], maxBuffer: 200 * 1024 * 1024 },
 	);
 	const parsed = JSON.parse(raw) as { results: T[] }[];
 	return parsed[0]?.results ?? [];

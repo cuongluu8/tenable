@@ -298,6 +298,48 @@ applied to production D1 by hand via the Cloudflare MCP `d1_database_query`
 tool, mirroring whatever changed in `db/seed.sql`. If that ever changes (e.g.
 a migration step gets added to the build), update this paragraph.
 
+**This mirroring silently stopped happening for a while (discovered and
+fixed 2026-08-26) — treat "changes have been applied to production" as a
+claim to verify, not a standing guarantee.** The player-reference-pool
+expansion (`db/pending_player_batches/`, now removed) ran each batch's SQL
+against production via the MCP tool, then deleted the batch file and
+committed — with no step that ever wrote that SQL into `db/seed.sql`. By the
+time this was caught, `db/seed.sql` had only 885 of production's 16,306
+reference players (~15,400 rows that existed only in production, invisible
+to local dev/CI, and would have been silently lost had production ever
+needed rebuilding from the seed file). It was caught as a side effect of
+investigating a report that "Thiago Alcântara is missing" — checking why led
+to comparing `db/seed.sql`'s player count against production's. Fixed by:
+recovering what git history still had (batches 027-060 were tracked as
+files in one commit before deletion — recoverable via `git show`), exporting
+the rest directly from production for what was never git-tracked at all
+(batches 000-026), and along the way finding + removing 41 players (43
+rows) that existed as **exact duplicates** in both production and the
+already-committed `db/seed.sql` (famous names like Wayne Rooney that were in
+the original hand-curated list *and* got reintroduced by the bulk FIFA21
+load) — a real instance of the "duplicate entries" a user suspected, just
+not the actual cause of the bug they'd reported. **Two things are still
+outstanding from that fix, deliberately not resolved solo:**
+1. Production still has those 43 duplicate rows live (a `DELETE` for them
+   was blocked by the environment's own safety classifier, correctly, as a
+   destructive production action — it needs a human to actually run it or
+   explicitly approve it, not an agent). `db/seed.sql` does NOT have them
+   (already deduplicated there), so this is a production-only cleanup, not
+   a content-accuracy risk in the meantime.
+2. Batches 061-069 of the original 70-batch expansion plan were paused
+   mid-load (user asked about token efficiency, then redirected to bug
+   fixing) and were never executed against production — `db/seed.sql`
+   deliberately does NOT include them either, to keep the file an honest
+   mirror of what production actually has right now. Finishing that
+   expansion (~2,160 more players) is unfinished, optional-by-user-request
+   work, not a bug — see git history around 2026-08-26 for exactly where it
+   left off if resuming.
+
+If you're ever unsure whether `db/seed.sql` still matches production,
+don't assume it does — compare counts (`SELECT entity_type, COUNT(*) FROM
+reference_entities GROUP BY entity_type` on both sides is a fast sanity
+check) before trusting either one.
+
 **Incident: an answer's name silently drifting from its reference-pool
 counterpart (2026-08-26).** A user guessed "Igor Thiago" in
 `pl-2025-26-top-scorers` and was told he wasn't on the list, despite
