@@ -312,6 +312,7 @@ npx wrangler dev --port 8787   # full worker + bindings, http://localhost:8787
 npm run lint
 npm run build             # tsc -b && vite build
 npm run verify:matching   # re-seed local D1 first — see scripts/verify-guess-matching.ts
+npm run playtest          # self-resets local D1 + KV — see scripts/playtest.ts
 ```
 
 **Run `npm run verify:matching` after any change to `db/seed.sql`'s answers/aliases, or to
@@ -320,6 +321,19 @@ canonical name actually matches one of its own aliases (the class of bug that sh
 times in production before this existed — see git history around 2026-08-26), and no two
 different answers in the same category collapse to the same alias. A passing run is not
 optional evidence you can skip and still claim you checked — it's the actual check.
+
+**Run `npm run playtest` before merging any change touching a route, `matchGuess()`,
+`normalize.ts`, `suggestNames()`, or `db/seed.sql`.** It's a black-box end-to-end test —
+`wrangler dev` against a freshly reseeded local D1 + KV, driven purely over real HTTP with real
+cookies, the same surface a browser uses — that plays every single category to completion the
+way an actual player would: obscure aliases instead of full names, mixed case, stray
+whitespace, punctuation swapped between space and hyphen, wrong-but-real names from the
+reference pool that must be rejected, duplicate-guess detection (including the repeat-winner
+case, e.g. Kylian Mbappe appearing at two ranks in `wc-recent-golden-boot`), tension-mode
+win/loss, and request-validation edge cases (unknown category, empty guess, guessing after a
+round is already finished). Non-zero exit on any failure. **This also runs automatically in CI**
+(`.github/workflows/ci.yml`, on every push/PR to `main`) — that's the actual gate; running it
+locally first is what keeps that gate from turning red after you've already pushed.
 
 `wrangler dev` in this sandboxed environment logs harmless
 `Request.cf` / "Request was cancelled" warnings on startup — ignore them, the

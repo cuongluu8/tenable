@@ -1,0 +1,48 @@
+name: CI
+
+# Runs on every push and pull request against main — the actual automated
+# gate requested after two guess-matching bugs shipped to production before
+# anyone asked for one. This is not advisory: a red check here is meant to
+# be a real signal, not a script someone has to remember to run by hand.
+#
+# The playtest job drives the real HTTP API (via `wrangler dev`, local D1 +
+# KV, no Cloudflare credentials needed — `--local` mode never talks to the
+# real account) through every category the way an actual player would,
+# deliberately using obscure aliases, mixed case, and punctuation swapped
+# between space/hyphen to try to break guess matching. See
+# scripts/playtest.ts and scripts/verify-guess-matching.ts for what each
+# check actually asserts, and agents.md for how to run both locally.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      - run: npm run build
+
+      - name: Seed local D1
+        run: |
+          npx wrangler d1 execute tenable-content --local --file=db/schema.sql
+          npx wrangler d1 execute tenable-content --local --file=db/seed.sql
+
+      - name: Verify guess-matching correctness (all answers/aliases)
+        run: npm run verify:matching
+
+      - name: Playtest every category end to end
+        run: npm run playtest
