@@ -1818,9 +1818,105 @@ INSERT INTO reference_entity_aliases (entity_id, alias)
 INSERT INTO reference_entity_aliases (entity_id, alias)
 	SELECT id, 'trujillanos' FROM reference_entities WHERE canonical_name = 'Trujillanos' AND category = 'Venezuela';
 
+-- Category 18: last 10 unique managers to win the English top-flight title
+-- (Premier League since 1992-93, First Division before that), most recent
+-- first. Verified via web search against premierleague.com, Arsenal FC,
+-- Sky Sports and Wikipedia (2026-08-26) — every one of the 10 falls within
+-- the Premier League era; Arsenal's 2025-26 title (Mikel Arteta, ending a
+-- 22-year drought) is what pushes Carlo Ancelotti's 2009-10 Chelsea title
+-- out of the unique-10 window, one spot below Roberto Mancini's 2011-12.
+INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
+	('pl-recent-title-managers', 'Top 10 most recent Premier League/First Division title-winning managers', 'The last 10 unique managers to lead a club to the English top-flight title, most recent first. All ten fall within the Premier League era (1992-93 onward); through the 2025-26 season.', 'title-winning season');
+
+INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
+	((SELECT id FROM categories WHERE slug = 'pl-recent-title-managers'), 1, 'Mikel Arteta', '2025-26'),
+	((SELECT id FROM categories WHERE slug = 'pl-recent-title-managers'), 2, 'Arne Slot', '2024-25'),
+	((SELECT id FROM categories WHERE slug = 'pl-recent-title-managers'), 3, 'Pep Guardiola', '2023-24'),
+	((SELECT id FROM categories WHERE slug = 'pl-recent-title-managers'), 4, 'Jurgen Klopp', '2019-20'),
+	((SELECT id FROM categories WHERE slug = 'pl-recent-title-managers'), 5, 'Antonio Conte', '2016-17'),
+	((SELECT id FROM categories WHERE slug = 'pl-recent-title-managers'), 6, 'Claudio Ranieri', '2015-16'),
+	((SELECT id FROM categories WHERE slug = 'pl-recent-title-managers'), 7, 'Jose Mourinho', '2014-15'),
+	((SELECT id FROM categories WHERE slug = 'pl-recent-title-managers'), 8, 'Manuel Pellegrini', '2013-14'),
+	((SELECT id FROM categories WHERE slug = 'pl-recent-title-managers'), 9, 'Alex Ferguson', '2012-13'),
+	((SELECT id FROM categories WHERE slug = 'pl-recent-title-managers'), 10, 'Roberto Mancini', '2011-12');
+
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'mikel arteta' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-recent-title-managers' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'arteta' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-recent-title-managers' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'arne slot' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-recent-title-managers' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'slot' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-recent-title-managers' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'pep guardiola' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-recent-title-managers' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'guardiola' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-recent-title-managers' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'pep' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-recent-title-managers' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'jurgen klopp' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-recent-title-managers' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'klopp' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-recent-title-managers' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'antonio conte' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-recent-title-managers' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'conte' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-recent-title-managers' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'claudio ranieri' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-recent-title-managers' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'ranieri' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-recent-title-managers' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'jose mourinho' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-recent-title-managers' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'mourinho' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-recent-title-managers' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'mou' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-recent-title-managers' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'manuel pellegrini' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-recent-title-managers' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'pellegrini' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-recent-title-managers' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'alex ferguson' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-recent-title-managers' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'sir alex ferguson' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-recent-title-managers' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'ferguson' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-recent-title-managers' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'fergie' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-recent-title-managers' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'roberto mancini' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-recent-title-managers' AND a.rank = 10;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'mancini' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-recent-title-managers' AND a.rank = 10;
+
 -- Categories default to entity_type = 'club' (schema.sql); fix up the ones
--- whose answers are actually players or countries so suggestNames() scopes
--- typeahead correctly (see agents.md's Generic rule / type-scoped typeahead).
+-- whose answers are actually players, countries, or managers so
+-- suggestNames() scopes typeahead correctly (see agents.md's Generic rule /
+-- type-scoped typeahead).
 UPDATE categories SET entity_type = 'player' WHERE slug IN (
 	'ballon-dor-most-wins',
 	'wc-alltime-goalscorers',
@@ -1833,6 +1929,9 @@ UPDATE categories SET entity_type = 'player' WHERE slug IN (
 UPDATE categories SET entity_type = 'country' WHERE slug IN (
 	'euro-titles-by-country',
 	'afcon-titles-by-country'
+);
+UPDATE categories SET entity_type = 'manager' WHERE slug IN (
+	'pl-recent-title-managers'
 );
 
 -- Reference countries: typeahead-only pool of national teams for
