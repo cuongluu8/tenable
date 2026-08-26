@@ -277,6 +277,36 @@ input[type="text"].guess-input__field--open:focus-visible {
 	border-color: #4ade80;
 }
 
+/* Loading skeleton: placeholder rows shown while a search is in flight (see
+   GuessInput's `loading` state), so the open-but-empty dropdown reads as
+   "still searching" rather than "no matches". Sized to roughly match a real
+   suggestion row (button padding + font-size) so nothing jumps when the
+   real results swap in. */
+.guess-suggestions__skeleton-row {
+	padding: 0.5em 0.7em;
+}
+.guess-suggestions__skeleton-bar {
+	display: block;
+	height: 0.95em;
+	border-radius: 4px;
+	background: linear-gradient(90deg, #4b5563 25%, #6b7280 37%, #4b5563 63%);
+	background-size: 400% 100%;
+	animation: guess-suggestions-shimmer 1.4s ease infinite;
+}
+@keyframes guess-suggestions-shimmer {
+	0% {
+		background-position: 100% 50%;
+	}
+	100% {
+		background-position: 0% 50%;
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.guess-suggestions__skeleton-bar {
+		animation: none;
+	}
+}
+
 .feedback {
 	margin-top: 1rem;
 	text-align: center;

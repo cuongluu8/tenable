@@ -30,6 +30,10 @@ const DROPDOWN_GAP = 0;
 const DROPDOWN_MAX_HEIGHT = 224; // 14rem at the default 16px root, matches the old CSS max-height
 const MIN_USABLE_SPACE = 80; // floor on how short the list is allowed to get
 
+// Varied widths so the loading skeleton reads as placeholder text rather
+// than a repeated decorative bar.
+const SKELETON_ROW_WIDTHS = ["70%", "45%", "58%"];
+
 interface DropdownRect {
 	left: number;
 	width: number;
@@ -45,6 +49,12 @@ export function GuessInput({ value, onChange, onPick, disabled, categorySlug }: 
 	const [dismissed, setDismissed] = useState(false);
 	const [highlight, setHighlight] = useState(-1);
 	const [dropdownRect, setDropdownRect] = useState<DropdownRect | null>(null);
+	// The query whose response is currently reflected in `suggestions` (or
+	// that a request has definitively finished for, on error). Compared
+	// against the live `query` below to derive `loading` — that avoids a
+	// separate "am I loading" flag we'd otherwise have to set synchronously
+	// inside the effect body just to mirror state we already have.
+	const [resolvedQuery, setResolvedQuery] = useState("");
 	const requestId = useRef(0);
 	const inputRef = useRef<HTMLInputElement>(null);
 	// Picking a suggestion changes `value` too (it fills the input), which
@@ -52,7 +62,12 @@ export function GuessInput({ value, onChange, onPick, disabled, categorySlug }: 
 	const justPickedRef = useRef(false);
 
 	const query = value.trim();
-	const visible = !dismissed && query.length >= 2 && suggestions.length > 0;
+	// A request for the current query hasn't resolved yet — covers both the
+	// debounce delay and the fetch itself, so the dropdown can open with a
+	// "still searching" skeleton as soon as the player has typed enough,
+	// rather than sitting empty/closed until the response lands.
+	const loading = query.length >= 2 && resolvedQuery !== query;
+	const visible = !dismissed && query.length >= 2 && (suggestions.length > 0 || loading);
 
 	// Scrolls the input into the safe zone as soon as it's focused — before
 	// the player has even typed anything, independent of whether suggestions
@@ -123,12 +138,16 @@ export function GuessInput({ value, onChange, onPick, disabled, categorySlug }: 
 			fetch(`/api/suggest?${params}`)
 				.then((res) => (res.ok ? (res.json() as Promise<{ suggestions: string[] }>) : null))
 				.then((data) => {
-					if (!data || id !== requestId.current) return; // stale response
+					if (id !== requestId.current) return; // stale response — a newer request owns resolution
+					setResolvedQuery(query);
+					if (!data) return; // request failed — leave suggestions as-is, just stop showing loading
 					setSuggestions(data.suggestions);
 					setDismissed(false);
 					setHighlight(-1);
 				})
-				.catch(() => {});
+				.catch(() => {
+					if (id === requestId.current) setResolvedQuery(query);
+				});
 		}, DEBOUNCE_MS);
 
 		return () => clearTimeout(timer);
@@ -144,6 +163,14 @@ export function GuessInput({ value, onChange, onPick, disabled, categorySlug }: 
 	function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
 		if (!visible) return;
 
+		if (e.key === "Escape") {
+			setDismissed(true);
+			return;
+		}
+		// The dropdown can be visible (open, showing the loading skeleton)
+		// before any suggestions have arrived — nothing to navigate to yet.
+		if (suggestions.length === 0) return;
+
 		if (e.key === "ArrowDown") {
 			e.preventDefault();
 			setHighlight((h) => (h + 1) % suggestions.length);
@@ -153,8 +180,6 @@ export function GuessInput({ value, onChange, onPick, disabled, categorySlug }: 
 		} else if (e.key === "Enter" && highlight >= 0) {
 			e.preventDefault();
 			pick(suggestions[highlight]);
-		} else if (e.key === "Escape") {
-			setDismissed(true);
 		}
 	}
 
@@ -191,23 +216,32 @@ export function GuessInput({ value, onChange, onPick, disabled, categorySlug }: 
 						bottom: dropdownRect.bottom,
 					}}
 				>
-					{suggestions.map((name, i) => (
-						<li key={name}>
-							<button
-								type="button"
-								role="option"
-								aria-selected={i === highlight}
-								className={i === highlight ? "guess-suggestions__item--active" : undefined}
-								// onMouseDown (not onClick) fires before the input's onBlur closes the list
-								onMouseDown={(e) => {
-									e.preventDefault();
-									pick(name);
-								}}
-							>
-								{name}
-							</button>
-						</li>
-					))}
+					{suggestions.length > 0
+						? suggestions.map((name, i) => (
+								<li key={name}>
+									<button
+										type="button"
+										role="option"
+										aria-selected={i === highlight}
+										className={i === highlight ? "guess-suggestions__item--active" : undefined}
+										// onMouseDown (not onClick) fires before the input's onBlur closes the list
+										onMouseDown={(e) => {
+											e.preventDefault();
+											pick(name);
+										}}
+									>
+										{name}
+									</button>
+								</li>
+							))
+						: // Still waiting on a response — placeholder rows in place of
+							// real results, so the open-but-empty dropdown reads as "still
+							// searching" rather than "no matches" or a rendering glitch.
+							SKELETON_ROW_WIDTHS.map((width, i) => (
+								<li key={i} className="guess-suggestions__skeleton-row" aria-hidden="true">
+									<span className="guess-suggestions__skeleton-bar" style={{ width }} />
+								</li>
+							))}
 				</ul>
 			)}
 		</div>
