@@ -1,4 +1,6 @@
+import { useState } from "react";
 import type { CategorySummary } from "../types";
+import { GroupIcon } from "./GroupIcon";
 
 interface Props {
 	categories: CategorySummary[];
@@ -29,31 +31,85 @@ function groupSections(categories: CategorySummary[]): { group: string; items: C
 	return sections;
 }
 
+function panelId(group: string): string {
+	return `category-section-${group.toLowerCase().replace(/\s+/g, "-")}`;
+}
+
 export function CategoryList({ categories, onSelect }: Props) {
+	// Accordion — at most one section open at a time, none open on load. With
+	// 26 categories across 4 sections, showing every card at once is exactly
+	// the wall of text this grouping exists to replace; letting more than one
+	// stay open would get back there a click or two later.
+	const [openGroup, setOpenGroup] = useState<string | null>(null);
+
 	return (
-		<>
-			{groupSections(categories).map((section) => (
-				<section key={section.group} className="category-section">
-					<h2 className="category-section__heading">{section.group}</h2>
-					<ul className="category-list">
-						{section.items.map((cat) => (
-							<li key={cat.slug}>
-								<button className="category-card" onClick={() => onSelect(cat)}>
-									<div className="category-card__main">
-										<strong>{cat.title}</strong>
-										{cat.subtitle && (
-											<span className="category-card__subtitle">{cat.subtitle}</span>
-										)}
-									</div>
-									<span className={`category-card__status category-card__status--${cat.status}`}>
-										{STATUS_LABEL[cat.status]}
-									</span>
-								</button>
-							</li>
-						))}
-					</ul>
-				</section>
-			))}
-		</>
+		<div className="category-sections">
+			{groupSections(categories).map((section) => {
+				const isOpen = section.group === openGroup;
+				const playedCount = section.items.filter((cat) => cat.status !== "new").length;
+
+				return (
+					<div className="category-section" key={section.group}>
+						<button
+							type="button"
+							className="category-section__header"
+							aria-expanded={isOpen}
+							aria-controls={panelId(section.group)}
+							onClick={() => setOpenGroup(isOpen ? null : section.group)}
+						>
+							<span className="category-section__icon" aria-hidden="true">
+								<GroupIcon group={section.group} />
+							</span>
+							<span className="category-section__text">
+								<strong>{section.group}</strong>
+								<span className="category-section__meta">
+									{playedCount > 0
+										? `${playedCount}/${section.items.length} played`
+										: `${section.items.length} categories`}
+								</span>
+							</span>
+							<svg
+								className="category-section__chevron"
+								data-open={isOpen}
+								viewBox="0 0 24 24"
+								width="20"
+								height="20"
+								aria-hidden="true"
+							>
+								<path
+									d="M7 9.5 12 14.5 17 9.5"
+									fill="none"
+									stroke="currentColor"
+									strokeWidth="1.75"
+									strokeLinecap="round"
+									strokeLinejoin="round"
+								/>
+							</svg>
+						</button>
+						<div className="category-section__body" data-expanded={isOpen} id={panelId(section.group)}>
+							<div className="category-section__body-inner">
+								<ul className="category-list">
+									{section.items.map((cat) => (
+										<li key={cat.slug}>
+											<button className="category-card" onClick={() => onSelect(cat)}>
+												<div className="category-card__main">
+													<strong>{cat.title}</strong>
+													{cat.subtitle && (
+														<span className="category-card__subtitle">{cat.subtitle}</span>
+													)}
+												</div>
+												<span className={`category-card__status category-card__status--${cat.status}`}>
+													{STATUS_LABEL[cat.status]}
+												</span>
+											</button>
+										</li>
+									))}
+								</ul>
+							</div>
+						</div>
+					</div>
+				);
+			})}
+		</div>
 	);
 }

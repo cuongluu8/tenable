@@ -47,22 +47,98 @@
 	border-color: transparent;
 }
 
-.category-section + .category-section {
-	margin-top: 1.75rem;
+.category-sections {
+	display: grid;
+	gap: 0.85rem;
 }
-.category-section__heading {
-	margin: 0 0 0.6rem;
+
+/* Each section is its own card — the collapsed state (just the header) is
+   what most of the home page looks like most of the time, so it needs to
+   read as a solid, deliberate row rather than a bare heading. */
+.category-section {
+	background: #1f2937;
+	border: 1px solid #374151;
+	border-radius: 12px;
+	overflow: hidden;
+	transition: border-color 0.15s;
+}
+.category-section:has(.category-section__header[aria-expanded="true"]) {
+	border-color: #4ade80;
+}
+
+.category-section__header {
+	width: 100%;
+	display: flex;
+	align-items: center;
+	gap: 0.9rem;
+	padding: 0.9rem 1.1rem;
+	/* Reset the base button chrome (App.css's .category-section draws the
+	   card's own border/background) so this reads as one bordered card, not
+	   a button floating inside another bordered box. */
+	background: none;
+	border: none;
+	border-radius: 0;
+}
+.category-section__header:hover {
+	border-color: transparent; /* override the base button-hover border */
+	background: rgba(74, 222, 128, 0.06);
+}
+
+.category-section__icon {
+	flex-shrink: 0;
+	display: grid;
+	place-items: center;
+	width: 2.75rem;
+	height: 2.75rem;
+	border-radius: 999px;
+	background: #374151;
+	color: #4ade80;
+}
+
+.category-section__text {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	gap: 0.15rem;
+	text-align: left;
+}
+.category-section__meta {
 	font-size: 0.8rem;
-	font-weight: 700;
-	text-transform: uppercase;
-	letter-spacing: 0.06em;
+	font-weight: 400;
 	color: #9ca3af;
+}
+
+.category-section__chevron {
+	flex-shrink: 0;
+	color: #9ca3af;
+	transition: transform 0.2s ease;
+}
+.category-section__chevron[data-open="true"] {
+	transform: rotate(180deg);
+}
+
+/* Smooth expand/collapse with pure CSS: animating a grid track (rather than
+   height/max-height) doesn't need JS to measure content height first, and
+   naturally settles at exactly the content's real height. overflow:hidden
+   on the inner wrapper is what actually clips it mid-animation — the outer
+   grid element can't clip its own animated track. */
+.category-section__body {
+	display: grid;
+	grid-template-rows: 0fr;
+	transition: grid-template-rows 0.25s ease;
+}
+.category-section__body[data-expanded="true"] {
+	grid-template-rows: 1fr;
+}
+.category-section__body-inner {
+	overflow: hidden;
+	min-height: 0;
 }
 
 .category-list {
 	list-style: none;
 	margin: 0;
-	padding: 0;
+	padding: 0 0.75rem 0.75rem;
 	display: grid;
 	gap: 0.6rem;
 }
@@ -74,8 +150,12 @@
 	gap: 1rem;
 	padding: 0.9rem 1.1rem;
 	text-align: left;
-	background: #1f2937;
-	border: 1px solid #374151;
+	/* One step lighter than the section card it sits inside (#1f2937) —
+	   same "elevated surface" convention as .guess-suggestions, so these
+	   read as distinct rows nested in the section rather than blending into
+	   its background. */
+	background: #374151;
+	border: 1px solid #4b5563;
 }
 .category-card:hover {
 	border-color: #4ade80;
