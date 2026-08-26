@@ -28,7 +28,7 @@ categories.get("/", async (c) => {
 				: progress.won
 					? "won"
 					: "lost";
-		return { ...toPublic(row, row.answer_count), status };
+		return { ...toPublic(row, row.answer_count), status, group: row.group_label };
 	});
 
 	return c.json({ categories: summaries, streak, lifetime });

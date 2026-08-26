@@ -12,6 +12,8 @@ export interface Category {
 
 export interface CategorySummary extends Category {
 	status: CategoryStatus;
+	// Section heading the category list groups under, e.g. "This Season".
+	group: string;
 }
 
 export interface Progress {

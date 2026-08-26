@@ -14,6 +14,11 @@ export type CategoryStatus = "new" | "in_progress" | "won" | "lost";
 
 export interface CategorySummary extends CategoryPublic {
 	status: CategoryStatus;
+	// Section heading the client groups the category list under (see
+	// schema.sql's group_label) — only meaningful for the list view, so it's
+	// on CategorySummary rather than the shared CategoryPublic that a single
+	// in-progress category (PlayScreen) also uses.
+	group: string;
 }
 
 export interface Progress {
