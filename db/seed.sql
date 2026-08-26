@@ -1934,6 +1934,289 @@ UPDATE categories SET entity_type = 'manager' WHERE slug IN (
 	'pl-recent-title-managers'
 );
 
+-- Category 19: all-time Premier League appearance makers. Verified via
+-- premierleague.com (2026-08-26) — James Milner passed Gareth Barry's
+-- long-standing 653 record on 21 Feb 2026 (his 654th appearance) and
+-- finished on 658 before retiring in June 2026; ranks 4-10 are a
+-- long-settled list (all retired players, unchanged for years).
+INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
+	('pl-alltime-appearances', 'Top 10 all-time Premier League appearance makers', 'By total games played, through the 2025-26 season.', 'appearances');
+
+INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
+	((SELECT id FROM categories WHERE slug = 'pl-alltime-appearances'), 1, 'James Milner', '658'),
+	((SELECT id FROM categories WHERE slug = 'pl-alltime-appearances'), 2, 'Gareth Barry', '653'),
+	((SELECT id FROM categories WHERE slug = 'pl-alltime-appearances'), 3, 'Ryan Giggs', '632'),
+	((SELECT id FROM categories WHERE slug = 'pl-alltime-appearances'), 4, 'Frank Lampard', '609'),
+	((SELECT id FROM categories WHERE slug = 'pl-alltime-appearances'), 5, 'David James', '572'),
+	((SELECT id FROM categories WHERE slug = 'pl-alltime-appearances'), 6, 'Gary Speed', '535'),
+	((SELECT id FROM categories WHERE slug = 'pl-alltime-appearances'), 7, 'Emile Heskey', '516'),
+	((SELECT id FROM categories WHERE slug = 'pl-alltime-appearances'), 8, 'Mark Schwarzer', '514'),
+	((SELECT id FROM categories WHERE slug = 'pl-alltime-appearances'), 9, 'Jamie Carragher', '508'),
+	((SELECT id FROM categories WHERE slug = 'pl-alltime-appearances'), 10, 'Phil Neville', '505');
+
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'james milner' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-alltime-appearances' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'milner' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-alltime-appearances' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'gareth barry' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-alltime-appearances' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'barry' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-alltime-appearances' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'ryan giggs' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-alltime-appearances' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'giggs' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-alltime-appearances' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'frank lampard' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-alltime-appearances' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'lampard' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-alltime-appearances' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'david james' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-alltime-appearances' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'gary speed' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-alltime-appearances' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'speed' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-alltime-appearances' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'emile heskey' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-alltime-appearances' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'heskey' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-alltime-appearances' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'mark schwarzer' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-alltime-appearances' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'schwarzer' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-alltime-appearances' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'jamie carragher' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-alltime-appearances' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'carragher' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-alltime-appearances' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'phil neville' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-alltime-appearances' AND a.rank = 10;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'neville' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'pl-alltime-appearances' AND a.rank = 10;
+
+-- Category 20: last 10 unique clubs to win the European Cup/Champions
+-- League, most recent first (same "recency, not count" framing as category
+-- 18's managers, and a companion to the existing all-time-by-count
+-- ucl-titles-by-club category). Verified via web search (2026-08-26): PSG
+-- beat Arsenal 4-3 on penalties in the 2025-26 final (30 May 2026,
+-- Budapest) for back-to-back titles; the next 5 most recent are corroborated
+-- by an independent source's "last 10 editions = 6 unique champions (Real
+-- Madrid x4, PSG x2, Man City, Chelsea, Bayern Munich, Liverpool)" claim,
+-- which matches this list's first 6 entries exactly. Ranks 7-10 (Barcelona
+-- 2014-15, Inter Milan 2009-10, Man United 2007-08, AC Milan 2006-07) are
+-- individually confirmed via search, not just recalled.
+INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
+	('ucl-recent-unique-winners', 'Top 10 most recent unique UEFA Champions League-winning clubs', 'The last 10 unique clubs to win the European Cup/Champions League, most recent first. Through the 2025-26 final.', 'title-winning season');
+
+INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
+	((SELECT id FROM categories WHERE slug = 'ucl-recent-unique-winners'), 1, 'Paris Saint-Germain', '2025-26'),
+	((SELECT id FROM categories WHERE slug = 'ucl-recent-unique-winners'), 2, 'Real Madrid', '2023-24'),
+	((SELECT id FROM categories WHERE slug = 'ucl-recent-unique-winners'), 3, 'Manchester City', '2022-23'),
+	((SELECT id FROM categories WHERE slug = 'ucl-recent-unique-winners'), 4, 'Chelsea', '2020-21'),
+	((SELECT id FROM categories WHERE slug = 'ucl-recent-unique-winners'), 5, 'Bayern Munich', '2019-20'),
+	((SELECT id FROM categories WHERE slug = 'ucl-recent-unique-winners'), 6, 'Liverpool', '2018-19'),
+	((SELECT id FROM categories WHERE slug = 'ucl-recent-unique-winners'), 7, 'Barcelona', '2014-15'),
+	((SELECT id FROM categories WHERE slug = 'ucl-recent-unique-winners'), 8, 'Inter Milan', '2009-10'),
+	((SELECT id FROM categories WHERE slug = 'ucl-recent-unique-winners'), 9, 'Manchester United', '2007-08'),
+	((SELECT id FROM categories WHERE slug = 'ucl-recent-unique-winners'), 10, 'AC Milan', '2006-07');
+
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'paris saint-germain' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ucl-recent-unique-winners' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'paris saint germain' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ucl-recent-unique-winners' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'psg' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ucl-recent-unique-winners' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'paris' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ucl-recent-unique-winners' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'real madrid' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ucl-recent-unique-winners' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'madrid' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ucl-recent-unique-winners' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'manchester city' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ucl-recent-unique-winners' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'man city' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ucl-recent-unique-winners' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'chelsea' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ucl-recent-unique-winners' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'bayern munich' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ucl-recent-unique-winners' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'bayern' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ucl-recent-unique-winners' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'liverpool' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ucl-recent-unique-winners' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'barcelona' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ucl-recent-unique-winners' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'barca' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ucl-recent-unique-winners' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'inter milan' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ucl-recent-unique-winners' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'inter' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ucl-recent-unique-winners' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'manchester united' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ucl-recent-unique-winners' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'man united' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ucl-recent-unique-winners' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'man utd' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ucl-recent-unique-winners' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'ac milan' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ucl-recent-unique-winners' AND a.rank = 10;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'milan' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ucl-recent-unique-winners' AND a.rank = 10;
+
+-- Category 21: the top scorer from each of the last 10 Men's World Cups,
+-- most recent first — NOT "unique winners" (unlike categories 18/20): a
+-- repeat winner is expected and correct here. Verified via web search
+-- (2026-08-26): Mbappe won the 2026 Golden Boot with 10 goals, becoming the
+-- first player to win it twice (also 2022, 8 goals) and the World Cup's
+-- all-time top scorer (22 goals) — his second win is what makes this
+-- category exercise the matchGuess fix below. Every other entry
+-- independently confirmed via search, not just recalled: 2018 Kane (6),
+-- 2014 James Rodriguez (6), 2010 Muller (5), 2006 Klose (5), 2002 Ronaldo
+-- (8), 1998 Suker (6), 1994 Salenko/Stoichkov shared (6 each), 1990
+-- Schillaci (6).
+--
+-- 1994 is a genuine shared award (two players, one trophy) — modeled as a
+-- single answer row with both names in canonical_name and both names'
+-- aliases pointing to it, so guessing either counts, rather than as two
+-- ranks (which would misrepresent it as two separate tournaments).
+--
+-- Mbappe's repeat is the reason matchGuess() now takes foundRanks: the same
+-- alias ("mbappe") is correct for both rank 1 (2026) and rank 2 (2022), and
+-- without preferring an unfound rank, guessing it a second time would just
+-- re-match rank 1 and report "duplicate" — permanently capping this
+-- category at 9/10. See categories.ts.
+INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
+	('wc-recent-golden-boot', 'Top 10 most recent Men''s World Cup Golden Boot winners', 'The top scorer from each of the last 10 World Cups, most recent first (2026 back to 1990). 1994''s award was shared by two players — guessing either name counts.', 'World Cup');
+
+INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
+	((SELECT id FROM categories WHERE slug = 'wc-recent-golden-boot'), 1, 'Kylian Mbappe', '2026'),
+	((SELECT id FROM categories WHERE slug = 'wc-recent-golden-boot'), 2, 'Kylian Mbappe', '2022'),
+	((SELECT id FROM categories WHERE slug = 'wc-recent-golden-boot'), 3, 'Harry Kane', '2018'),
+	((SELECT id FROM categories WHERE slug = 'wc-recent-golden-boot'), 4, 'James Rodriguez', '2014'),
+	((SELECT id FROM categories WHERE slug = 'wc-recent-golden-boot'), 5, 'Thomas Muller', '2010'),
+	((SELECT id FROM categories WHERE slug = 'wc-recent-golden-boot'), 6, 'Miroslav Klose', '2006'),
+	((SELECT id FROM categories WHERE slug = 'wc-recent-golden-boot'), 7, 'Ronaldo Nazario', '2002'),
+	((SELECT id FROM categories WHERE slug = 'wc-recent-golden-boot'), 8, 'Davor Suker', '1998'),
+	((SELECT id FROM categories WHERE slug = 'wc-recent-golden-boot'), 9, 'Oleg Salenko & Hristo Stoichkov', '1994'),
+	((SELECT id FROM categories WHERE slug = 'wc-recent-golden-boot'), 10, 'Salvatore Schillaci', '1990');
+
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'kylian mbappe' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-recent-golden-boot' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'mbappe' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-recent-golden-boot' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'kylian mbappe' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-recent-golden-boot' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'mbappe' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-recent-golden-boot' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'harry kane' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-recent-golden-boot' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'kane' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-recent-golden-boot' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'james rodriguez' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-recent-golden-boot' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'rodriguez' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-recent-golden-boot' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'thomas muller' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-recent-golden-boot' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'muller' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-recent-golden-boot' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'miroslav klose' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-recent-golden-boot' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'klose' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-recent-golden-boot' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'ronaldo nazario' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-recent-golden-boot' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'ronaldo' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-recent-golden-boot' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'r9' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-recent-golden-boot' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'davor suker' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-recent-golden-boot' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'suker' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-recent-golden-boot' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'oleg salenko' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-recent-golden-boot' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'salenko' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-recent-golden-boot' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'hristo stoichkov' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-recent-golden-boot' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'stoichkov' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-recent-golden-boot' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'salvatore schillaci' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-recent-golden-boot' AND a.rank = 10;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'schillaci' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-recent-golden-boot' AND a.rank = 10;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'toto schillaci' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-recent-golden-boot' AND a.rank = 10;
+
+UPDATE categories SET entity_type = 'player' WHERE slug IN (
+	'pl-alltime-appearances',
+	'wc-recent-golden-boot'
+);
+
 -- Reference countries: typeahead-only pool of national teams for
 -- 'country' categories (Euro/AFCON winners), scoped to UEFA + CAF membership
 -- (the confederations those categories actually cover). Same rules as the

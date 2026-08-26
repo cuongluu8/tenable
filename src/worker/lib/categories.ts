@@ -86,19 +86,35 @@ export async function matchGuess(
 	db: D1Database,
 	categoryId: number,
 	normalizedGuess: string,
+	foundRanks: number[] = [],
 ): Promise<AnswerMatchRow | null> {
 	// Matching goes through answer_aliases only (never canonical_name directly)
 	// because aliases are pre-normalized the same way guesses are; seed data
 	// always includes the full normalized name as one of a name's aliases.
+	//
+	// A handful of categories are "one row per occurrence" rather than "one
+	// row per entity" — e.g. a World Cup Golden Boot winner who won it in
+	// two different tournaments gets two answer rows with the same
+	// canonical_name/alias, one per rank. Without foundRanks, `LIMIT 1` with
+	// no ORDER BY always resolves an ambiguous alias to the same row, so a
+	// repeat name's other rank could never be found — permanently capping
+	// that category below 100%. Ordering not-yet-found ranks first fixes
+	// that (each guess of the name advances a different occurrence) while
+	// still falling back to an already-found rank — and so still hitting
+	// guess.ts's existing "duplicate" handling — once every occurrence of
+	// that name is found. `rank IN ()` is valid SQLite and always false, so
+	// this is a no-op for the common case for foundRanks = [].
+	const foundList = foundRanks.length > 0 ? foundRanks.map(() => "?").join(",") : "";
 	const row = await db
 		.prepare(
 			`SELECT a.id, a.rank, a.canonical_name, a.stat_value
 			 FROM answers a
 			 JOIN answer_aliases al ON al.answer_id = a.id
 			 WHERE a.category_id = ? AND al.alias = ?
+			 ORDER BY (a.rank IN (${foundList})) ASC
 			 LIMIT 1`,
 		)
-		.bind(categoryId, normalizedGuess)
+		.bind(categoryId, normalizedGuess, ...foundRanks)
 		.first<AnswerMatchRow>();
 	return row ?? null;
 }

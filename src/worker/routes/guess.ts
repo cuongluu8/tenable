@@ -50,7 +50,7 @@ guess.post("/", async (c) => {
 
 	const answerCount = await getAnswerCount(c.env.DB, category.id);
 	const normalized = normalize(rawGuess);
-	const match = await matchGuess(c.env.DB, category.id, normalized);
+	const match = await matchGuess(c.env.DB, category.id, normalized, progress.foundRanks);
 
 	let result: "correct" | "duplicate" | "wrong";
 
