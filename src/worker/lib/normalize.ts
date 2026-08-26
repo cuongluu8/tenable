@@ -27,3 +27,21 @@ export function toFtsPrefixQuery(normalized: string): string {
 		.map((word) => `${word}*`)
 		.join(" ");
 }
+
+// Collapses an already-normalized string (or a raw alias straight from the
+// database) down to just its letters and digits — no spaces, no punctuation
+// at all. This is the single comparison key matchGuess() matches guesses
+// against, replacing what used to be an exact-string match plus a growing
+// list of special-cased fallbacks (first hyphens, then also ampersands —
+// see git history around 2026-08-26) for every punctuation mark normalize()
+// happens to delete without leaving a space behind ("Paris Saint-Germain"
+// -> "paris saintgermain", "Oleg Salenko & Hristo Stoichkov" -> "oleg
+// salenko hristo stoichkov"). Rather than keep hardcoding the next
+// character that turns up, this drops the question of "space, hyphen, or
+// merged?" entirely: a guess and an alias match if they contain the same
+// letters and digits in the same order, full stop. Exact matches still
+// match (collapsing doesn't change equal strings' equality), so this is a
+// strict superset of the old behavior, not a different one.
+export function collapseToAlnum(input: string): string {
+	return input.toLowerCase().replace(/[^a-z0-9]/g, "");
+}

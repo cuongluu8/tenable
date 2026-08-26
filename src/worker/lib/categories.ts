@@ -1,5 +1,5 @@
 import type { CategoryPublic } from "./types";
-import { toFtsPrefixQuery } from "./normalize";
+import { toFtsPrefixQuery, collapseToAlnum } from "./normalize";
 
 interface CategoryRow {
 	id: number;
@@ -81,70 +81,77 @@ interface AnswerMatchRow {
 	stat_value: string;
 }
 
+interface AnswerAliasRow extends AnswerMatchRow {
+	alias: string;
+}
+
 // Server-authoritative guess check: normalize the guess and look it up
-// against both canonical names and aliases for this category. Answers are
-// never sent to the client, so this is the only place a guess can be
-// validated.
+// against this category's answer_aliases (never canonical_name directly,
+// since aliases also carry curated nicknames — "psg", "cr7" — a name's
+// own letters can't produce). Answers are never sent to the client, so
+// this is the only place a guess can be validated.
+//
+// The comparison is deliberately dumb: every alias for the category is
+// pulled in one query (a category tops out around 10 answers with a
+// handful of aliases each — tens of rows, not worth filtering in SQL),
+// then both the guess and every alias are reduced to just their letters
+// and digits (collapseToAlnum(), see normalize.ts) and compared for exact
+// equality. Rebuilt this way 2026-08-26 after a real bug (see git history)
+// turned into a game of whack-a-mole: normalize() deletes punctuation
+// without leaving a space behind, so a canonical name with any
+// punctuation-joined word boundary — a hyphen ("Paris Saint-Germain"), an
+// ampersand ("Oleg Salenko & Hristo Stoichkov") — normalizes a guess (or a
+// suggestion selected verbatim off the typeahead) to a form that's only
+// guaranteed to match if someone remembered to author that *exact*
+// spelling as an alias by hand. The first fix special-cased hyphens in
+// SQL; the second bug (a plain ampersand) needed the same fix again for a
+// different character. Comparing on letters-and-digits-only sidesteps the
+// question of which punctuation mark it is, or whether the "right" reading
+// merges two words or spaces them, entirely — collapsing doesn't change
+// how two already-equal strings compare, so this is a strict superset of
+// plain exact matching, not a different, riskier one. (Checked for
+// same-category collisions between different answers across the full
+// database before switching to this — none exist.)
 export async function matchGuess(
 	db: D1Database,
 	categoryId: number,
 	normalizedGuess: string,
 	foundRanks: number[] = [],
 ): Promise<AnswerMatchRow | null> {
-	// Matching goes through answer_aliases only (never canonical_name directly)
-	// because aliases are pre-normalized the same way guesses are; seed data
-	// always includes the full normalized name as one of a name's aliases.
-	//
-	// The fallback OR clause is a safety net found 2026-08-26: normalize()
-	// strips ALL punctuation without ever inserting a space, so any
-	// canonical name with a punctuation-joined word boundary — a hyphen
-	// ("Paris Saint-Germain" -> "paris saintgermain"), an ampersand
-	// ("Oleg Salenko & Hristo Stoichkov" -> "oleg salenko hristo
-	// stoichkov", both halves collapsed into one phrase since the spaces
-	// around the "&" survive but the "&" itself doesn't) — normalizes a
-	// real guess (including one selected verbatim off the typeahead, which
-	// is exactly how the PSG case was first reported) to a form that isn't
-	// guaranteed to be among that answer's authored aliases unless someone
-	// remembered to add that *exact* collapsed spelling by hand. Audited
-	// every answer in the database for this on 2026-08-26 and found two
-	// real gaps (PSG, Karl-Heinz Rummenigge — both backfilled in seed.sql);
-	// this compares both sides with spaces AND the handful of word-joining
-	// punctuation marks seen in this data (hyphen, ampersand) stripped
-	// entirely, so the same authoring mistake on the next name like this
-	// doesn't silently reject a correct guess again. Purely additive (only
-	// ever matches more, never less), and scoped to this one category's
-	// answers like the exact match already is.
-	//
+	const collapsedGuess = collapseToAlnum(normalizedGuess);
+	if (!collapsedGuess) return null;
+
+	const result = await db
+		.prepare(
+			`SELECT a.id, a.rank, a.canonical_name, a.stat_value, al.alias
+			 FROM answers a
+			 JOIN answer_aliases al ON al.answer_id = a.id
+			 WHERE a.category_id = ?`,
+		)
+		.bind(categoryId)
+		.all<AnswerAliasRow>();
+
+	const candidates = (result.results ?? []).filter(
+		(row) => collapseToAlnum(row.alias) === collapsedGuess,
+	);
+	if (candidates.length === 0) return null;
+
 	// A handful of categories are "one row per occurrence" rather than "one
 	// row per entity" — e.g. a World Cup Golden Boot winner who won it in
 	// two different tournaments gets two answer rows with the same
-	// canonical_name/alias, one per rank. Without foundRanks, `LIMIT 1` with
-	// no ORDER BY always resolves an ambiguous alias to the same row, so a
-	// repeat name's other rank could never be found — permanently capping
-	// that category below 100%. Ordering not-yet-found ranks first fixes
-	// that (each guess of the name advances a different occurrence) while
-	// still falling back to an already-found rank — and so still hitting
-	// guess.ts's existing "duplicate" handling — once every occurrence of
-	// that name is found. `rank IN ()` is valid SQLite and always false, so
-	// this is a no-op for the common case for foundRanks = [].
-	const foundList = foundRanks.length > 0 ? foundRanks.map(() => "?").join(",") : "";
-	const row = await db
-		.prepare(
-			`SELECT a.id, a.rank, a.canonical_name, a.stat_value
-			 FROM answers a
-			 JOIN answer_aliases al ON al.answer_id = a.id
-			 WHERE a.category_id = ?
-			   AND (
-			     al.alias = ?
-			     OR REPLACE(REPLACE(REPLACE(al.alias, ' ', ''), '-', ''), '&', '')
-			        = REPLACE(REPLACE(REPLACE(?, ' ', ''), '-', ''), '&', '')
-			   )
-			 ORDER BY (a.rank IN (${foundList})) ASC
-			 LIMIT 1`,
-		)
-		.bind(categoryId, normalizedGuess, normalizedGuess, ...foundRanks)
-		.first<AnswerMatchRow>();
-	return row ?? null;
+	// canonical_name/alias, one per rank. Preferring a not-yet-found rank
+	// (falling back to an already-found one, so guess.ts's existing
+	// "duplicate" handling still applies once every occurrence is found)
+	// means each repeat guess of the name advances a different occurrence,
+	// rather than always resolving to the same one and permanently capping
+	// that category below 100%. The rank tie-break after that just makes an
+	// otherwise-arbitrary choice between multiple matching rows deterministic.
+	candidates.sort((a, b) => {
+		const aFound = foundRanks.includes(a.rank) ? 1 : 0;
+		const bFound = foundRanks.includes(b.rank) ? 1 : 0;
+		return aFound - bFound || a.rank - b.rank;
+	});
+	return candidates[0];
 }
 
 interface FullAnswerRow {
