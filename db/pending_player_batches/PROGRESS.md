@@ -1,6 +1,6 @@
 # Player Data Loading — Resume Instructions
 
-**Status as of this commit: 30 of 70 batches loaded into production. 40 remain (this directory).**
+**Status as of this commit: 31 of 70 batches loaded into production. 39 remain (this directory).**
 
 ## Background
 
@@ -13,19 +13,19 @@ FIFA overall rating descending (highest-profile players first). The first
 150 players were loaded manually as an initial test batch; the rest were
 split into `batch_000.sql` through `batch_069.sql`.
 
-Batches 000–029 have already been executed against production. This
-directory contains the remaining, **not yet executed** batches: `batch_030.sql`
+Batches 000–030 have already been executed against production. This
+directory contains the remaining, **not yet executed** batches: `batch_031.sql`
 through `batch_069.sql`.
 
 ## Current DB state (verified via COUNT query at pause time)
 
-- `reference_entities` totals: **8,555 players**, 488 clubs, 110 countries.
+- `reference_entities` totals: **8,805 players**, 488 clubs, 110 countries.
 - Cloudflare D1 database: `database_id = a87ef250-cc94-4765-a821-785acbcd71a4`,
   name "tenable-content".
 
 ## Resume procedure (new session)
 
-1. Read `db/pending_player_batches/batch_030.sql` (the next unexecuted batch —
+1. Read `db/pending_player_batches/batch_031.sql` (the next unexecuted batch —
    check this directory's remaining lowest-numbered file, since completed
    ones should be deleted as you go, see step 4).
 2. Execute its full contents as a **single** call to
@@ -58,7 +58,8 @@ avoids truncation when read back via the Read tool (~20-25K tokens/file).
 Each batch cycle (read + execute) costs roughly 200-250K tokens in practice
 (reading the file into context and then re-sending its full content as the
 tool call argument both count) — budget accordingly per session; this
-session did 3 batches (027-029) before checkpointing here.
+session did 4 batches (027-030) before this checkpoint, continuing further
+in the same session afterward.
 
 ## Known pre-existing data quality note (not a batch-loading bug)
 
