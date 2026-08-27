@@ -216,6 +216,7 @@ export function PlayScreen({ slug, onBack }: Props) {
 								onPick={pickSuggestion}
 								disabled={submitting}
 								categorySlug={slug}
+								excludeNames={Array.from(found.values(), (a) => a.name)}
 							/>
 							{confirmingGiveUp ? (
 								<div className="give-up-confirm">
