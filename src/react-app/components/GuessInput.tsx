@@ -17,6 +17,10 @@ interface Props {
 }
 
 const DEBOUNCE_MS = 200;
+// Must match MIN_QUERY_LENGTH in src/worker/routes/suggest.ts — below this,
+// the backend returns no suggestions regardless, so there's no point firing
+// the request (or showing the dropdown/skeleton) yet.
+const MIN_QUERY_LENGTH = 3;
 
 // Dropdown placement, in fixed-position (viewport) pixels — see
 // reposition() below for why this can't just be CSS.
@@ -68,7 +72,7 @@ export function GuessInput({ value, onChange, onPick, disabled, categorySlug }: 
 	const justPickedRef = useRef(false);
 
 	const query = value.trim();
-	const visible = !dismissed && query.length >= 2 && (suggestions.length > 0 || loading);
+	const visible = !dismissed && query.length >= MIN_QUERY_LENGTH && (suggestions.length > 0 || loading);
 
 	// Scrolls the input into the safe zone as soon as it's focused — before
 	// the player has even typed anything, independent of whether suggestions
@@ -131,7 +135,7 @@ export function GuessInput({ value, onChange, onPick, disabled, categorySlug }: 
 			justPickedRef.current = false;
 			return;
 		}
-		if (query.length < 2) return; // `visible` already hides any stale list
+		if (query.length < MIN_QUERY_LENGTH) return; // `visible` already hides any stale list
 
 		const id = ++requestId.current;
 		const timer = setTimeout(() => {

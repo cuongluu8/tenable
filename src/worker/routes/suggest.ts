@@ -4,21 +4,34 @@ import { suggestNames, getCategoryBySlug } from "../lib/categories";
 
 const suggest = new Hono<{ Bindings: Env }>();
 
-const MIN_QUERY_LENGTH = 2;
-// 8 was too aggressive: a query specific enough to have few real candidates
-// (e.g. "thiago", 11 total matches in the reference pool as of 2026-08-27)
-// could still lose a genuinely famous one (Thiago Alcantara, tied for the
-// longest name among 11 "Thiago"-containing players) purely to the
-// length-based tiebreak in suggestNames, well before hitting anything that
-// looks like "too many results". 25 leaves real margin for that kind of
-// specific search while still bounding the genuinely broad-prefix case a
-// cap exists for at all — a short/common prefix ("ma", "an") matches
-// 500-1600+ distinct players, and showing all of those on every keystroke
-// (not just "more than 8" of them) would be a real payload/usability
-// problem, not one the guess box's already-scrollable dropdown solves by
-// just growing the list. See agents.md for the incident this constant
-// tightened in response to.
-const MAX_RESULTS = 25;
+const MIN_QUERY_LENGTH = 3;
+
+// A flat result cap can't be right at both ends of the query-length range: 8
+// was too aggressive for a query specific enough to have few real candidates
+// (e.g. "thiago", 11 total matches in the reference pool as of 2026-08-27) —
+// it could still lose a genuinely famous one (Thiago Alcantara, tied for the
+// longest name among those 11) purely to the length-based tiebreak in
+// suggestNames, well before hitting anything that looks like "too many
+// results". But a flat *high* cap isn't right either: a short/broad prefix
+// ("ma", "an") matches 500-1600+ distinct players, and showing all of those
+// on every keystroke is a real payload/usability problem the guess box's
+// scrollable dropdown doesn't solve by just growing the list.
+//
+// So the limit scales with how specific the (normalized) query already is —
+// longer input has fewer real candidates and can afford to show more of
+// them, aiming to surface every player sharing a common name rather than
+// truncate them by an arbitrary flat cutoff. Linear from MIN_RESULTS at
+// MIN_QUERY_LENGTH up to MAX_RESULTS at LONG_QUERY_LENGTH, then flat.
+const MIN_RESULTS = 8;
+const MAX_RESULTS = 50;
+const LONG_QUERY_LENGTH = 12;
+
+function resultLimitFor(queryLength: number): number {
+	if (queryLength <= MIN_QUERY_LENGTH) return MIN_RESULTS;
+	if (queryLength >= LONG_QUERY_LENGTH) return MAX_RESULTS;
+	const t = (queryLength - MIN_QUERY_LENGTH) / (LONG_QUERY_LENGTH - MIN_QUERY_LENGTH);
+	return Math.round(MIN_RESULTS + t * (MAX_RESULTS - MIN_RESULTS));
+}
 
 // Typeahead for the guess box: name/club/player suggestions matching a
 // prefix, searched across the whole database rather than the current
@@ -46,7 +59,7 @@ suggest.get("/", async (c) => {
 		c.env.DB,
 		prefix,
 		category.entity_type,
-		MAX_RESULTS,
+		resultLimitFor(prefix.length),
 		category.reference_scope,
 	);
 	return c.json({ suggestions });
