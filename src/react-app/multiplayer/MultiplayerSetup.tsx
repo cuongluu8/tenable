@@ -24,6 +24,7 @@ export function MultiplayerSetup({ onStart }: Props) {
 	const [categorySlug, setCategorySlug] = useState("");
 	const [playerNames, setPlayerNames] = useState<string[]>([]);
 	const [nameInput, setNameInput] = useState("");
+	const [nameError, setNameError] = useState<string | null>(null);
 
 	useEffect(() => {
 		fetch("/api/categories")
@@ -42,6 +43,14 @@ export function MultiplayerSetup({ onStart }: Props) {
 		e.preventDefault();
 		const name = nameInput.trim();
 		if (!name || playerNames.length >= MAX_PLAYERS) return;
+		// Two players with the same name can't be told apart on the "whose
+		// turn" banner or in the final standings — reject rather than silently
+		// add a second, indistinguishable entry.
+		if (playerNames.some((existing) => existing.toLowerCase() === name.toLowerCase())) {
+			setNameError(`"${name}" is already in the game.`);
+			return;
+		}
+		setNameError(null);
 		setPlayerNames((prev) => [...prev, name]);
 		setNameInput("");
 	}
@@ -96,7 +105,10 @@ export function MultiplayerSetup({ onStart }: Props) {
 					<input
 						type="text"
 						value={nameInput}
-						onChange={(e) => setNameInput(e.target.value)}
+						onChange={(e) => {
+							setNameInput(e.target.value);
+							setNameError(null);
+						}}
 						placeholder="Player name"
 						disabled={playerNames.length >= MAX_PLAYERS}
 					/>
@@ -105,6 +117,7 @@ export function MultiplayerSetup({ onStart }: Props) {
 					Add
 				</button>
 			</form>
+			{nameError && <p className="mp-setup__error">{nameError}</p>}
 
 			{playerNames.length > 0 && (
 				<ul className="mp-setup__players">
