@@ -7,6 +7,13 @@
 	"observability": {
 		"enabled": true
 	},
+	"vars": {
+		// Cost guardrails — see circuitBreaker.ts / suggestRateLimit.ts.
+		// Raise deliberately if real traffic ever approaches these, don't
+		// delete the guardrail.
+		"DAILY_REQUEST_BUDGET": 20000,
+		"SUGGEST_RATE_LIMIT_PER_MINUTE": 30
+	},
 	"upload_source_maps": true,
 	"assets": {
 		"directory": "./dist/client",

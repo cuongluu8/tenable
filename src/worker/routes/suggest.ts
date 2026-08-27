@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { normalize } from "../lib/normalize";
 import { suggestNames, getCategoryBySlug } from "../lib/categories";
+import { enforceSuggestRateLimit } from "../lib/suggestRateLimit";
 
 const suggest = new Hono<{ Bindings: Env }>();
 
@@ -33,7 +34,7 @@ const MAX_RESULTS = 20;
 // entity_type — a players category should never suggest a club, and vice
 // versa. No/unknown category means no suggestions rather than an unscoped,
 // mixed-type list.
-suggest.get("/", async (c) => {
+suggest.get("/", enforceSuggestRateLimit, async (c) => {
 	const raw = c.req.query("q") ?? "";
 	const prefix = normalize(raw.slice(0, 60));
 	const categorySlug = c.req.query("category") ?? "";

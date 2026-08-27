@@ -549,6 +549,60 @@ first limit likely to be hit — it'll surface as user-facing errors on
 `/api/guess`, not a bill. Worth keeping an eye on via the KV dashboard if
 usage grows.
 
+**Update, 2026-08-27 — the account already has billing capability.** Checked
+the dashboard: Workers itself is confirmed on "Workers Free", but **R2 is on
+a Paid plan (Active)** on this same account — meaning a payment method is
+already on file, for a different project's R2 usage, not for tenable. This
+matters because it means "no card exists on the account" can no longer be
+assumed as tenable's safety net. What still holds, confirmed against current
+Cloudflare pricing docs: Worker requests/CPU, D1, and KV overage billing are
+gated specifically by **upgrading the Worker's own plan to Workers Paid**,
+not by whether a card exists elsewhere on the account for R2 — so tenable
+stays free as long as its Worker specifically is never upgraded, regardless
+of R2. There is still no Cloudflare-wide hard spend cap for Workers/D1/KV
+(only Budget Alerts, which are informational-only, not a block).
+
+Given that, app-level guardrails were added as defense-in-depth for the
+scenario where Workers *is* ever upgraded to Paid (deliberately or by a
+collaborator with billing access) — see below.
+
+### App-level cost guardrails (added 2026-08-27)
+
+Two fail-closed circuit breakers, independent of and in addition to
+whatever the Cloudflare plan's own limits are — see the code comments in
+each file for full reasoning:
+
+- **`src/worker/lib/circuitBreaker.ts`** — a hard ceiling on total requests
+  handled per day, across the whole app (`app.use("/api/*", ...)` in
+  `index.ts`). Once the daily count exceeds `DAILY_REQUEST_BUDGET`
+  (wrangler.json `vars`, default 20,000), every route returns `503` for the
+  rest of that UTC day.
+- **`src/worker/lib/suggestRateLimit.ts`** — a per-IP-per-minute limit on
+  `/api/suggest` specifically (the one endpoint that scales with keystrokes,
+  not deliberate plays, so it's the fastest way a scripted client could run
+  up D1 read volume). Once a single IP exceeds `SUGGEST_RATE_LIMIT_PER_MINUTE`
+  (default 30) within a rolling 1-minute window, further suggest requests
+  from that IP get `429` until the window rolls over; guessing itself is
+  unaffected.
+
+Both are backed by two new D1 tables (`request_budget`, `suggest_rate_limit`
+in `db/schema.sql`) rather than KV, deliberately — they're written on every
+request they guard, and D1 row-writes are far cheaper and have a far larger
+included allotment than KV writes (see the free-tier table above and current
+pricing), so a KV-backed counter would work against the very guardrail it's
+meant to be.
+
+Both defaults were chosen to sit far above this hobby-scale app's real
+traffic (confirmed against a full `npm run playtest` run — ~690 total
+requests, ~7 suggest calls in one window — and manually confirmed to
+actually trip: 30 rapid `/api/suggest` calls succeed, the 31st+ return
+`429`) and are configurable via `wrangler.json` `vars` if real traffic ever
+approaches them — raise deliberately, don't delete the guardrail.
+
+**Rule for agents:** if you add a new route or a new source of write volume
+(KV or D1), consider whether it needs its own guard the way `/api/suggest`
+did, rather than relying solely on the global daily ceiling.
+
 ## Workers Builds cost
 
 No GitHub Actions minutes are involved (see Deployment above). Workers

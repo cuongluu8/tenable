@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { enforceCircuitBreaker } from "./lib/circuitBreaker";
 import categories from "./routes/categories";
 import category from "./routes/category";
 import guess from "./routes/guess";
@@ -7,6 +8,9 @@ import stats from "./routes/stats";
 import suggest from "./routes/suggest";
 
 const app = new Hono<{ Bindings: Env }>();
+
+// Cost guardrail, applied ahead of every route — see circuitBreaker.ts.
+app.use("/api/*", enforceCircuitBreaker);
 
 app.route("/api/categories", categories);
 app.route("/api/categories", category);
