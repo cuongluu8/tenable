@@ -58701,3 +58701,515 @@ INSERT INTO reference_entity_aliases (entity_id, alias)
 SELECT re.id, v.alias FROM v
 JOIN reference_entities re ON re.canonical_name = v.name AND re.category = v.cat AND re.entity_type = 'club';
 
+
+-- ============================================================
+-- New categories added 2026-08-27: parallel all-time top-scorer and
+-- all-time titles lists for La Liga/Serie A/Bundesliga (previously only
+-- the Premier League and Serie A/England had these), plus Copa América
+-- and World Cup titles-by-country (the Americas' continental competition
+-- was entirely missing, unlike Europe's Euro and Africa's AFCON).
+-- ============================================================
+-- ============================================================
+-- New reference_entities needed before the categories below (players and
+-- countries not previously in the pool; all clubs needed already existed).
+-- ============================================================
+
+-- 8 CONMEBOL countries -- previously entirely absent from the country pool
+-- (which only had UEFA/CAF entries, since euro-titles-by-country and
+-- afcon-titles-by-country were the only country-typed categories so far).
+INSERT INTO reference_entities (canonical_name, category, entity_type) VALUES
+	('Argentina', 'CONMEBOL', 'country'),
+	('Uruguay', 'CONMEBOL', 'country'),
+	('Brazil', 'CONMEBOL', 'country'),
+	('Chile', 'CONMEBOL', 'country'),
+	('Paraguay', 'CONMEBOL', 'country'),
+	('Peru', 'CONMEBOL', 'country'),
+	('Colombia', 'CONMEBOL', 'country'),
+	('Bolivia', 'CONMEBOL', 'country');
+
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'argentina' FROM reference_entities WHERE canonical_name = 'Argentina' AND category = 'CONMEBOL';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'uruguay' FROM reference_entities WHERE canonical_name = 'Uruguay' AND category = 'CONMEBOL';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'brazil' FROM reference_entities WHERE canonical_name = 'Brazil' AND category = 'CONMEBOL';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'chile' FROM reference_entities WHERE canonical_name = 'Chile' AND category = 'CONMEBOL';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'paraguay' FROM reference_entities WHERE canonical_name = 'Paraguay' AND category = 'CONMEBOL';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'peru' FROM reference_entities WHERE canonical_name = 'Peru' AND category = 'CONMEBOL';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'colombia' FROM reference_entities WHERE canonical_name = 'Colombia' AND category = 'CONMEBOL';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'bolivia' FROM reference_entities WHERE canonical_name = 'Bolivia' AND category = 'CONMEBOL';
+
+-- 17 historical La Liga / Serie A / Bundesliga top scorers, none previously
+-- in the reference pool (checked by exact-name query against local D1
+-- before writing this).
+INSERT INTO reference_entities (canonical_name, category, entity_type) VALUES
+	('Telmo Zarra', 'Spain', 'player'),
+	('Cesar Rodriguez', 'Spain', 'player'),
+	('Pahino', 'Spain', 'player'),
+	('Silvio Piola', 'Italy', 'player'),
+	('Gunnar Nordahl', 'Sweden', 'player'),
+	('Giuseppe Meazza', 'Italy', 'player'),
+	('Jose Altafini', 'Brazil', 'player'),
+	('Antonio Di Natale', 'Italy', 'player'),
+	('Kurt Hamrin', 'Sweden', 'player'),
+	('Giuseppe Signori', 'Italy', 'player'),
+	('Klaus Fischer', 'Germany', 'player'),
+	('Jupp Heynckes', 'Germany', 'player'),
+	('Manfred Burgsmuller', 'Germany', 'player'),
+	('Ulf Kirsten', 'Germany', 'player'),
+	('Stefan Kuntz', 'Germany', 'player'),
+	('Klaus Allofs', 'Germany', 'player'),
+	('Dieter Muller', 'Germany', 'player');
+
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'telmo zarra' FROM reference_entities WHERE canonical_name = 'Telmo Zarra' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'zarra' FROM reference_entities WHERE canonical_name = 'Telmo Zarra' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'cesar rodriguez' FROM reference_entities WHERE canonical_name = 'Cesar Rodriguez' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'pahino' FROM reference_entities WHERE canonical_name = 'Pahino' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'silvio piola' FROM reference_entities WHERE canonical_name = 'Silvio Piola' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'piola' FROM reference_entities WHERE canonical_name = 'Silvio Piola' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'gunnar nordahl' FROM reference_entities WHERE canonical_name = 'Gunnar Nordahl' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'nordahl' FROM reference_entities WHERE canonical_name = 'Gunnar Nordahl' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'giuseppe meazza' FROM reference_entities WHERE canonical_name = 'Giuseppe Meazza' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'meazza' FROM reference_entities WHERE canonical_name = 'Giuseppe Meazza' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'jose altafini' FROM reference_entities WHERE canonical_name = 'Jose Altafini' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'altafini' FROM reference_entities WHERE canonical_name = 'Jose Altafini' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'antonio di natale' FROM reference_entities WHERE canonical_name = 'Antonio Di Natale' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'di natale' FROM reference_entities WHERE canonical_name = 'Antonio Di Natale' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'kurt hamrin' FROM reference_entities WHERE canonical_name = 'Kurt Hamrin' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'hamrin' FROM reference_entities WHERE canonical_name = 'Kurt Hamrin' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'giuseppe signori' FROM reference_entities WHERE canonical_name = 'Giuseppe Signori' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'signori' FROM reference_entities WHERE canonical_name = 'Giuseppe Signori' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'klaus fischer' FROM reference_entities WHERE canonical_name = 'Klaus Fischer' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'jupp heynckes' FROM reference_entities WHERE canonical_name = 'Jupp Heynckes' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'heynckes' FROM reference_entities WHERE canonical_name = 'Jupp Heynckes' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'manfred burgsmuller' FROM reference_entities WHERE canonical_name = 'Manfred Burgsmuller' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'burgsmuller' FROM reference_entities WHERE canonical_name = 'Manfred Burgsmuller' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'ulf kirsten' FROM reference_entities WHERE canonical_name = 'Ulf Kirsten' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'kirsten' FROM reference_entities WHERE canonical_name = 'Ulf Kirsten' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'stefan kuntz' FROM reference_entities WHERE canonical_name = 'Stefan Kuntz' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'kuntz' FROM reference_entities WHERE canonical_name = 'Stefan Kuntz' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'klaus allofs' FROM reference_entities WHERE canonical_name = 'Klaus Allofs' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'allofs' FROM reference_entities WHERE canonical_name = 'Klaus Allofs' AND entity_type = 'player';
+INSERT INTO reference_entity_aliases (entity_id, alias)
+	SELECT id, 'dieter muller' FROM reference_entities WHERE canonical_name = 'Dieter Muller' AND entity_type = 'player';
+
+-- ============================================================
+-- Category: La Liga all-time top scorers
+-- ============================================================
+INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
+	('la-liga-alltime-top-scorers', 'Top 10 La Liga all-time top scorers', 'Career goals in the Spanish top flight, through 2025-26', 'goals');
+
+INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
+	((SELECT id FROM categories WHERE slug = 'la-liga-alltime-top-scorers'), 1, 'Lionel Messi', '474'),
+	((SELECT id FROM categories WHERE slug = 'la-liga-alltime-top-scorers'), 2, 'Cristiano Ronaldo', '311'),
+	((SELECT id FROM categories WHERE slug = 'la-liga-alltime-top-scorers'), 3, 'Telmo Zarra', '251'),
+	((SELECT id FROM categories WHERE slug = 'la-liga-alltime-top-scorers'), 4, 'Karim Benzema', '238'),
+	((SELECT id FROM categories WHERE slug = 'la-liga-alltime-top-scorers'), 5, 'Hugo Sanchez', '234'),
+	((SELECT id FROM categories WHERE slug = 'la-liga-alltime-top-scorers'), 6, 'Raul', '228'),
+	((SELECT id FROM categories WHERE slug = 'la-liga-alltime-top-scorers'), 7, 'Alfredo Di Stefano', '227'),
+	((SELECT id FROM categories WHERE slug = 'la-liga-alltime-top-scorers'), 8, 'Cesar Rodriguez', '223'),
+	((SELECT id FROM categories WHERE slug = 'la-liga-alltime-top-scorers'), 9, 'Quini', '219'),
+	((SELECT id FROM categories WHERE slug = 'la-liga-alltime-top-scorers'), 10, 'Pahino', '210');
+
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'lionel messi' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'la-liga-alltime-top-scorers' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'messi' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'la-liga-alltime-top-scorers' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'cristiano ronaldo' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'la-liga-alltime-top-scorers' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'ronaldo' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'la-liga-alltime-top-scorers' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'cr7' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'la-liga-alltime-top-scorers' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'telmo zarra' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'la-liga-alltime-top-scorers' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'zarra' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'la-liga-alltime-top-scorers' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'karim benzema' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'la-liga-alltime-top-scorers' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'benzema' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'la-liga-alltime-top-scorers' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'hugo sanchez' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'la-liga-alltime-top-scorers' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'raul' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'la-liga-alltime-top-scorers' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'alfredo di stefano' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'la-liga-alltime-top-scorers' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'di stefano' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'la-liga-alltime-top-scorers' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'cesar rodriguez' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'la-liga-alltime-top-scorers' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'quini' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'la-liga-alltime-top-scorers' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'pahino' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'la-liga-alltime-top-scorers' AND a.rank = 10;
+
+-- ============================================================
+-- Category: Serie A all-time top scorers
+-- ============================================================
+INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
+	('serie-a-alltime-top-scorers', 'Top 10 Serie A all-time top scorers', 'Career goals in the Italian top flight, through 2025-26. Del Piero edges Signori (both on 188) for 9th — ties broken by recency.', 'goals');
+
+INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
+	((SELECT id FROM categories WHERE slug = 'serie-a-alltime-top-scorers'), 1, 'Silvio Piola', '274'),
+	((SELECT id FROM categories WHERE slug = 'serie-a-alltime-top-scorers'), 2, 'Francesco Totti', '250'),
+	((SELECT id FROM categories WHERE slug = 'serie-a-alltime-top-scorers'), 3, 'Gunnar Nordahl', '225'),
+	((SELECT id FROM categories WHERE slug = 'serie-a-alltime-top-scorers'), 4, 'Giuseppe Meazza', '216'),
+	((SELECT id FROM categories WHERE slug = 'serie-a-alltime-top-scorers'), 5, 'Jose Altafini', '211'),
+	((SELECT id FROM categories WHERE slug = 'serie-a-alltime-top-scorers'), 6, 'Antonio Di Natale', '210'),
+	((SELECT id FROM categories WHERE slug = 'serie-a-alltime-top-scorers'), 7, 'Roberto Baggio', '205'),
+	((SELECT id FROM categories WHERE slug = 'serie-a-alltime-top-scorers'), 8, 'Kurt Hamrin', '190'),
+	((SELECT id FROM categories WHERE slug = 'serie-a-alltime-top-scorers'), 9, 'Alessandro Del Piero', '188'),
+	((SELECT id FROM categories WHERE slug = 'serie-a-alltime-top-scorers'), 10, 'Giuseppe Signori', '188');
+
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'silvio piola' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'serie-a-alltime-top-scorers' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'piola' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'serie-a-alltime-top-scorers' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'francesco totti' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'serie-a-alltime-top-scorers' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'totti' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'serie-a-alltime-top-scorers' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'gunnar nordahl' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'serie-a-alltime-top-scorers' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'nordahl' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'serie-a-alltime-top-scorers' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'giuseppe meazza' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'serie-a-alltime-top-scorers' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'meazza' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'serie-a-alltime-top-scorers' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'jose altafini' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'serie-a-alltime-top-scorers' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'altafini' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'serie-a-alltime-top-scorers' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'antonio di natale' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'serie-a-alltime-top-scorers' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'di natale' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'serie-a-alltime-top-scorers' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'roberto baggio' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'serie-a-alltime-top-scorers' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'baggio' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'serie-a-alltime-top-scorers' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'kurt hamrin' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'serie-a-alltime-top-scorers' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'hamrin' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'serie-a-alltime-top-scorers' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'alessandro del piero' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'serie-a-alltime-top-scorers' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'del piero' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'serie-a-alltime-top-scorers' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'giuseppe signori' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'serie-a-alltime-top-scorers' AND a.rank = 10;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'signori' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'serie-a-alltime-top-scorers' AND a.rank = 10;
+
+-- ============================================================
+-- Category: Bundesliga all-time top scorers
+-- ============================================================
+INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
+	('bundesliga-alltime-top-scorers', 'Top 10 Bundesliga all-time top scorers', 'Career goals in the German top flight, through 2025-26. Allofs edges Dieter Müller (both on 177) for 9th — ties broken by recency.', 'goals');
+
+INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
+	((SELECT id FROM categories WHERE slug = 'bundesliga-alltime-top-scorers'), 1, 'Gerd Muller', '365'),
+	((SELECT id FROM categories WHERE slug = 'bundesliga-alltime-top-scorers'), 2, 'Robert Lewandowski', '312'),
+	((SELECT id FROM categories WHERE slug = 'bundesliga-alltime-top-scorers'), 3, 'Klaus Fischer', '268'),
+	((SELECT id FROM categories WHERE slug = 'bundesliga-alltime-top-scorers'), 4, 'Jupp Heynckes', '220'),
+	((SELECT id FROM categories WHERE slug = 'bundesliga-alltime-top-scorers'), 5, 'Manfred Burgsmuller', '213'),
+	((SELECT id FROM categories WHERE slug = 'bundesliga-alltime-top-scorers'), 6, 'Claudio Pizarro', '197'),
+	((SELECT id FROM categories WHERE slug = 'bundesliga-alltime-top-scorers'), 7, 'Ulf Kirsten', '182'),
+	((SELECT id FROM categories WHERE slug = 'bundesliga-alltime-top-scorers'), 8, 'Stefan Kuntz', '179'),
+	((SELECT id FROM categories WHERE slug = 'bundesliga-alltime-top-scorers'), 9, 'Klaus Allofs', '177'),
+	((SELECT id FROM categories WHERE slug = 'bundesliga-alltime-top-scorers'), 10, 'Dieter Muller', '177');
+
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'gerd muller' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-top-scorers' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'muller' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-top-scorers' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'robert lewandowski' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-top-scorers' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'lewandowski' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-top-scorers' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'klaus fischer' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-top-scorers' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'fischer' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-top-scorers' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'jupp heynckes' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-top-scorers' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'heynckes' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-top-scorers' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'manfred burgsmuller' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-top-scorers' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'burgsmuller' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-top-scorers' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'claudio pizarro' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-top-scorers' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'pizarro' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-top-scorers' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'ulf kirsten' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-top-scorers' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'kirsten' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-top-scorers' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'stefan kuntz' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-top-scorers' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'kuntz' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-top-scorers' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'klaus allofs' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-top-scorers' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'allofs' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-top-scorers' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'dieter muller' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-top-scorers' AND a.rank = 10;
+
+-- ============================================================
+-- Category: Copa América champions by country (only 8 countries have ever
+-- won it, so this is not padded to a false 10)
+-- ============================================================
+INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
+	('copa-america-titles-by-country', 'Copa América champions by country', 'By country, through Copa América 2024. Only 8 countries have ever won it; ties broken by most recent title.', 'titles');
+
+INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
+	((SELECT id FROM categories WHERE slug = 'copa-america-titles-by-country'), 1, 'Argentina', '16'),
+	((SELECT id FROM categories WHERE slug = 'copa-america-titles-by-country'), 2, 'Uruguay', '15'),
+	((SELECT id FROM categories WHERE slug = 'copa-america-titles-by-country'), 3, 'Brazil', '9'),
+	((SELECT id FROM categories WHERE slug = 'copa-america-titles-by-country'), 4, 'Chile', '2'),
+	((SELECT id FROM categories WHERE slug = 'copa-america-titles-by-country'), 5, 'Paraguay', '2'),
+	((SELECT id FROM categories WHERE slug = 'copa-america-titles-by-country'), 6, 'Peru', '2'),
+	((SELECT id FROM categories WHERE slug = 'copa-america-titles-by-country'), 7, 'Colombia', '1'),
+	((SELECT id FROM categories WHERE slug = 'copa-america-titles-by-country'), 8, 'Bolivia', '1');
+
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'argentina' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'copa-america-titles-by-country' AND a.canonical_name = 'Argentina';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'uruguay' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'copa-america-titles-by-country' AND a.canonical_name = 'Uruguay';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'brazil' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'copa-america-titles-by-country' AND a.canonical_name = 'Brazil';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'chile' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'copa-america-titles-by-country' AND a.canonical_name = 'Chile';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'paraguay' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'copa-america-titles-by-country' AND a.canonical_name = 'Paraguay';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'peru' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'copa-america-titles-by-country' AND a.canonical_name = 'Peru';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'colombia' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'copa-america-titles-by-country' AND a.canonical_name = 'Colombia';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'bolivia' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'copa-america-titles-by-country' AND a.canonical_name = 'Bolivia';
+
+-- ============================================================
+-- Category: World Cup champions by country (only 8 countries have ever won
+-- it, so this is not padded to a false 10; timely given Spain's 2026 win)
+-- ============================================================
+INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
+	('wc-titles-by-country', 'World Cup champions by country', 'By country, through the 2026 tournament. Only 8 countries have ever won it; ties broken by most recent title.', 'titles');
+
+INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
+	((SELECT id FROM categories WHERE slug = 'wc-titles-by-country'), 1, 'Brazil', '5'),
+	((SELECT id FROM categories WHERE slug = 'wc-titles-by-country'), 2, 'Germany', '4'),
+	((SELECT id FROM categories WHERE slug = 'wc-titles-by-country'), 3, 'Italy', '4'),
+	((SELECT id FROM categories WHERE slug = 'wc-titles-by-country'), 4, 'Argentina', '3'),
+	((SELECT id FROM categories WHERE slug = 'wc-titles-by-country'), 5, 'Spain', '2'),
+	((SELECT id FROM categories WHERE slug = 'wc-titles-by-country'), 6, 'France', '2'),
+	((SELECT id FROM categories WHERE slug = 'wc-titles-by-country'), 7, 'Uruguay', '2'),
+	((SELECT id FROM categories WHERE slug = 'wc-titles-by-country'), 8, 'England', '1');
+
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'brazil' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'wc-titles-by-country' AND a.canonical_name = 'Brazil';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'germany' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'wc-titles-by-country' AND a.canonical_name = 'Germany';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'italy' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'wc-titles-by-country' AND a.canonical_name = 'Italy';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'argentina' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'wc-titles-by-country' AND a.canonical_name = 'Argentina';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'spain' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'wc-titles-by-country' AND a.canonical_name = 'Spain';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'france' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'wc-titles-by-country' AND a.canonical_name = 'France';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'uruguay' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'wc-titles-by-country' AND a.canonical_name = 'Uruguay';
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'england' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'wc-titles-by-country' AND a.canonical_name = 'England';
+
+-- ============================================================
+-- Category: La Liga champions by club (only 9 clubs have ever won it, so
+-- this is not padded to a false 10)
+-- ============================================================
+INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
+	('la-liga-alltime-titles', 'La Liga champions by club', 'By club, through 2025-26. Only 9 clubs have ever won La Liga; ties broken by most recent title.', 'titles');
+
+INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
+	((SELECT id FROM categories WHERE slug = 'la-liga-alltime-titles'), 1, 'Real Madrid', '36'),
+	((SELECT id FROM categories WHERE slug = 'la-liga-alltime-titles'), 2, 'Barcelona', '29'),
+	((SELECT id FROM categories WHERE slug = 'la-liga-alltime-titles'), 3, 'Atletico Madrid', '11'),
+	((SELECT id FROM categories WHERE slug = 'la-liga-alltime-titles'), 4, 'Athletic Club', '8'),
+	((SELECT id FROM categories WHERE slug = 'la-liga-alltime-titles'), 5, 'Valencia', '6'),
+	((SELECT id FROM categories WHERE slug = 'la-liga-alltime-titles'), 6, 'Real Sociedad', '2'),
+	((SELECT id FROM categories WHERE slug = 'la-liga-alltime-titles'), 7, 'Deportivo La Coruna', '1'),
+	((SELECT id FROM categories WHERE slug = 'la-liga-alltime-titles'), 8, 'Sevilla', '1'),
+	((SELECT id FROM categories WHERE slug = 'la-liga-alltime-titles'), 9, 'Real Betis', '1');
+
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'real madrid' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'la-liga-alltime-titles' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'madrid' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'la-liga-alltime-titles' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'barcelona' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'la-liga-alltime-titles' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'barca' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'la-liga-alltime-titles' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'atletico madrid' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'la-liga-alltime-titles' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'atletico' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'la-liga-alltime-titles' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'atleti' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'la-liga-alltime-titles' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'athletic club' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'la-liga-alltime-titles' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'athletic bilbao' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'la-liga-alltime-titles' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'bilbao' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'la-liga-alltime-titles' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'valencia' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'la-liga-alltime-titles' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'real sociedad' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'la-liga-alltime-titles' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'sociedad' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'la-liga-alltime-titles' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'deportivo la coruna' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'la-liga-alltime-titles' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'deportivo' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'la-liga-alltime-titles' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'sevilla' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'la-liga-alltime-titles' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'real betis' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'la-liga-alltime-titles' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'betis' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'la-liga-alltime-titles' AND a.rank = 9;
+
+-- ============================================================
+-- Category: Bundesliga champions by club
+-- ============================================================
+INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
+	('bundesliga-alltime-titles', 'Top 10 Bundesliga champions by club', 'By club, through 2025-26. Ties broken by most recent title.', 'titles');
+
+INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
+	((SELECT id FROM categories WHERE slug = 'bundesliga-alltime-titles'), 1, 'Bayern Munich', '35'),
+	((SELECT id FROM categories WHERE slug = 'bundesliga-alltime-titles'), 2, 'Borussia Dortmund', '5'),
+	((SELECT id FROM categories WHERE slug = 'bundesliga-alltime-titles'), 3, 'Borussia Monchengladbach', '5'),
+	((SELECT id FROM categories WHERE slug = 'bundesliga-alltime-titles'), 4, 'Werder Bremen', '4'),
+	((SELECT id FROM categories WHERE slug = 'bundesliga-alltime-titles'), 5, 'VfB Stuttgart', '3'),
+	((SELECT id FROM categories WHERE slug = 'bundesliga-alltime-titles'), 6, 'Hamburger SV', '3'),
+	((SELECT id FROM categories WHERE slug = 'bundesliga-alltime-titles'), 7, '1. FC Kaiserslautern', '2'),
+	((SELECT id FROM categories WHERE slug = 'bundesliga-alltime-titles'), 8, 'FC Koln', '2'),
+	((SELECT id FROM categories WHERE slug = 'bundesliga-alltime-titles'), 9, 'Bayer Leverkusen', '1'),
+	((SELECT id FROM categories WHERE slug = 'bundesliga-alltime-titles'), 10, 'VfL Wolfsburg', '1');
+
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'bayern munich' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-titles' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'bayern' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-titles' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'borussia dortmund' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-titles' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'dortmund' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-titles' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'bvb' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-titles' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'borussia monchengladbach' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-titles' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'monchengladbach' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-titles' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'gladbach' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-titles' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'werder bremen' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-titles' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'werder' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-titles' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'bremen' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-titles' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'vfb stuttgart' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-titles' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'stuttgart' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-titles' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'hamburger sv' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-titles' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'hamburg' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-titles' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'hsv' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-titles' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, '1. fc kaiserslautern' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-titles' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'kaiserslautern' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-titles' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'fc koln' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-titles' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'koln' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-titles' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'cologne' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-titles' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'bayer leverkusen' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-titles' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'leverkusen' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-titles' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'vfl wolfsburg' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-titles' AND a.rank = 10;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'wolfsburg' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-alltime-titles' AND a.rank = 10;
+
+-- ============================================================
+-- entity_type / group_label / reference_scope fix-up for the 7 new categories
+-- ============================================================
+UPDATE categories SET entity_type = 'player' WHERE slug IN (
+	'la-liga-alltime-top-scorers',
+	'serie-a-alltime-top-scorers',
+	'bundesliga-alltime-top-scorers'
+);
+UPDATE categories SET entity_type = 'country' WHERE slug IN (
+	'copa-america-titles-by-country',
+	'wc-titles-by-country'
+);
+-- la-liga-alltime-titles / bundesliga-alltime-titles keep entity_type's
+-- default 'club'.
+
+UPDATE categories SET group_label = 'All-Time Records', group_order = 3 WHERE slug IN (
+	'la-liga-alltime-top-scorers',
+	'serie-a-alltime-top-scorers',
+	'bundesliga-alltime-top-scorers',
+	'copa-america-titles-by-country',
+	'wc-titles-by-country',
+	'la-liga-alltime-titles',
+	'bundesliga-alltime-titles'
+);
+
+UPDATE categories SET reference_scope = 'Spain' WHERE slug = 'la-liga-alltime-titles';
+UPDATE categories SET reference_scope = 'Germany' WHERE slug = 'bundesliga-alltime-titles';

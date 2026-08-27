@@ -400,7 +400,7 @@ async function main(): Promise<void> {
 
 	try {
 		const categories = queryLocalD1<CategoryRow>("SELECT slug, entity_type FROM categories ORDER BY id;");
-		assertEqual(categories.length, 26, "total category count");
+		assertEqual(categories.length, 33, "total category count");
 
 		// Every category, one continuous "device" playing through all of
 		// them in classic mode — obscure aliases, mixed case, punctuation
