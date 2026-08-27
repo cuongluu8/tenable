@@ -1,0 +1,140 @@
+/* Multiplayer (single-device pass-and-play, v1) — kept in its own
+   stylesheet, imported only by src/react-app/multiplayer/Multiplayer.tsx,
+   so nothing about single-player's App.css needs touching or
+   re-verifying. Reuses App.css's already-global classes directly where
+   they fit as-is (.screen, .category, .back-link, .result-panel, ...) —
+   only genuinely new UI gets a class here, prefixed .mp- to avoid any
+   collision with App.css's names. Colors match App.css's existing palette
+   (surface #1f2937, border #374151, accent #4ade80, muted text #9ca3af).
+ */
+
+.mp-setup {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+}
+
+.mp-setup__hint {
+	margin: 0;
+	color: #9ca3af;
+	font-size: 0.9rem;
+}
+
+.mp-setup__field {
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
+	font-size: 0.9rem;
+	color: #9ca3af;
+}
+.mp-setup__field select,
+.mp-setup__field input[type="text"] {
+	padding: 0.6em 0.9em;
+	border-radius: 8px;
+	border: 1px solid #374151;
+	background: #1f2937;
+	color: inherit;
+	font-size: 1rem;
+}
+
+.mp-setup__add-player {
+	display: flex;
+	gap: 0.5rem;
+	align-items: flex-end;
+}
+.mp-setup__add-player .mp-setup__field {
+	flex: 1;
+}
+
+.mp-setup__players {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 0.4rem;
+}
+.mp-setup__players li {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0.5em 0.8em;
+	border-radius: 8px;
+	background: #1f2937;
+	border: 1px solid #374151;
+}
+.mp-setup__remove {
+	padding: 0.1em 0.5em;
+	background: none;
+	border: 1px solid transparent;
+	color: #9ca3af;
+}
+.mp-setup__remove:hover:not(:disabled) {
+	color: #f87171;
+	border-color: transparent;
+}
+
+.mp-setup__start {
+	align-self: stretch;
+	background: #14532d;
+	border-color: #22c55e;
+}
+.mp-setup__start:hover:not(:disabled) {
+	border-color: #4ade80;
+}
+
+.mp-play {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+}
+
+.mp-players {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+}
+.mp-players li {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.3rem;
+	padding: 0.5em 0.8em;
+	border-radius: 8px;
+	background: #1f2937;
+	border: 1px solid #374151;
+	min-width: 6rem;
+}
+.mp-players__item--active {
+	border-color: #4ade80;
+	background: #14532d;
+}
+.mp-players__name {
+	font-weight: 600;
+	font-size: 0.9rem;
+}
+.mp-players--final li {
+	flex-direction: row;
+	justify-content: space-between;
+	width: 100%;
+}
+.mp-players__lives-left {
+	color: #9ca3af;
+	font-size: 0.85rem;
+}
+
+.mp-turn-banner {
+	text-align: center;
+	font-size: 1.1rem;
+	font-weight: 600;
+	margin: 0;
+}
+
+.mp-feedback {
+	margin-top: 0.5rem;
+	text-align: center;
+	min-height: 1.4em;
+}

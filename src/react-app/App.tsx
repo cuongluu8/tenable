@@ -3,6 +3,7 @@ import "./App.css";
 import { CategoryList } from "./components/CategoryList";
 import { Logo } from "./components/Logo";
 import { PlayScreen } from "./components/PlayScreen";
+import { Multiplayer } from "./multiplayer/Multiplayer";
 import type { CategoriesResponse, Category } from "./types";
 
 type LoadState =
@@ -18,9 +19,17 @@ function slugFromPath(): string | null {
 	return /^\/play\/([^/]+)$/.exec(window.location.pathname)?.[1] ?? null;
 }
 
+// Same reasoning as slugFromPath() above, one level simpler since
+// multiplayer has no per-session slug of its own (v1 is single-device
+// pass-and-play — see src/react-app/multiplayer/state.ts).
+function isMultiplayerPath(): boolean {
+	return window.location.pathname === "/multiplayer";
+}
+
 function App() {
 	const [load, setLoad] = useState<LoadState>({ status: "loading" });
 	const [activeSlug, setActiveSlug] = useState<string | null>(() => slugFromPath());
+	const [multiplayerActive, setMultiplayerActive] = useState<boolean>(() => isMultiplayerPath());
 
 	const loadCategories = useCallback(() => {
 		fetch("/api/categories")
@@ -42,8 +51,10 @@ function App() {
 	useEffect(() => {
 		function handlePopState() {
 			const slug = slugFromPath();
+			const mp = isMultiplayerPath();
 			setActiveSlug(slug);
-			if (!slug) loadCategories();
+			setMultiplayerActive(mp);
+			if (!slug && !mp) loadCategories();
 		}
 		window.addEventListener("popstate", handlePopState);
 		return () => window.removeEventListener("popstate", handlePopState);
@@ -60,8 +71,22 @@ function App() {
 		loadCategories(); // refresh statuses/streak after playing
 	}
 
+	function handleMultiplayerSelect() {
+		window.history.pushState(null, "", "/multiplayer");
+		setMultiplayerActive(true);
+	}
+
+	function handleMultiplayerBack() {
+		window.history.pushState(null, "", "/");
+		setMultiplayerActive(false);
+	}
+
 	if (activeSlug) {
 		return <PlayScreen slug={activeSlug} onBack={handleBack} />;
+	}
+
+	if (multiplayerActive) {
+		return <Multiplayer onBack={handleMultiplayerBack} />;
 	}
 
 	return (
@@ -71,6 +96,10 @@ function App() {
 				<h1>Tenable</h1>
 				<p className="subtitle">Top 10 football trivia</p>
 			</header>
+
+			<button type="button" onClick={handleMultiplayerSelect}>
+				🎮 Multiplayer (pass and play)
+			</button>
 
 			{load.status === "loading" && <p>Loading categories…</p>}
 			{load.status === "error" && <p>{load.message}</p>}
