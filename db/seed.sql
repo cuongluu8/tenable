@@ -51697,3 +51697,25 @@ WITH v(name, cat, alias) AS (VALUES
 INSERT INTO reference_entity_aliases (entity_id, alias)
 SELECT re.id, v.alias FROM v
 JOIN reference_entities re ON re.canonical_name = v.name AND re.category = v.cat AND re.entity_type = 'player';
+
+-- Club-dedup alias parity (2026-08-26): these 8 exact-string alias variants
+-- were on the surplus (higher-id) copy of a duplicated club and would have
+-- been silently dropped by a naive "keep lowest id" dedup -- production was
+-- fixed by merging them onto the surviving row before deleting the
+-- duplicate (see agents.md); adding here too so seed.sql matches exactly.
+-- Functionally inert either way (matchGuess collapses all punctuation, and
+-- entity_search's tokenized FTS already finds these via canonical_name) --
+-- this is purely for db/seed.sql / production parity, not a gameplay fix.
+WITH v(name, cat, alias) AS (VALUES
+	('Al-Ahli', 'Saudi Arabia', 'al-ahli'),
+	('Al-Hilal', 'Saudi Arabia', 'al-hilal'),
+	('Al-Ittihad', 'Saudi Arabia', 'al-ittihad'),
+	('Al-Nassr', 'Saudi Arabia', 'al-nassr'),
+	('Dynamo Kyiv', 'Ukraine', 'dynamo kiev'),
+	('FC St. Pauli', 'Germany', 'fc st. pauli'),
+	('Paris Saint-Germain', 'France', 'paris'),
+	('Paris Saint-Germain', 'France', 'paris saint-germain')
+)
+INSERT INTO reference_entity_aliases (entity_id, alias)
+SELECT re.id, v.alias FROM v
+JOIN reference_entities re ON re.canonical_name = v.name AND re.category = v.cat AND re.entity_type = 'club';
