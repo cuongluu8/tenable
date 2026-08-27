@@ -2689,6 +2689,7 @@ WITH v(name, cat, alias) AS (VALUES
 	('Alaves', 'Spain', 'deportivo alaves'),
 	('Athletic Club', 'Spain', 'athletic bilbao'),
 	('Athletic Club', 'Spain', 'athletic club'),
+	('Athletic Club', 'Spain', 'bilbao'),
 	('Atletico Madrid', 'Spain', 'atleti'),
 	('Atletico Madrid', 'Spain', 'atletico'),
 	('Atletico Madrid', 'Spain', 'atletico madrid'),
@@ -58411,8 +58412,7 @@ INSERT INTO reference_entities (canonical_name, category, entity_type) VALUES
 	('America Mineiro', 'Brazil', 'club'),
 	('Ponte Preta', 'Brazil', 'club'),
 	('Portuguesa', 'Brazil', 'club'),
-	('Guarani', 'Brazil', 'club'),
-	('Athletic Bilbao', 'Spain', 'club');
+	('Guarani', 'Brazil', 'club');
 
 WITH v(name, cat, alias) AS (VALUES
 	('FC Utrecht', 'Netherlands', 'utrecht'),
@@ -58521,9 +58521,7 @@ WITH v(name, cat, alias) AS (VALUES
 	('America Mineiro', 'Brazil', 'america mineiro'),
 	('Ponte Preta', 'Brazil', 'ponte preta'),
 	('Portuguesa', 'Brazil', 'portuguesa'),
-	('Guarani', 'Brazil', 'guarani'),
-	('Athletic Bilbao', 'Spain', 'athletic club'),
-	('Athletic Bilbao', 'Spain', 'bilbao')
+	('Guarani', 'Brazil', 'guarani')
 )
 INSERT INTO reference_entity_aliases (entity_id, alias)
 SELECT re.id, v.alias FROM v
