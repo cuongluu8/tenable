@@ -464,8 +464,8 @@
 
 .guess-form {
 	display: flex;
+	flex-direction: column;
 	gap: 0.5rem;
-	align-items: flex-start;
 }
 
 .guess-input {
@@ -594,19 +594,20 @@ input[type="text"].guess-input__field--open:focus-visible {
 	min-height: 1.4em;
 }
 
-/* Secondary action next to the guess input — deliberately quiet (same
-   treatment as .back-link) so it doesn't compete with picking a suggestion,
-   the primary way to play a round now that there's no submit button. */
+/* Secondary action below the guess input — deliberately quiet (quieter
+   even than .back-link: smaller, dimmer, centered) so it reads as a small
+   escape hatch, not a competing action next to picking a suggestion, the
+   primary way to play a round now that there's no submit button. */
 .give-up-link {
-	flex-shrink: 0;
+	align-self: center;
 	background: none;
 	border: 1px solid transparent;
-	color: #9ca3af;
-	font-size: 0.9rem;
-	align-self: center;
+	padding: 0.2em 0.5em;
+	color: #6b7280;
+	font-size: 0.8rem;
 }
 .give-up-link:hover:not(:disabled) {
-	color: #e5e7eb;
+	color: #9ca3af;
 	border-color: transparent;
 }
 
