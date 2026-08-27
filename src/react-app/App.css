@@ -594,21 +594,59 @@ input[type="text"].guess-input__field--open:focus-visible {
 	min-height: 1.4em;
 }
 
-/* Secondary action below the guess input — deliberately quiet (quieter
-   even than .back-link: smaller, dimmer, centered) so it reads as a small
-   escape hatch, not a competing action next to picking a suggestion, the
-   primary way to play a round now that there's no submit button. */
+/* Secondary action below the guess input — small and centered so it reads
+   as a quiet escape hatch, not a competing action next to picking a
+   suggestion (the primary way to play a round now that there's no submit
+   button), but red (same tone as .answer-slot--missed/.wrong-guesses) since
+   it throws the round away — quiet in size, not in what it signals. */
 .give-up-link {
 	align-self: center;
 	background: none;
 	border: 1px solid transparent;
 	padding: 0.2em 0.5em;
-	color: #6b7280;
+	color: #f87171;
 	font-size: 0.8rem;
+	opacity: 0.75;
 }
 .give-up-link:hover:not(:disabled) {
-	color: #9ca3af;
+	opacity: 1;
 	border-color: transparent;
+}
+
+/* Confirmation step: clicking .give-up-link above swaps it for this rather
+   than giving up immediately — destructive (throws away an in-progress
+   round) and one misclick away from the guess input above it. */
+.give-up-confirm {
+	align-self: center;
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: 0.5rem;
+	font-size: 0.8rem;
+	color: #9ca3af;
+}
+.give-up-confirm__yes {
+	padding: 0.3em 0.7em;
+	font-size: 0.8rem;
+	color: #fecaca;
+	background: #3f1d1d;
+	border: 1px solid #f87171;
+}
+.give-up-confirm__yes:hover:not(:disabled) {
+	color: #fff;
+	border-color: #fca5a5;
+}
+.give-up-confirm__cancel {
+	padding: 0.3em 0.7em;
+	font-size: 0.8rem;
+	color: #9ca3af;
+	background: none;
+	border: 1px solid #374151;
+}
+.give-up-confirm__cancel:hover:not(:disabled) {
+	color: #e5e7eb;
+	border-color: #4b5563;
 }
 
 .wrong-guesses {

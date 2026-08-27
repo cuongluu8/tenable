@@ -41,6 +41,10 @@ export function PlayScreen({ slug, onBack }: Props) {
 	// `feedback` does; the point is to show them during this sitting, not to
 	// survive a refresh.
 	const [wrongGuesses, setWrongGuesses] = useState<string[]>([]);
+	// Give-up is destructive (throws away an in-progress round) and one
+	// misclick away from the guess input, so it asks for a second tap before
+	// actually calling the API — see the give-up-confirm render below.
+	const [confirmingGiveUp, setConfirmingGiveUp] = useState(false);
 
 	useEffect(() => {
 		fetch(`/api/categories/${slug}`)
@@ -82,6 +86,7 @@ export function PlayScreen({ slug, onBack }: Props) {
 	function startMode(mode: Mode) {
 		setFeedback(null);
 		setWrongGuesses([]);
+		setConfirmingGiveUp(false);
 		setProgress({
 			mode,
 			foundRanks: [],
@@ -146,6 +151,7 @@ export function PlayScreen({ slug, onBack }: Props) {
 	async function giveUp() {
 		if (!progress || progress.completed || submitting) return;
 
+		setConfirmingGiveUp(false);
 		setSubmitting(true);
 		try {
 			const res = await fetch("/api/give-up", {
@@ -211,9 +217,36 @@ export function PlayScreen({ slug, onBack }: Props) {
 								disabled={submitting}
 								categorySlug={slug}
 							/>
-							<button type="button" className="give-up-link" onClick={giveUp} disabled={submitting}>
-								Give up
-							</button>
+							{confirmingGiveUp ? (
+								<div className="give-up-confirm">
+									<span>Give up on this round?</span>
+									<button
+										type="button"
+										className="give-up-confirm__yes"
+										onClick={giveUp}
+										disabled={submitting}
+									>
+										Yes, give up
+									</button>
+									<button
+										type="button"
+										className="give-up-confirm__cancel"
+										onClick={() => setConfirmingGiveUp(false)}
+										disabled={submitting}
+									>
+										Cancel
+									</button>
+								</div>
+							) : (
+								<button
+									type="button"
+									className="give-up-link"
+									onClick={() => setConfirmingGiveUp(true)}
+									disabled={submitting}
+								>
+									Give up
+								</button>
+							)}
 						</div>
 					) : (
 						<ResultPanel progress={progress} category={category} onBack={onBack} />
