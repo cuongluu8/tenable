@@ -208,8 +208,15 @@ INSERT INTO answer_aliases (answer_id, alias)
 -- confidence than the others (more nations, more ties) — flagged here as an
 -- extra reason to re-verify this one specifically before treating it as
 -- authoritative.
+-- Subtitle fixed 2026-08-27: previously named the specific countries
+-- involved in the 2025 title/tiebreak (Morocco, Senegal, DR Congo,
+-- Algeria) directly in player-visible text -- a spoiler, since all of them
+-- are answers in this category. Detail kept here instead: Morocco's 2025
+-- title (originally lost 1-0 to Senegal, then awarded 3-0 on forfeit after
+-- Senegal walked off and CAF upheld the forfeit on appeal) moved them to 2
+-- titles, tied with two other countries -- ties broken by earliest title.
 INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
-	('afcon-titles-by-country', 'Top 10 Africa Cup of Nations winners', 'By country, through AFCON 2025. Morocco''s 2025 title (originally lost 1-0 to Senegal, then awarded 3-0 on forfeit after Senegal walked off and CAF upheld the forfeit on appeal) moves them up to 2 titles, tied with DR Congo and Algeria — ties broken by earliest title.', 'titles');
+	('afcon-titles-by-country', 'Top 10 Africa Cup of Nations winners', 'By country, through AFCON 2025; ties broken by earliest title.', 'titles');
 
 INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
 	((SELECT id FROM categories WHERE slug = 'afcon-titles-by-country'), 1, 'Egypt', '7'),
@@ -803,6 +810,13 @@ INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'sarr' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'wc-2026-top-scorers' AND a.rank = 10;
 
+-- Fixed 2026-08-27: ranks 9-10 were wrong (Fulham/Newcastle United), a user
+-- report caught it missing Brentford and Chelsea. Re-verified the full
+-- table via web search rather than re-guessing -- ranks 1-7 were already
+-- correct; 8-10 are Brighton 53 (+6 GD), Brentford 53 (+3 GD, the real
+-- goal-difference tiebreak, not this app's own "ties broken by recency"
+-- convention), Chelsea 52. Fulham (52, 11th on GD) and Newcastle (49, 12th)
+-- both miss the top 10 for real.
 INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
 	('pl-2025-26-final-table', 'Top 10 Premier League 2025-26 final table', 'Final standings, 2025-26 season', 'points');
 
@@ -815,8 +829,8 @@ INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
 	((SELECT id FROM categories WHERE slug = 'pl-2025-26-final-table'), 6, 'Bournemouth', '57'),
 	((SELECT id FROM categories WHERE slug = 'pl-2025-26-final-table'), 7, 'Sunderland', '54'),
 	((SELECT id FROM categories WHERE slug = 'pl-2025-26-final-table'), 8, 'Brighton', '53'),
-	((SELECT id FROM categories WHERE slug = 'pl-2025-26-final-table'), 9, 'Fulham', '52'),
-	((SELECT id FROM categories WHERE slug = 'pl-2025-26-final-table'), 10, 'Newcastle United', '49');
+	((SELECT id FROM categories WHERE slug = 'pl-2025-26-final-table'), 9, 'Brentford', '53'),
+	((SELECT id FROM categories WHERE slug = 'pl-2025-26-final-table'), 10, 'Chelsea', '52');
 
 INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'arsenal' FROM answers a JOIN categories c ON a.category_id = c.id
@@ -861,13 +875,10 @@ INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'brighton hove albion' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'pl-2025-26-final-table' AND a.rank = 8;
 INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'fulham' FROM answers a JOIN categories c ON a.category_id = c.id
+	SELECT a.id, 'brentford' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'pl-2025-26-final-table' AND a.rank = 9;
 INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'newcastle' FROM answers a JOIN categories c ON a.category_id = c.id
-	WHERE c.slug = 'pl-2025-26-final-table' AND a.rank = 10;
-INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'newcastle united' FROM answers a JOIN categories c ON a.category_id = c.id
+	SELECT a.id, 'chelsea' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'pl-2025-26-final-table' AND a.rank = 10;
 
 INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
@@ -952,8 +963,12 @@ INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'jermain defoe' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'pl-alltime-top-scorers' AND a.rank = 10;
 
+-- Subtitle fixed 2026-08-27: previously named the two players tied for
+-- 7th directly in player-visible text -- a spoiler, since both are answers
+-- here. Detail kept here instead: Haaland edges Muller (both on 57) for
+-- 7th — ties broken by recency.
 INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
-	('cl-alltime-top-scorers', 'Top 10 UEFA Champions League all-time top scorers', 'Career total, through 2025-26. Haaland edges Muller (both on 57) for 7th — ties broken by recency.', 'goals');
+	('cl-alltime-top-scorers', 'Top 10 UEFA Champions League all-time top scorers', 'Career total, through 2025-26; ties broken by recency.', 'goals');
 
 INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
 	((SELECT id FROM categories WHERE slug = 'cl-alltime-top-scorers'), 1, 'Cristiano Ronaldo', '140'),
@@ -1625,14 +1640,17 @@ UPDATE categories SET entity_type = 'player' WHERE slug IN (
 -- listicles kept conflating all-competition club totals with PL-only
 -- totals (e.g. one source's "185 goals" for Ian Wright was his Arsenal
 -- all-comp tally; his real PL-only total, used here, is 104), so each name
--- was confirmed with its own targeted query. Two clubs have a genuine tie
+-- was confirmed with its own targeted query. Three clubs have a genuine tie
 -- for their final spot, broken by recency (matching this app's existing
 -- tie-break convention elsewhere, e.g. ucl-titles-by-club): Arsenal's Saka
--- and Sanchez both on 60, Man City's Jesus and Tevez both on 58.
+-- and Sanchez both on 60, Man Utd's Van Persie and Dwight Yorke both on 48,
+-- Man City's Jesus and Tevez both on 58. (Kept out of the player-visible
+-- subtitle text below — fixed 2026-08-27 — since naming the actual tied
+-- players there was a spoiler.)
 --
 -- Category 22: Arsenal
 INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
-	('arsenal-pl-top-scorers', 'Top 10 Arsenal Premier League goalscorers', 'By Premier League goals only (not all competitions), through the 2025-26 season. Saka and Sanchez are tied on 60 — ties broken by recency.', 'goals');
+	('arsenal-pl-top-scorers', 'Top 10 Arsenal Premier League goalscorers', 'By Premier League goals only (not all competitions), through the 2025-26 season; ties broken by recency.', 'goals');
 
 INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
 	((SELECT id FROM categories WHERE slug = 'arsenal-pl-top-scorers'), 1, 'Thierry Henry', '175'),
@@ -1813,7 +1831,7 @@ INSERT INTO answer_aliases (answer_id, alias)
 
 -- Category 25: Manchester United
 INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
-	('man-utd-pl-top-scorers', 'Top 10 Manchester United Premier League goalscorers', 'By Premier League goals only (not all competitions), through the 2025-26 season. Van Persie edges Dwight Yorke (both retired on 48) for the final spot — ties broken by recency.', 'goals');
+	('man-utd-pl-top-scorers', 'Top 10 Manchester United Premier League goalscorers', 'By Premier League goals only (not all competitions), through the 2025-26 season; ties broken by recency.', 'goals');
 
 INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
 	((SELECT id FROM categories WHERE slug = 'man-utd-pl-top-scorers'), 1, 'Wayne Rooney', '183'),
@@ -1876,7 +1894,7 @@ INSERT INTO answer_aliases (answer_id, alias)
 
 -- Category 26: Manchester City
 INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
-	('man-city-pl-top-scorers', 'Top 10 Manchester City Premier League goalscorers', 'By Premier League goals only (not all competitions), through the 2025-26 season. Jesus edges Tevez (both on 58) for 8th — ties broken by recency.', 'goals');
+	('man-city-pl-top-scorers', 'Top 10 Manchester City Premier League goalscorers', 'By Premier League goals only (not all competitions), through the 2025-26 season; ties broken by recency.', 'goals');
 
 INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
 	((SELECT id FROM categories WHERE slug = 'man-city-pl-top-scorers'), 1, 'Sergio Aguero', '184'),
@@ -58881,8 +58899,12 @@ INSERT INTO answer_aliases (answer_id, alias)
 -- ============================================================
 -- Category: Serie A all-time top scorers
 -- ============================================================
+-- Subtitle fixed 2026-08-27: previously named the two players tied for
+-- 9th directly in player-visible text -- a spoiler, since both are
+-- answers here. Detail kept here instead: Del Piero edges Signori (both
+-- on 188) for 9th — ties broken by recency.
 INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
-	('serie-a-alltime-top-scorers', 'Top 10 Serie A all-time top scorers', 'Career goals in the Italian top flight, through 2025-26. Del Piero edges Signori (both on 188) for 9th — ties broken by recency.', 'goals');
+	('serie-a-alltime-top-scorers', 'Top 10 Serie A all-time top scorers', 'Career goals in the Italian top flight, through 2025-26; ties broken by recency.', 'goals');
 
 INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
 	((SELECT id FROM categories WHERE slug = 'serie-a-alltime-top-scorers'), 1, 'Silvio Piola', '274'),
@@ -58940,8 +58962,12 @@ INSERT INTO answer_aliases (answer_id, alias)
 -- ============================================================
 -- Category: Bundesliga all-time top scorers
 -- ============================================================
+-- Subtitle fixed 2026-08-27: previously named the two players tied for
+-- 9th directly in player-visible text -- a spoiler, since both are
+-- answers here. Detail kept here instead: Allofs edges Dieter Müller
+-- (both on 177) for 9th — ties broken by recency.
 INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
-	('bundesliga-alltime-top-scorers', 'Top 10 Bundesliga all-time top scorers', 'Career goals in the German top flight, through 2025-26. Allofs edges Dieter Müller (both on 177) for 9th — ties broken by recency.', 'goals');
+	('bundesliga-alltime-top-scorers', 'Top 10 Bundesliga all-time top scorers', 'Career goals in the German top flight, through 2025-26; ties broken by recency.', 'goals');
 
 INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
 	((SELECT id FROM categories WHERE slug = 'bundesliga-alltime-top-scorers'), 1, 'Gerd Muller', '365'),
