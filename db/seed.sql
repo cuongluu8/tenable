@@ -59239,3 +59239,138 @@ UPDATE categories SET group_label = 'All-Time Records', group_order = 3 WHERE sl
 
 UPDATE categories SET reference_scope = 'Spain' WHERE slug = 'la-liga-alltime-titles';
 UPDATE categories SET reference_scope = 'Germany' WHERE slug = 'bundesliga-alltime-titles';
+
+-- ============================================================
+-- Most expensive transfers (world + Premier League), added 2026-08-27
+-- ============================================================
+-- Fees researched via web search (no single authoritative source table was
+-- reachable) and cross-checked across multiple independent reports where
+-- possible; figures are each deal's most commonly reported fee (base fee
+-- where sources distinguished base from an add-on-inflated total, since
+-- "up to £Xm with add-ons" is reported wildly inconsistently source to
+-- source and base fees are the more stable, comparable number). World fees
+-- are in euros (the currency these deals were actually done in, or the
+-- standard conversion used by all-time-list sources); Premier League fees
+-- are in pounds (as actually paid). Two ties, both broken by recency per
+-- this app's existing convention (not stated in the player-visible
+-- subtitle -- see the spoiler-prevention note elsewhere in this file):
+-- world rank 4/5 Coutinho vs Dembele (both €135m, Coutinho Jan 2018 is
+-- more recent than Dembele Aug 2017); PL rank 3/4 Anderson vs Wirtz (both
+-- £116m, Anderson 2026 is more recent than Wirtz 2025) and rank 8/9 Tonali
+-- vs Grealish (both £100m, Tonali 2026 is more recent than Grealish 2021).
+INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
+	('world-alltime-transfers', 'Top 10 most expensive transfers of all time', 'The highest transfer fees in football history, in euros; ties broken by recency.', '€m');
+
+INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
+	((SELECT id FROM categories WHERE slug = 'world-alltime-transfers'), 1, 'Neymar', '222'),
+	((SELECT id FROM categories WHERE slug = 'world-alltime-transfers'), 2, 'Kylian Mbappe', '180'),
+	((SELECT id FROM categories WHERE slug = 'world-alltime-transfers'), 3, 'Alexander Isak', '145'),
+	((SELECT id FROM categories WHERE slug = 'world-alltime-transfers'), 4, 'Philippe Coutinho', '135'),
+	((SELECT id FROM categories WHERE slug = 'world-alltime-transfers'), 5, 'Ousmane Dembele', '135'),
+	((SELECT id FROM categories WHERE slug = 'world-alltime-transfers'), 6, 'Moises Caicedo', '133'),
+	((SELECT id FROM categories WHERE slug = 'world-alltime-transfers'), 7, 'Joao Felix', '126'),
+	((SELECT id FROM categories WHERE slug = 'world-alltime-transfers'), 8, 'Enzo Fernandez', '121'),
+	((SELECT id FROM categories WHERE slug = 'world-alltime-transfers'), 9, 'Antoine Griezmann', '120'),
+	((SELECT id FROM categories WHERE slug = 'world-alltime-transfers'), 10, 'Eden Hazard', '100');
+
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'neymar' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'neymar jr' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'neymar junior' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'mbappe' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'kylian mbappe' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'isak' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'alexander isak' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'coutinho' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'philippe coutinho' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'dembele' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'ousmane dembele' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'caicedo' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'moises caicedo' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'felix' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'joao felix' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'enzo' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'enzo fernandez' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'griezmann' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'antoine griezmann' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'hazard' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 10;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'eden hazard' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 10;
+
+INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
+	('pl-alltime-transfers', 'Top 10 most expensive Premier League transfers', 'The highest fees paid by Premier League clubs, in pounds; ties broken by recency.', '£m');
+
+INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
+	((SELECT id FROM categories WHERE slug = 'pl-alltime-transfers'), 1, 'Alexander Isak', '125'),
+	((SELECT id FROM categories WHERE slug = 'pl-alltime-transfers'), 2, 'Morgan Rogers', '117'),
+	((SELECT id FROM categories WHERE slug = 'pl-alltime-transfers'), 3, 'Elliot Anderson', '116'),
+	((SELECT id FROM categories WHERE slug = 'pl-alltime-transfers'), 4, 'Florian Wirtz', '116'),
+	((SELECT id FROM categories WHERE slug = 'pl-alltime-transfers'), 5, 'Moises Caicedo', '115'),
+	((SELECT id FROM categories WHERE slug = 'pl-alltime-transfers'), 6, 'Enzo Fernandez', '107'),
+	((SELECT id FROM categories WHERE slug = 'pl-alltime-transfers'), 7, 'Declan Rice', '105'),
+	((SELECT id FROM categories WHERE slug = 'pl-alltime-transfers'), 8, 'Sandro Tonali', '100'),
+	((SELECT id FROM categories WHERE slug = 'pl-alltime-transfers'), 9, 'Jack Grealish', '100'),
+	((SELECT id FROM categories WHERE slug = 'pl-alltime-transfers'), 10, 'Romelu Lukaku', '97.5');
+
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'isak' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'pl-alltime-transfers' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'alexander isak' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'pl-alltime-transfers' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'rogers' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'pl-alltime-transfers' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'morgan rogers' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'pl-alltime-transfers' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'anderson' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'pl-alltime-transfers' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'elliot anderson' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'pl-alltime-transfers' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'wirtz' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'pl-alltime-transfers' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'florian wirtz' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'pl-alltime-transfers' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'caicedo' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'pl-alltime-transfers' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'moises caicedo' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'pl-alltime-transfers' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'enzo' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'pl-alltime-transfers' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'enzo fernandez' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'pl-alltime-transfers' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'rice' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'pl-alltime-transfers' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'declan rice' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'pl-alltime-transfers' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'tonali' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'pl-alltime-transfers' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'sandro tonali' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'pl-alltime-transfers' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'grealish' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'pl-alltime-transfers' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'jack grealish' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'pl-alltime-transfers' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'lukaku' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'pl-alltime-transfers' AND a.rank = 10;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'romelu lukaku' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'pl-alltime-transfers' AND a.rank = 10;
+
+UPDATE categories SET entity_type = 'player', group_label = 'All-Time Records', group_order = 3
+	WHERE slug IN ('world-alltime-transfers', 'pl-alltime-transfers');
