@@ -363,6 +363,13 @@ INSERT INTO answer_aliases (answer_id, alias)
 -- before treating as a permanent authoritative library, especially the Serie A all-time
 -- table below rank 3 (Genoa/Torino/Bologna/Pro Vercelli), which is lower-confidence.
 
+-- Verified 2026-08-27: cross-referenced final Golden Boot standings via web
+-- search (multiple independent outlets: premierleague.com, NBC Sports, Sky
+-- Sports) against an earlier, apparently mid-season partial excerpt that
+-- would have wrongly suggested Semenyo (rank 3) had dropped out of the
+-- top 10 -- a second, more specific search directly confirmed his final
+-- combined Bournemouth+Man City tally (10+7=17) matches what was already
+-- stored. All 10 ranks confirmed correct as-is.
 INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
 	('pl-2025-26-top-scorers', 'Top 10 Premier League 2025-26 top scorers', 'Final Golden Boot standings, 2025-26 season', 'goals');
 
@@ -442,6 +449,8 @@ INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'kroupi' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'pl-2025-26-top-scorers' AND a.rank = 10;
 
+-- Verified 2026-08-27: cross-referenced full final table via web search
+-- (multiple independent outlets). All 10 ranks confirmed correct as-is.
 INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
 	('la-liga-2025-26-table', 'Top 10 La Liga 2025-26 final table', 'Final standings, 2025-26 season', 'final position');
 
@@ -515,6 +524,9 @@ INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'sociedad' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'la-liga-2025-26-table' AND a.rank = 10;
 
+-- Verified 2026-08-27: cross-referenced full final table via web search
+-- (multiple independent outlets). All 10 ranks and points confirmed
+-- correct as-is (exact match).
 INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
 	('serie-a-2025-26-table', 'Top 10 Serie A 2025-26 final table', 'Final standings, 2025-26 season', 'points');
 
@@ -573,6 +585,10 @@ INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'udinese' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'serie-a-2025-26-table' AND a.rank = 10;
 
+-- Verified 2026-08-27: cross-referenced full final table via web search
+-- (European-competition qualification cutoffs matched rank-for-rank
+-- against multiple independent outlets). All 10 ranks confirmed correct
+-- as-is.
 INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
 	('bundesliga-2025-26-table', 'Top 10 Bundesliga 2025-26 final table', 'Final standings, 2025-26 season', 'final position');
 
@@ -652,6 +668,13 @@ INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'mainz 05' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'bundesliga-2025-26-table' AND a.rank = 10;
 
+-- Verified 2026-08-27: cross-referenced final top-scorer standings via web
+-- search (UEFA.com among the sources). Ranks 1-9 confirmed correct as-is;
+-- an initial search suggested a 3-way tie at rank 10 (Aubameyang/
+-- Griezmann/Trossard, all "5 goals") that would have displaced Griezmann
+-- -- a direct, player-specific follow-up search debunked it (Trossard
+-- actually had 1 UCL goal, not 5), confirming the stored rank 10 was
+-- already right.
 INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
 	('cl-2025-26-top-scorers', 'Top 10 Champions League 2025-26 top scorers', 'Golden Boot, 2025-26 season', 'goals');
 
@@ -734,6 +757,16 @@ INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'griezmann' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'cl-2025-26-top-scorers' AND a.rank = 10;
 
+-- Verified 2026-08-27: cross-referenced final Golden Boot standings via web
+-- search. Ranks 1-8 and 10 confirmed correct as-is; rank 9's canonical_name
+-- was wrong ("Jonathan Quinones") -- the real player is Julian Quiñones, a
+-- Colombia-born forward naturalized Mexican who scored Mexico's opening
+-- goal of the tournament. Fixed to "Julian Quiñones" (exact spelling --
+-- accent only on the surname, not "Julián" -- matching the existing
+-- reference_entities row for the same person, byte for byte -- see
+-- verify-name-sync) with unaccented aliases ('julian quinones', 'quinones'
+-- -- matchGuess() collapses raw alias text without normalizing first, so
+-- an accented alias would silently stop matching a plain-typed guess).
 INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
 	('wc-2026-top-scorers', 'Top 10 FIFA World Cup 2026 top scorers', 'Golden Boot, 2026 tournament', 'goals');
 
@@ -746,7 +779,7 @@ INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
 	((SELECT id FROM categories WHERE slug = 'wc-2026-top-scorers'), 6, 'Ousmane Dembele', '6'),
 	((SELECT id FROM categories WHERE slug = 'wc-2026-top-scorers'), 7, 'Mikel Oyarzabal', '5'),
 	((SELECT id FROM categories WHERE slug = 'wc-2026-top-scorers'), 8, 'Vinicius Junior', '4'),
-	((SELECT id FROM categories WHERE slug = 'wc-2026-top-scorers'), 9, 'Jonathan Quinones', '4'),
+	((SELECT id FROM categories WHERE slug = 'wc-2026-top-scorers'), 9, 'Julian Quiñones', '4'),
 	((SELECT id FROM categories WHERE slug = 'wc-2026-top-scorers'), 10, 'Ismaila Sarr', '4');
 
 INSERT INTO answer_aliases (answer_id, alias)
@@ -801,7 +834,10 @@ INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'vinicius junior' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'wc-2026-top-scorers' AND a.rank = 8;
 INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'jonathan quinones' FROM answers a JOIN categories c ON a.category_id = c.id
+	SELECT a.id, 'julian quinones' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'wc-2026-top-scorers' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'quinones' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'wc-2026-top-scorers' AND a.rank = 9;
 INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'ismaila sarr' FROM answers a JOIN categories c ON a.category_id = c.id
@@ -810,6 +846,8 @@ INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'sarr' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'wc-2026-top-scorers' AND a.rank = 10;
 
+-- Verified 2026-08-27: cross-referenced full final table via web search
+-- (multiple independent outlets) after the fix below.
 -- Fixed 2026-08-27: ranks 9-10 were wrong (Fulham/Newcastle United), a user
 -- report caught it missing Brentford and Chelsea. Re-verified the full
 -- table via web search rather than re-guessing -- ranks 1-7 were already

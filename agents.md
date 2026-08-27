@@ -262,6 +262,39 @@ category. Two things follow from this:
    risk since they don't require folding in a just-finished season, but
    still worth a quick sanity check when touching content generally.
 
+**Incident: none of the automated checks can catch a category whose numbers
+are simply wrong (2026-08-27).** `pl-2025-26-final-table` shipped with the
+wrong 9th/10th place (Fulham/Newcastle United instead of the real
+Brentford/Chelsea) and stayed wrong until a user caught it by eye.
+`verify:matching`, `verify:name-sync`, and `playtest` all passed the whole
+time — none of them are wrong to have passed, because none of them check
+real-world correctness at all: they treat whatever's in D1 as ground truth
+and test the app's *mechanics* against it (does a guess resolve, does a
+name stay in sync with the reference pool, does the HTTP API behave).
+There was never an automated check standing behind rule 1 above ("verify
+every ranked entry... before it goes live") — only the discipline of
+actually doing it, which is exactly the "a manual audit someone claims to
+have run is not a guarantee" problem `verify:matching`/`verify:name-sync`
+already exist to solve for their own bug classes.
+
+**`npm run verify:content-freshness` (`scripts/verify-content-freshness.ts`)
+closes this for the highest-risk group — `group_label = 'This Season'`
+categories, the same 7 a current/recent-season table or top-scorer list
+lives in — and it runs in CI on every push/PR to `main`.** It can't
+fact-check the real world either (no live sports feed wired up here); what
+it enforces is that every category in that group carries a
+`-- Verified YYYY-MM-DD: <source>` comment directly above its
+`INSERT INTO categories` in `db/seed.sql`, written at the moment its
+numbers were actually cross-checked per rule 1 above. Missing one is a
+hard failure. One older than 45 days is a warning, not a failure — a
+concluded season's final table doesn't go wrong just because time passed,
+but it's worth a human's eye periodically rather than trusting a snapshot
+forever. **Whenever a "This Season" category's answers are added or
+changed, add/update this marker in the same commit** — it's not an
+optional follow-up step, same as the other two verify scripts. Widen the
+`group_label = 'This Season'` scope in the script if this bug class ever
+turns up in an all-time category too.
+
 **Incident that motivated `entity_search` (2026-08-25):** a user reported
 Dominik Szoboszlai missing from typeahead despite Liverpool's current squad
 supposedly being covered. At the time, `suggestNames()` only ever matched
@@ -402,9 +435,10 @@ npx wrangler dev --port 8787   # full worker + bindings, http://localhost:8787
 
 npm run lint
 npm run build             # tsc -b && vite build
-npm run verify:matching   # re-seed local D1 first — see scripts/verify-guess-matching.ts
-npm run verify:name-sync # re-seed local D1 first — see scripts/verify-name-sync.ts
-npm run playtest          # self-resets local D1 + KV — see scripts/playtest.ts
+npm run verify:matching           # re-seed local D1 first — see scripts/verify-guess-matching.ts
+npm run verify:name-sync          # re-seed local D1 first — see scripts/verify-name-sync.ts
+npm run verify:content-freshness  # re-seed local D1 first — see scripts/verify-content-freshness.ts
+npm run playtest                  # self-resets local D1 + KV — see scripts/playtest.ts
 ```
 
 **Run `npm run verify:matching` after any change to `db/seed.sql`'s answers/aliases, or to
@@ -421,6 +455,14 @@ under an unambiguous shared alias, catching the class of bug where an answer's n
 drifted from (or was entered wrong relative to) its reference-pool counterpart — see the
 incident writeup in "Content accuracy" above for what this looks like in practice and how to
 resolve a finding. **This also runs in CI** (`.github/workflows/ci.yml`).
+
+**Run `npm run verify:content-freshness` after adding or changing any answer in a
+"This Season" category (`group_label = 'This Season'`) — add/update its
+`-- Verified YYYY-MM-DD: <source>` comment in `db/seed.sql` in the same commit.** It
+checks that every category in that group has one, failing hard if not — see the
+incident writeup in "Content accuracy" above for what it does and doesn't catch (it
+enforces the *paper trail* for real-world verification, it can't do the verification
+itself). **This also runs in CI** (`.github/workflows/ci.yml`).
 
 **Run `npm run playtest` before merging any change touching a route, `matchGuess()`,
 `normalize.ts`, `suggestNames()`, or `db/seed.sql`.** It's a black-box end-to-end test —

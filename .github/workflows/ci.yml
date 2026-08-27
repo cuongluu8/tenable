@@ -14,9 +14,18 @@ name: CI
 # has drifted from the same real person/club's reference_entities row (e.g.
 # "Thiago" vs. the real "Igor Thiago"), which can both silently reject a
 # correctly-spelled guess and make one entity look like two in typeahead.
-# See scripts/playtest.ts, scripts/verify-guess-matching.ts, and
-# scripts/verify-name-sync.ts for what each check actually asserts, and
-# agents.md for how to run all three locally.
+# verify-content-freshness catches a third, different bug class again: none
+# of the above can tell a category's *numbers* are simply wrong against the
+# real world (pl-2025-26-final-table shipped with the wrong 9th/10th place
+# for a while — a user caught it, not this suite, because nothing checked
+# real-world correctness at all). It can't fact-check the world either, but
+# it does hard-fail any "This Season" category missing a documented
+# "-- Verified YYYY-MM-DD: <source>" comment in db/seed.sql, so a category
+# in that highest-risk group can't ship, or keep going stale, unnoticed.
+# See scripts/playtest.ts, scripts/verify-guess-matching.ts,
+# scripts/verify-name-sync.ts, and scripts/verify-content-freshness.ts for
+# what each check actually asserts, and agents.md for how to run all four
+# locally.
 
 on:
   push:
@@ -60,6 +69,9 @@ jobs:
 
       - name: Verify answer names stay in sync with the reference pool
         run: npm run verify:name-sync
+
+      - name: Verify "This Season" categories carry a content-verification marker
+        run: npm run verify:content-freshness
 
       - name: Playtest every category end to end
         run: npm run playtest
