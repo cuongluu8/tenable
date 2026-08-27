@@ -149,46 +149,46 @@ entry here is a much smaller problem than an error in `answers`. Extend the
 same way for other regions/entity types as new categories get added — don't
 grow `answers` past its category's actual Top N to solve a typeahead gap.
 
-**`db/seed.sql` and production D1 have diverged for `reference_entities`
-and no longer match 1:1.** The original intent (see git history) was that
-every reference-data addition gets appended to `seed.sql` and then mirrored
-to production by hand via the Cloudflare MCP `d1_database_query` tool. The
+**`db/seed.sql` and production D1 previously diverged for
+`reference_entities` — now resolved (2026-08-27), see below for what to do
+if it ever recurs.** The original intent (see git history) was that every
+reference-data addition gets appended to `seed.sql` and then mirrored to
+production by hand via the Cloudflare MCP `d1_database_query` tool. The
 large player-pool expansion (2026-08-25 onward, see below) broke that
-invariant: those batches were applied directly to production only, never
-back-ported into `seed.sql`, because the volume (17,000+ players across 70
-SQL files) made hand-editing `seed.sql` impractical mid-session. **Production
-D1 is the source of truth for the current reference-entity counts**, not
-`seed.sql` — confirm live counts via
+invariant for a while: batches were applied directly to production only,
+without being back-ported into `seed.sql` — caught, fixed (seed.sql
+regenerated from a verified-clean production export), and from batch 061
+onward every batch was applied to production **and** appended to
+`db/seed.sql` in the same step specifically to not reintroduce this drift.
+As of the completed player expansion below, `db/seed.sql` and production
+match exactly. **Still confirm this hasn't drifted again before trusting
+either file** — compare
 `SELECT entity_type, COUNT(*) FROM reference_entities GROUP BY entity_type;`
-rather than trusting numbers written here or in `seed.sql`. If you pick this
-back-porting work up, either bulk-append the executed batch files (see
-`db/pending_player_batches/` for the ones not yet run) into `seed.sql` in one
-pass, or explicitly decide `seed.sql`'s reference-entity section is legacy/
-bootstrap-only and stop treating it as authoritative — don't let it drift
-silently either way.
+against production rather than assuming — but there is no known divergence
+right now.
 
-### In-progress player expansion (started 2026-08-25)
+### Player expansion (started 2026-08-25, completed 2026-08-27)
 
 At the user's request ("I want every player since 1992"), the player
-typeahead pool is being expanded from ~160 curated names to ~17,577 real
+typeahead pool was expanded from ~160 curated names to over 18,000 real
 players, sourced from a cleaned FIFA 21 player dataset (EA's fabricated/
 placeholder players — an entire fake Brazilian Série A, detected via
 uniform-squad-size statistical fingerprinting — were filtered out first).
-Names are normalized and aliased to match `normalize()` in
+Names were normalized and aliased to match `normalize()` in
 `src/worker/lib/normalize.ts`, deduped against pre-existing content, and
-split into 70 batch files of ~250 players each (sorted by FIFA overall
-rating descending, so the most recognizable players load first in case the
-job is interrupted). No bulk-upload API exists for D1 from this environment,
-so each batch is a separate `d1_database_query` MCP call.
+loaded in 70 batches of ~250 players each (sorted by FIFA overall rating
+descending, so the most recognizable players loaded first in case the job
+was interrupted — which it was, for several sessions). No bulk-upload API
+exists for D1 from this environment, so each batch was a separate
+`d1_database_query` MCP call.
 
-**Progress and exact resume instructions live in
-`db/pending_player_batches/PROGRESS.md`** — read that file before continuing
-this work in any new session. In short: batches up through the number still
-present in that directory (lowest-numbered `batch_NNN.sql` file) remain
-unexecuted; delete each one and commit the removal as you run it, so the
-directory's contents always reflect what's left. This is long-running,
-mechanical, multi-session work the user has explicitly authorized to
-completion — no need to re-ask before resuming it.
+**This is now finished** — all 70 batches (000-069) are applied to
+production and present in `db/seed.sql`; production `reference_entities`
+has 18,440 players (club=419, country=110), matching `db/seed.sql` exactly.
+The `db/pending_player_batches/` working directory this used (batch files,
+`PROGRESS.md`) has been fully consumed and removed — if you see either
+referenced elsewhere (e.g. old commit messages), that's historical, not a
+sign of remaining work. There is no pending batch work to resume.
 
 **Type-scoped**: both `categories` and `reference_entities` carry an
 `entity_type` column (`'club'` | `'player'` | `'country'`, extend as new
@@ -318,22 +318,24 @@ rows) that existed as **exact duplicates** in both production and the
 already-committed `db/seed.sql` (famous names like Wayne Rooney that were in
 the original hand-curated list *and* got reintroduced by the bulk FIFA21
 load) — a real instance of the "duplicate entries" a user suspected, just
-not the actual cause of the bug they'd reported. **Two things are still
-outstanding from that fix, deliberately not resolved solo:**
-1. Production still has those 43 duplicate rows live (a `DELETE` for them
-   was blocked by the environment's own safety classifier, correctly, as a
-   destructive production action — it needs a human to actually run it or
-   explicitly approve it, not an agent). `db/seed.sql` does NOT have them
-   (already deduplicated there), so this is a production-only cleanup, not
-   a content-accuracy risk in the meantime.
-2. Batches 061-069 of the original 70-batch expansion plan were paused
-   mid-load (user asked about token efficiency, then redirected to bug
-   fixing) and were never executed against production — `db/seed.sql`
-   deliberately does NOT include them either, to keep the file an honest
-   mirror of what production actually has right now. Finishing that
-   expansion (~2,160 more players) is unfinished, optional-by-user-request
-   work, not a bug — see git history around 2026-08-26 for exactly where it
-   left off if resuming.
+not the actual cause of the bug they'd reported. **Both items this left
+outstanding are now resolved (2026-08-27):**
+1. The 43 duplicate rows were deleted from production with explicit user
+   authorization (the destructive action was correctly blocked by the
+   environment's safety classifier until then). A full duplicate audit run
+   after batches 061-069 completed (see #2) confirmed zero duplicate
+   `(canonical_name, category, entity_type)` rows and zero self-duplicate
+   aliases remain in either production or `db/seed.sql`.
+2. Batches 061-069 (the rest of the original 70-batch expansion plan) were
+   applied to production and appended to `db/seed.sql` in the same session,
+   batch-by-batch, to avoid ever repeating the seed.sql/production drift
+   above. Production `reference_entities` now has 18,440 players
+   (club=419, country=110), matching `db/seed.sql` exactly — verified via
+   a full local reseed + `verify:matching` + `verify:name-sync` + `playtest`
+   (1897 assertions), all green.
+
+The player-reference-pool expansion is complete; there is no further
+pending batch work.
 
 If you're ever unsure whether `db/seed.sql` still matches production,
 don't assume it does — compare counts (`SELECT entity_type, COUNT(*) FROM
