@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { getSafeViewport } from "../lib/safeViewport";
 import { useKeepInSafeZone } from "../hooks/useKeepInSafeZone";
 
@@ -14,6 +14,14 @@ interface Props {
 	// are scoped to that category's entity_type (e.g. players never suggest
 	// clubs). See suggest.ts.
 	categorySlug: string;
+	// Canonical names already found this round. /api/suggest searches the
+	// whole reference pool, not this category's remaining answers (see
+	// suggest.ts), so it has no idea what's already been found — an
+	// already-found name would otherwise still show up as pickable, and
+	// since picking is the *only* way to submit a guess, picking it just
+	// burns a turn on something the server was always going to reject as a
+	// duplicate. Filtering it out here means it can't be picked at all.
+	excludeNames?: string[];
 }
 
 const DEBOUNCE_MS = 200;
@@ -51,7 +59,7 @@ interface DropdownRect {
 	bottom: number;
 }
 
-export function GuessInput({ value, onChange, onPick, disabled, categorySlug }: Props) {
+export function GuessInput({ value, onChange, onPick, disabled, categorySlug, excludeNames = [] }: Props) {
 	const [suggestions, setSuggestions] = useState<string[]>([]);
 	// True when the server cut the list short (more real matches exist than
 	// were returned) — see suggest.ts's `truncated` flag. Shown as a hint
@@ -75,8 +83,25 @@ export function GuessInput({ value, onChange, onPick, disabled, categorySlug }: 
 	// would otherwise re-trigger the fetch below right after selection.
 	const justPickedRef = useRef(false);
 
+	// Already-found names are dropped from the fetched list entirely — see
+	// the `excludeNames` prop doc above — rather than just being marked
+	// unpickable, so they don't clutter a short list with entries that can
+	// never be selected. Memoized (not just a plain const) so this stays a
+	// stable reference across renders that don't change either input —
+	// reposition()'s effect below depends on it, and an unmemoized new array
+	// every render would re-run that effect on every keystroke for reasons
+	// unrelated to the dropdown's actual size.
+	const excludeSet = useMemo(
+		() => new Set(excludeNames.map((n) => n.trim().toLowerCase())),
+		[excludeNames],
+	);
+	const visibleSuggestions = useMemo(
+		() => suggestions.filter((s) => !excludeSet.has(s.trim().toLowerCase())),
+		[suggestions, excludeSet],
+	);
+
 	const query = value.trim();
-	const visible = !dismissed && query.length >= MIN_QUERY_LENGTH && (suggestions.length > 0 || loading);
+	const visible = !dismissed && query.length >= MIN_QUERY_LENGTH && (visibleSuggestions.length > 0 || loading);
 
 	// Scrolls the input into the safe zone as soon as it's focused — before
 	// the player has even typed anything, independent of whether suggestions
@@ -132,7 +157,7 @@ export function GuessInput({ value, onChange, onPick, disabled, categorySlug }: 
 			window.removeEventListener("resize", reposition);
 			window.removeEventListener("scroll", reposition, true);
 		};
-	}, [visible, suggestions, reposition]);
+	}, [visible, visibleSuggestions, reposition]);
 
 	useEffect(() => {
 		if (justPickedRef.current) {
@@ -180,17 +205,17 @@ export function GuessInput({ value, onChange, onPick, disabled, categorySlug }: 
 		}
 		// The dropdown can be visible (open, showing the loading skeleton)
 		// before any suggestions have arrived — nothing to navigate to yet.
-		if (suggestions.length === 0) return;
+		if (visibleSuggestions.length === 0) return;
 
 		if (e.key === "ArrowDown") {
 			e.preventDefault();
-			setHighlight((h) => (h + 1) % suggestions.length);
+			setHighlight((h) => (h + 1) % visibleSuggestions.length);
 		} else if (e.key === "ArrowUp") {
 			e.preventDefault();
-			setHighlight((h) => (h <= 0 ? suggestions.length - 1 : h - 1));
+			setHighlight((h) => (h <= 0 ? visibleSuggestions.length - 1 : h - 1));
 		} else if (e.key === "Enter" && highlight >= 0) {
 			e.preventDefault();
-			pick(suggestions[highlight]);
+			pick(visibleSuggestions[highlight]);
 		}
 	}
 
@@ -202,7 +227,7 @@ export function GuessInput({ value, onChange, onPick, disabled, categorySlug }: 
 				value={value}
 				onChange={(e) => onChange(e.target.value)}
 				onKeyDown={handleKeyDown}
-				onFocus={() => suggestions.length > 0 && setDismissed(false)}
+				onFocus={() => visibleSuggestions.length > 0 && setDismissed(false)}
 				onBlur={() => setTimeout(() => setDismissed(true), 150)}
 				placeholder="Type your guess…"
 				autoFocus
@@ -227,8 +252,8 @@ export function GuessInput({ value, onChange, onPick, disabled, categorySlug }: 
 						bottom: dropdownRect.bottom,
 					}}
 				>
-					{suggestions.length > 0
-						? suggestions.map((name, i) => (
+					{visibleSuggestions.length > 0
+						? visibleSuggestions.map((name, i) => (
 								<li key={name}>
 									<button
 										type="button"
@@ -254,11 +279,11 @@ export function GuessInput({ value, onChange, onPick, disabled, categorySlug }: 
 								</li>
 							))}
 					{/* Not a selectable option (no role="option", excluded from
-					    suggestions.length so arrow-key navigation skips it) — a plain
-					    hint that the list above is a cut-off subset, not the complete
-					    match set, so the player knows to keep typing rather than
-					    trust a partial list as if it were exhaustive. */}
-					{suggestions.length > 0 && truncated && (
+					    visibleSuggestions.length so arrow-key navigation skips it) — a
+					    plain hint that the list above is a cut-off subset, not the
+					    complete match set, so the player knows to keep typing rather
+					    than trust a partial list as if it were exhaustive. */}
+					{visibleSuggestions.length > 0 && truncated && (
 						<li className="guess-suggestions__hint" aria-live="polite">
 							Type a few more letters to narrow the results…
 						</li>

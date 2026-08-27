@@ -72,6 +72,7 @@ export function MultiplayerPlay({ state, onGuess, submitting, onQuit }: Props) {
 				onPick={pick}
 				disabled={submitting}
 				categorySlug={state.category.slug}
+				excludeNames={Object.values(state.foundDetails).map((a) => a.name)}
 			/>
 
 			{state.lastAction && (
