@@ -134,6 +134,9 @@ interface GuessResponse {
 interface RevealResponse {
 	answers: { rank: number; name: string; statValue: string }[];
 }
+interface GiveUpResponse {
+	progress: ProgressResponse;
+}
 interface SuggestResponse {
 	suggestions: string[];
 	truncated: boolean;
@@ -186,6 +189,14 @@ class Device {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ slug, guess, ...(mode ? { mode } : {}) }),
+		});
+	}
+
+	postGiveUp(slug: string) {
+		return this.request<GiveUpResponse>("/api/give-up", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ slug }),
 		});
 	}
 }
@@ -543,6 +554,34 @@ async function main(): Promise<void> {
 		const winList = await deviceB.get<CategoriesListResponse>("/api/categories");
 		const winEntry = (winList.body?.categories ?? []).find((c) => c.slug === winSlug);
 		assertEqual(winEntry?.status, "won", "[tension win] category shows as won after finishing with lives to spare");
+
+		// Give up: a fresh device/category so it doesn't collide with A's or
+		// B's completions above.
+		console.log("Giving up mid-round...");
+		const deviceC = new Device();
+		const giveUpSlug = categories[2].slug;
+
+		const giveUpBeforeStart = await deviceC.postGiveUp(giveUpSlug);
+		assertEqual(giveUpBeforeStart.status, 404, "[give up] no round in progress yet");
+
+		const giveUpWrongGuesses = pickWrongGuesses(categories[2].entity_type, new Set(), 1);
+		const startingGuess = await deviceC.postGuess(giveUpSlug, giveUpWrongGuesses[0], "classic");
+		assertEqual(startingGuess.status, 200, "[give up] a guess starts the round as normal");
+
+		const giveUpResult = await deviceC.postGiveUp(giveUpSlug);
+		assertEqual(giveUpResult.status, 200, "[give up] give-up request status");
+		assertEqual(giveUpResult.body?.progress?.completed, true, "[give up] round is marked completed");
+		assertEqual(giveUpResult.body?.progress?.won, false, "[give up] giving up is not a win");
+
+		const giveUpAgain = await deviceC.postGiveUp(giveUpSlug);
+		assertEqual(giveUpAgain.status, 409, "[give up] can't give up on an already-finished round");
+
+		const giveUpReveal = await deviceC.get<RevealResponse>(`/api/reveal/${giveUpSlug}`);
+		assertEqual(giveUpReveal.status, 200, "[give up] reveal is available after giving up");
+
+		const giveUpList = await deviceC.get<CategoriesListResponse>("/api/categories");
+		const giveUpEntry = (giveUpList.body?.categories ?? []).find((c) => c.slug === giveUpSlug);
+		assertEqual(giveUpEntry?.status, "lost", "[give up] category shows as lost after giving up");
 	} finally {
 		killProcessTree(child);
 	}

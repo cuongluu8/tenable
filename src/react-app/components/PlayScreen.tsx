@@ -5,6 +5,7 @@ import { LivesIndicator } from "./LivesIndicator";
 import type {
 	Category,
 	CategoryResponse,
+	GiveUpResponse,
 	GuessResponse,
 	Mode,
 	Progress,
@@ -35,6 +36,11 @@ export function PlayScreen({ slug, onBack }: Props) {
 	const [guessInput, setGuessInput] = useState("");
 	const [feedback, setFeedback] = useState<string | null>(null);
 	const [submitting, setSubmitting] = useState(false);
+	// Names picked from the suggestion list that turned out wrong — client-side
+	// only (not part of the persisted Progress), so it resets on reload same as
+	// `feedback` does; the point is to show them during this sitting, not to
+	// survive a refresh.
+	const [wrongGuesses, setWrongGuesses] = useState<string[]>([]);
 
 	useEffect(() => {
 		fetch(`/api/categories/${slug}`)
@@ -75,6 +81,7 @@ export function PlayScreen({ slug, onBack }: Props) {
 
 	function startMode(mode: Mode) {
 		setFeedback(null);
+		setWrongGuesses([]);
 		setProgress({
 			mode,
 			foundRanks: [],
@@ -115,6 +122,7 @@ export function PlayScreen({ slug, onBack }: Props) {
 				setFeedback("Already found that one.");
 			} else {
 				setFeedback("❌ Not on the list.");
+				setWrongGuesses((prev) => [...prev, guessText]);
 			}
 			setGuessInput("");
 		} catch {
@@ -124,16 +132,42 @@ export function PlayScreen({ slug, onBack }: Props) {
 		}
 	}
 
-	function submitGuess(e: React.FormEvent) {
-		e.preventDefault();
-		doGuess(guessInput);
-	}
-
 	// Picking a suggestion skips typing entirely: fill it in and submit
 	// straight away, since avoiding a typo is the whole point of picking one.
+	// This is now the *only* way to submit a guess — see GuessInput/App.tsx's
+	// removed submit button: forcing a pick from the list (click, or Enter on
+	// a highlighted option) means every guess resolves to a real reference-pool
+	// name server-side, not arbitrary typed text.
 	function pickSuggestion(name: string) {
 		setGuessInput(name);
 		doGuess(name);
+	}
+
+	async function giveUp() {
+		if (!progress || progress.completed || submitting) return;
+
+		setSubmitting(true);
+		try {
+			const res = await fetch("/api/give-up", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ slug }),
+			});
+			const data = (await res.json()) as GiveUpResponse | { error: string };
+
+			if (!res.ok || "error" in data) {
+				setFeedback("error" in data ? data.error : "Something went wrong");
+				return;
+			}
+
+			setProgress(data.progress);
+			setStreak(data.streak);
+			setFeedback(null);
+		} catch {
+			setFeedback("Network error — try again.");
+		} finally {
+			setSubmitting(false);
+		}
 	}
 
 	return (
@@ -169,7 +203,7 @@ export function PlayScreen({ slug, onBack }: Props) {
 					/>
 
 					{!progress.completed ? (
-						<form className="guess-form" onSubmit={submitGuess}>
+						<div className="guess-form">
 							<GuessInput
 								value={guessInput}
 								onChange={setGuessInput}
@@ -177,15 +211,26 @@ export function PlayScreen({ slug, onBack }: Props) {
 								disabled={submitting}
 								categorySlug={slug}
 							/>
-							<button type="submit" disabled={submitting || !guessInput.trim()}>
-								Guess
+							<button type="button" className="give-up-link" onClick={giveUp} disabled={submitting}>
+								Give up
 							</button>
-						</form>
+						</div>
 					) : (
 						<ResultPanel progress={progress} category={category} onBack={onBack} />
 					)}
 
 					{feedback && <p className="feedback">{feedback}</p>}
+
+					{wrongGuesses.length > 0 && (
+						<div className="wrong-guesses" aria-live="polite">
+							<h4 className="wrong-guesses__heading">Incorrect guesses</h4>
+							<ul className="wrong-guesses__list">
+								{wrongGuesses.map((name, i) => (
+									<li key={`${name}-${i}`}>{name}</li>
+								))}
+							</ul>
+						</div>
+					)}
 				</>
 			)}
 		</div>

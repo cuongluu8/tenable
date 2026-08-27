@@ -59,6 +59,12 @@ export interface GuessResponse {
 	lifetime: Lifetime | null;
 }
 
+export interface GiveUpResponse {
+	progress: Progress;
+	streak: Streak;
+	lifetime: Lifetime;
+}
+
 export interface RevealAnswer {
 	rank: number;
 	name: string;

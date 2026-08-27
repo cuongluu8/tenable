@@ -594,6 +594,52 @@ input[type="text"].guess-input__field--open:focus-visible {
 	min-height: 1.4em;
 }
 
+/* Secondary action next to the guess input — deliberately quiet (same
+   treatment as .back-link) so it doesn't compete with picking a suggestion,
+   the primary way to play a round now that there's no submit button. */
+.give-up-link {
+	flex-shrink: 0;
+	background: none;
+	border: 1px solid transparent;
+	color: #9ca3af;
+	font-size: 0.9rem;
+	align-self: center;
+}
+.give-up-link:hover:not(:disabled) {
+	color: #e5e7eb;
+	border-color: transparent;
+}
+
+.wrong-guesses {
+	margin-top: 1rem;
+}
+.wrong-guesses__heading {
+	margin: 0 0 0.4rem;
+	color: #9ca3af;
+	font-size: 0.85em;
+	font-weight: 500;
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+}
+.wrong-guesses__list {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.4rem;
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+/* Same red as .answer-slot--missed (a wrong guess and a missed answer are
+   the same "this one didn't work out" idea) rather than a new red. */
+.wrong-guesses__list li {
+	padding: 0.25em 0.6em;
+	border-radius: 999px;
+	background: #3f1d1d;
+	border: 1px solid #f87171;
+	color: #f87171;
+	font-size: 0.85em;
+}
+
 .result-panel {
 	text-align: center;
 	padding: 1.5rem;
