@@ -209,7 +209,7 @@ INSERT INTO answer_aliases (answer_id, alias)
 -- extra reason to re-verify this one specifically before treating it as
 -- authoritative.
 INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
-	('afcon-titles-by-country', 'Top 10 Africa Cup of Nations winners', 'By country, through AFCON 2023', 'titles');
+	('afcon-titles-by-country', 'Top 10 Africa Cup of Nations winners', 'By country, through AFCON 2025. Morocco''s 2025 title (originally lost 1-0 to Senegal, then awarded 3-0 on forfeit after Senegal walked off and CAF upheld the forfeit on appeal) moves them up to 2 titles, tied with DR Congo and Algeria — ties broken by earliest title.', 'titles');
 
 INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
 	((SELECT id FROM categories WHERE slug = 'afcon-titles-by-country'), 1, 'Egypt', '7'),
@@ -218,10 +218,10 @@ INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
 	((SELECT id FROM categories WHERE slug = 'afcon-titles-by-country'), 4, 'Nigeria', '3'),
 	((SELECT id FROM categories WHERE slug = 'afcon-titles-by-country'), 5, 'Ivory Coast', '3'),
 	((SELECT id FROM categories WHERE slug = 'afcon-titles-by-country'), 6, 'DR Congo', '2'),
-	((SELECT id FROM categories WHERE slug = 'afcon-titles-by-country'), 7, 'Algeria', '2'),
-	((SELECT id FROM categories WHERE slug = 'afcon-titles-by-country'), 8, 'Zambia', '1'),
-	((SELECT id FROM categories WHERE slug = 'afcon-titles-by-country'), 9, 'Tunisia', '1'),
-	((SELECT id FROM categories WHERE slug = 'afcon-titles-by-country'), 10, 'Morocco', '1');
+	((SELECT id FROM categories WHERE slug = 'afcon-titles-by-country'), 7, 'Morocco', '2'),
+	((SELECT id FROM categories WHERE slug = 'afcon-titles-by-country'), 8, 'Algeria', '2'),
+	((SELECT id FROM categories WHERE slug = 'afcon-titles-by-country'), 9, 'Zambia', '1'),
+	((SELECT id FROM categories WHERE slug = 'afcon-titles-by-country'), 10, 'Tunisia', '1');
 
 INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'egypt' FROM answers a JOIN categories c ON a.category_id = c.id
@@ -953,19 +953,19 @@ INSERT INTO answer_aliases (answer_id, alias)
 	WHERE c.slug = 'pl-alltime-top-scorers' AND a.rank = 10;
 
 INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
-	('cl-alltime-top-scorers', 'Top 10 UEFA Champions League all-time top scorers', 'Career total, through 2025-26', 'goals');
+	('cl-alltime-top-scorers', 'Top 10 UEFA Champions League all-time top scorers', 'Career total, through 2025-26. Haaland edges Muller (both on 57) for 7th — ties broken by recency.', 'goals');
 
 INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
 	((SELECT id FROM categories WHERE slug = 'cl-alltime-top-scorers'), 1, 'Cristiano Ronaldo', '140'),
 	((SELECT id FROM categories WHERE slug = 'cl-alltime-top-scorers'), 2, 'Lionel Messi', '129'),
-	((SELECT id FROM categories WHERE slug = 'cl-alltime-top-scorers'), 3, 'Robert Lewandowski', '106'),
+	((SELECT id FROM categories WHERE slug = 'cl-alltime-top-scorers'), 3, 'Robert Lewandowski', '109'),
 	((SELECT id FROM categories WHERE slug = 'cl-alltime-top-scorers'), 4, 'Karim Benzema', '90'),
 	((SELECT id FROM categories WHERE slug = 'cl-alltime-top-scorers'), 5, 'Raul', '71'),
 	((SELECT id FROM categories WHERE slug = 'cl-alltime-top-scorers'), 6, 'Kylian Mbappe', '70'),
-	((SELECT id FROM categories WHERE slug = 'cl-alltime-top-scorers'), 7, 'Thomas Muller', '56'),
-	((SELECT id FROM categories WHERE slug = 'cl-alltime-top-scorers'), 8, 'Ruud van Nistelrooy', '56'),
-	((SELECT id FROM categories WHERE slug = 'cl-alltime-top-scorers'), 9, 'Thierry Henry', '50'),
-	((SELECT id FROM categories WHERE slug = 'cl-alltime-top-scorers'), 10, 'Erling Haaland', '50');
+	((SELECT id FROM categories WHERE slug = 'cl-alltime-top-scorers'), 7, 'Erling Haaland', '57'),
+	((SELECT id FROM categories WHERE slug = 'cl-alltime-top-scorers'), 8, 'Thomas Muller', '57'),
+	((SELECT id FROM categories WHERE slug = 'cl-alltime-top-scorers'), 9, 'Ruud van Nistelrooy', '56'),
+	((SELECT id FROM categories WHERE slug = 'cl-alltime-top-scorers'), 10, 'Thierry Henry', '50');
 
 INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'cr7' FROM answers a JOIN categories c ON a.category_id = c.id
@@ -1007,28 +1007,28 @@ INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'mbappe' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'cl-alltime-top-scorers' AND a.rank = 6;
 INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'muller' FROM answers a JOIN categories c ON a.category_id = c.id
-	WHERE c.slug = 'cl-alltime-top-scorers' AND a.rank = 7;
-INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'thomas muller' FROM answers a JOIN categories c ON a.category_id = c.id
-	WHERE c.slug = 'cl-alltime-top-scorers' AND a.rank = 7;
-INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'ruud van nistelrooy' FROM answers a JOIN categories c ON a.category_id = c.id
-	WHERE c.slug = 'cl-alltime-top-scorers' AND a.rank = 8;
-INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'van nistelrooy' FROM answers a JOIN categories c ON a.category_id = c.id
-	WHERE c.slug = 'cl-alltime-top-scorers' AND a.rank = 8;
-INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'henry' FROM answers a JOIN categories c ON a.category_id = c.id
-	WHERE c.slug = 'cl-alltime-top-scorers' AND a.rank = 9;
-INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'thierry henry' FROM answers a JOIN categories c ON a.category_id = c.id
-	WHERE c.slug = 'cl-alltime-top-scorers' AND a.rank = 9;
-INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'erling haaland' FROM answers a JOIN categories c ON a.category_id = c.id
-	WHERE c.slug = 'cl-alltime-top-scorers' AND a.rank = 10;
+	WHERE c.slug = 'cl-alltime-top-scorers' AND a.rank = 7;
 INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'haaland' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'cl-alltime-top-scorers' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'muller' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'cl-alltime-top-scorers' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'thomas muller' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'cl-alltime-top-scorers' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'ruud van nistelrooy' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'cl-alltime-top-scorers' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'van nistelrooy' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'cl-alltime-top-scorers' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'henry' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'cl-alltime-top-scorers' AND a.rank = 10;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'thierry henry' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'cl-alltime-top-scorers' AND a.rank = 10;
 
 INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
@@ -1696,7 +1696,7 @@ INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
 	('liverpool-pl-top-scorers', 'Top 10 Liverpool Premier League goalscorers', 'By Premier League goals only (not all competitions), through the 2025-26 season.', 'goals');
 
 INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
-	((SELECT id FROM categories WHERE slug = 'liverpool-pl-top-scorers'), 1, 'Mohamed Salah', '191'),
+	((SELECT id FROM categories WHERE slug = 'liverpool-pl-top-scorers'), 1, 'Mohamed Salah', '193'),
 	((SELECT id FROM categories WHERE slug = 'liverpool-pl-top-scorers'), 2, 'Robbie Fowler', '128'),
 	((SELECT id FROM categories WHERE slug = 'liverpool-pl-top-scorers'), 3, 'Steven Gerrard', '120'),
 	((SELECT id FROM categories WHERE slug = 'liverpool-pl-top-scorers'), 4, 'Michael Owen', '118'),
@@ -1880,7 +1880,7 @@ INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
 
 INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
 	((SELECT id FROM categories WHERE slug = 'man-city-pl-top-scorers'), 1, 'Sergio Aguero', '184'),
-	((SELECT id FROM categories WHERE slug = 'man-city-pl-top-scorers'), 2, 'Erling Haaland', '105'),
+	((SELECT id FROM categories WHERE slug = 'man-city-pl-top-scorers'), 2, 'Erling Haaland', '107'),
 	((SELECT id FROM categories WHERE slug = 'man-city-pl-top-scorers'), 3, 'Raheem Sterling', '85'),
 	((SELECT id FROM categories WHERE slug = 'man-city-pl-top-scorers'), 4, 'Kevin De Bruyne', '72'),
 	((SELECT id FROM categories WHERE slug = 'man-city-pl-top-scorers'), 5, 'Yaya Toure', '62'),
