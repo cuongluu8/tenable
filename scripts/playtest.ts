@@ -136,6 +136,7 @@ interface RevealResponse {
 }
 interface SuggestResponse {
 	suggestions: string[];
+	truncated: boolean;
 }
 
 // --- HTTP session: a minimal cookie jar so each "device" behaves like one
@@ -486,6 +487,19 @@ async function main(): Promise<void> {
 
 		const unknownCategorySuggest = await deviceA.get<SuggestResponse>(`/api/suggest?q=real&category=not-a-real-category`);
 		assertEqual(unknownCategorySuggest.body?.suggestions?.length, 0, "typeahead against an unknown category returns nothing");
+
+		// truncated: a real, common prefix ("mar" matches 650+ distinct players
+		// in the reference pool, see suggest.ts) must come back flagged as cut
+		// short rather than silently presenting a partial list as complete —
+		// this is the actual UI signal that tells a player to keep typing.
+		const playerCategory = categories.find((c) => c.entity_type === "player");
+		assert(playerCategory !== undefined, "at least one player category exists to test truncation against");
+		const broadSuggest = await deviceA.get<SuggestResponse>(
+			`/api/suggest?q=mar&category=${playerCategory!.slug}`,
+		);
+		assertEqual(broadSuggest.status, 200, "broad-prefix suggest request status");
+		assertEqual(broadSuggest.body?.suggestions?.length, 20, "broad prefix returns exactly MAX_RESULTS suggestions");
+		assertEqual(broadSuggest.body?.truncated, true, "broad prefix is flagged as truncated");
 
 		// Tension mode: a separate device so it doesn't collide with device
 		// A's classic-mode completion of the same categories.

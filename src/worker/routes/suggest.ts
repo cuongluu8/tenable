@@ -6,32 +6,24 @@ const suggest = new Hono<{ Bindings: Env }>();
 
 const MIN_QUERY_LENGTH = 3;
 
-// A flat result cap can't be right at both ends of the query-length range: 8
-// was too aggressive for a query specific enough to have few real candidates
-// (e.g. "thiago", 11 total matches in the reference pool as of 2026-08-27) —
-// it could still lose a genuinely famous one (Thiago Alcantara, tied for the
-// longest name among those 11) purely to the length-based tiebreak in
-// suggestNames, well before hitting anything that looks like "too many
-// results". But a flat *high* cap isn't right either: a short/broad prefix
-// ("ma", "an") matches 500-1600+ distinct players, and showing all of those
-// on every keystroke is a real payload/usability problem the guess box's
-// scrollable dropdown doesn't solve by just growing the list.
-//
-// So the limit scales with how specific the (normalized) query already is —
-// longer input has fewer real candidates and can afford to show more of
-// them, aiming to surface every player sharing a common name rather than
-// truncate them by an arbitrary flat cutoff. Linear from MIN_RESULTS at
-// MIN_QUERY_LENGTH up to MAX_RESULTS at LONG_QUERY_LENGTH, then flat.
-const MIN_RESULTS = 8;
-const MAX_RESULTS = 50;
-const LONG_QUERY_LENGTH = 12;
-
-function resultLimitFor(queryLength: number): number {
-	if (queryLength <= MIN_QUERY_LENGTH) return MIN_RESULTS;
-	if (queryLength >= LONG_QUERY_LENGTH) return MAX_RESULTS;
-	const t = (queryLength - MIN_QUERY_LENGTH) / (LONG_QUERY_LENGTH - MIN_QUERY_LENGTH);
-	return Math.round(MIN_RESULTS + t * (MAX_RESULTS - MIN_RESULTS));
-}
+// A flat cap, after two other approaches: 8 was too aggressive for a query
+// specific enough to have few real candidates (e.g. "thiago", 11 total
+// matches in the reference pool as of 2026-08-27) — it could lose a
+// genuinely famous one (Thiago Alcantara, tied for the longest name among
+// those 11) purely to the length-based tiebreak in suggestNames. Scaling the
+// limit with query length (tried next) fixed that but made "is the list
+// complete?" impossible to tell from the response alone — a player typing a
+// long, specific query had no way to know whether a still-missing name
+// meant "narrow the search further" or "it's genuinely not in the pool".
+// Fixed cap + an explicit `truncated` flag (see suggestNames' `limit + 1`
+// trick) solves that directly: the UI tells the player outright when the
+// list was cut short instead of silently showing a partial one, so they
+// know to keep typing rather than trusting an incomplete list. A short/broad
+// prefix ("ma", "an") still matches 500-1600+ distinct players, so 20 stays
+// deliberately conservative — the point isn't to fit everything into one
+// response, it's for the truncation warning to fire reliably until the
+// player narrows the search enough to see a complete list.
+const MAX_RESULTS = 20;
 
 // Typeahead for the guess box: name/club/player suggestions matching a
 // prefix, searched across the whole database rather than the current
@@ -47,22 +39,22 @@ suggest.get("/", async (c) => {
 	const categorySlug = c.req.query("category") ?? "";
 
 	if (prefix.length < MIN_QUERY_LENGTH || !categorySlug) {
-		return c.json({ suggestions: [] });
+		return c.json({ suggestions: [], truncated: false });
 	}
 
 	const category = await getCategoryBySlug(c.env.DB, categorySlug);
 	if (!category) {
-		return c.json({ suggestions: [] });
+		return c.json({ suggestions: [], truncated: false });
 	}
 
-	const suggestions = await suggestNames(
+	const { names, truncated } = await suggestNames(
 		c.env.DB,
 		prefix,
 		category.entity_type,
-		resultLimitFor(prefix.length),
+		MAX_RESULTS,
 		category.reference_scope,
 	);
-	return c.json({ suggestions });
+	return c.json({ suggestions: names, truncated });
 });
 
 export default suggest;

@@ -224,15 +224,24 @@ export async function getAllAnswers(
 // reference match win that tiebreak without hiding the rest of the world's
 // names outright, which would undo the "type any name for spelling help"
 // behavior global search was deliberately built for.
+export interface SuggestResult {
+	names: string[];
+	// True when more rows matched than `limit` allowed through — i.e. the
+	// list below was cut short, not exhaustive. Detected by asking for one
+	// extra row (`limit + 1`) and slicing it back off rather than a separate
+	// COUNT(*) query, so this stays a single round trip.
+	truncated: boolean;
+}
+
 export async function suggestNames(
 	db: D1Database,
 	normalizedPrefix: string,
 	entityType: string,
 	limit: number,
 	scope: string | null,
-): Promise<string[]> {
+): Promise<SuggestResult> {
 	const ftsQuery = toFtsPrefixQuery(normalizedPrefix);
-	if (!ftsQuery) return [];
+	if (!ftsQuery) return { names: [], truncated: false };
 
 	const result = await db
 		.prepare(
@@ -273,7 +282,9 @@ export async function suggestNames(
 			 ORDER BY priority ASC, LENGTH(name) ASC, name ASC
 			 LIMIT ?4`,
 		)
-		.bind(ftsQuery, normalizedPrefix, entityType, limit, scope)
+		.bind(ftsQuery, normalizedPrefix, entityType, limit + 1, scope)
 		.all<{ name: string }>();
-	return (result.results ?? []).map((r) => r.name);
+	const names = (result.results ?? []).map((r) => r.name);
+	const truncated = names.length > limit;
+	return { names: truncated ? names.slice(0, limit) : names, truncated };
 }

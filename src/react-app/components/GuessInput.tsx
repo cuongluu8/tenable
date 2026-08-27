@@ -53,6 +53,10 @@ interface DropdownRect {
 
 export function GuessInput({ value, onChange, onPick, disabled, categorySlug }: Props) {
 	const [suggestions, setSuggestions] = useState<string[]>([]);
+	// True when the server cut the list short (more real matches exist than
+	// were returned) — see suggest.ts's `truncated` flag. Shown as a hint
+	// rather than silently presenting a partial list as if it were complete.
+	const [truncated, setTruncated] = useState(false);
 	// Explicitly closed by the player (Escape, blur, picking one) — separate
 	// from `suggestions` so a short query or a dismissal hides the list
 	// without needing to clear fetched data just to sync visibility.
@@ -142,10 +146,11 @@ export function GuessInput({ value, onChange, onPick, disabled, categorySlug }: 
 			setLoading(true); // the request is actually going out now
 			const params = new URLSearchParams({ q: query, category: categorySlug });
 			fetch(`/api/suggest?${params}`)
-				.then((res) => (res.ok ? (res.json() as Promise<{ suggestions: string[] }>) : null))
+				.then((res) => (res.ok ? (res.json() as Promise<{ suggestions: string[]; truncated: boolean }>) : null))
 				.then((data) => {
 					if (!data || id !== requestId.current) return; // stale response
 					setSuggestions(data.suggestions);
+					setTruncated(data.truncated);
 					setDismissed(false);
 					setHighlight(-1);
 				})
@@ -162,6 +167,7 @@ export function GuessInput({ value, onChange, onPick, disabled, categorySlug }: 
 		justPickedRef.current = true;
 		setDismissed(true);
 		setSuggestions([]);
+		setTruncated(false);
 		onPick(name);
 	}
 
@@ -247,6 +253,16 @@ export function GuessInput({ value, onChange, onPick, disabled, categorySlug }: 
 									<span className="guess-suggestions__skeleton-bar" style={{ width }} />
 								</li>
 							))}
+					{/* Not a selectable option (no role="option", excluded from
+					    suggestions.length so arrow-key navigation skips it) — a plain
+					    hint that the list above is a cut-off subset, not the complete
+					    match set, so the player knows to keep typing rather than
+					    trust a partial list as if it were exhaustive. */}
+					{suggestions.length > 0 && truncated && (
+						<li className="guess-suggestions__hint" aria-live="polite">
+							Type a few more letters to narrow the results…
+						</li>
+					)}
 				</ul>
 			)}
 		</div>

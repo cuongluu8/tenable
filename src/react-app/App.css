@@ -547,6 +547,17 @@ input[type="text"].guess-input__field--open:focus-visible {
 	border-color: #4ade80;
 }
 
+/* Truncation hint: not a button (not selectable, no hover/active state) —
+   plain informational text below the real suggestions, so it reads as a
+   note about the list rather than another row a player could click. Same
+   muted tone as .category-card__subtitle for secondary/non-primary text. */
+.guess-suggestions__hint {
+	padding: 0.5em 0.7em;
+	color: #9ca3af;
+	font-size: 0.85em;
+	font-style: italic;
+}
+
 /* Loading skeleton: placeholder rows shown while a search is in flight (see
    GuessInput's `loading` state), so the open-but-empty dropdown reads as
    "still searching" rather than "no matches". Sized to roughly match a real
