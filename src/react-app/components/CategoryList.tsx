@@ -5,6 +5,11 @@ import { GroupIcon } from "./GroupIcon";
 interface Props {
 	categories: CategorySummary[];
 	onSelect: (category: CategorySummary) => void;
+	// Multiplayer only (see MultiplayerSetup.tsx): highlights one card as the
+	// current pick. Single-player never passes this — there, clicking a card
+	// navigates straight into that category, so there's never a "currently
+	// selected, not yet committed" state to show.
+	selectedSlug?: string;
 }
 
 const STATUS_LABEL: Record<CategorySummary["status"], string> = {
@@ -35,7 +40,7 @@ function panelId(group: string): string {
 	return `category-section-${group.toLowerCase().replace(/\s+/g, "-")}`;
 }
 
-export function CategoryList({ categories, onSelect }: Props) {
+export function CategoryList({ categories, onSelect, selectedSlug }: Props) {
 	// Accordion — at most one section open at a time, none open on load. With
 	// 26 categories across 4 sections, showing every card at once is exactly
 	// the wall of text this grouping exists to replace; letting more than one
@@ -91,7 +96,12 @@ export function CategoryList({ categories, onSelect }: Props) {
 								<ul className="category-list">
 									{section.items.map((cat) => (
 										<li key={cat.slug}>
-											<button className="category-card" onClick={() => onSelect(cat)}>
+											<button
+												className={
+													"category-card" + (cat.slug === selectedSlug ? " category-card--selected" : "")
+												}
+												onClick={() => onSelect(cat)}
+											>
 												<div className="category-card__main">
 													<strong>{cat.title}</strong>
 													{cat.subtitle && (

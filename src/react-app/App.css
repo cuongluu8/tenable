@@ -338,6 +338,14 @@
 .category-card:hover {
 	border-color: #4ade80;
 }
+/* Multiplayer only (see CategoryList.tsx's selectedSlug prop) — a picked-
+   but-not-yet-started category stays visibly marked even after its section
+   collapses and reopens, the same "currently chosen" treatment used
+   elsewhere in the app (.mp-players__item--active, .answer-slot--found). */
+.category-card--selected {
+	background: #14532d;
+	border-color: #4ade80;
+}
 .category-card__main {
 	display: flex;
 	flex-direction: column;

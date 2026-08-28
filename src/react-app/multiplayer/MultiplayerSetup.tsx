@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { CategoryList } from "../components/CategoryList";
 import type { CategoriesResponse, CategorySummary } from "../types";
 import { colorForPlayerIndex, type MpCategory } from "./state";
 
@@ -54,11 +55,20 @@ type LoadState =
 	| { status: "error"; message: string }
 	| { status: "ready"; categories: CategorySummary[] };
 
-// Setup screen for single-device pass-and-play: pick a category (same list
-// single-player already offers, via the same /api/categories endpoint —
-// status/group aren't meaningful here so this ignores both, just a flat
-// picker), then build a player roster before starting. No slug, no joining
-// from another device — see the plan this was built from.
+// Setup screen for single-device pass-and-play: pick a category, then build
+// a player roster before starting. No slug, no joining from another
+// device — see the plan this was built from.
+//
+// Category selection reuses the exact same CategoryList component and
+// /api/categories data single-player's home screen uses (grouped sections,
+// per-category status, everything) — the two pickers are meant to look and
+// behave identically, not a cut-down variant for multiplayer. The one real
+// difference is unavoidable: single-player's CategoryList click navigates
+// straight into that category, but multiplayer still needs a roster before
+// it can start, so a pick here just records the choice (highlighted via
+// CategoryList's selectedSlug prop) rather than starting anything — nothing
+// is pre-selected on load, matching single-player having no concept of a
+// "default" category either.
 export function MultiplayerSetup({ onStart }: Props) {
 	const [load, setLoad] = useState<LoadState>({ status: "loading" });
 	const [categorySlug, setCategorySlug] = useState("");
@@ -80,10 +90,7 @@ export function MultiplayerSetup({ onStart }: Props) {
 				if (!res.ok) throw new Error("Couldn't load categories");
 				return res.json() as Promise<CategoriesResponse>;
 			})
-			.then((data) => {
-				setLoad({ status: "ready", categories: data.categories });
-				if (data.categories.length > 0) setCategorySlug(data.categories[0].slug);
-			})
+			.then((data) => setLoad({ status: "ready", categories: data.categories }))
 			.catch((err: Error) => setLoad({ status: "error", message: err.message }));
 	}, []);
 
@@ -124,6 +131,7 @@ export function MultiplayerSetup({ onStart }: Props) {
 	}
 
 	const canStart = load.status === "ready" && categorySlug !== "" && playerNames.length >= MIN_PLAYERS;
+	const selectedCategory = load.status === "ready" ? load.categories.find((c) => c.slug === categorySlug) : undefined;
 
 	return (
 		<div className="mp-setup">
@@ -135,16 +143,15 @@ export function MultiplayerSetup({ onStart }: Props) {
 			{load.status === "loading" && <p>Loading categories…</p>}
 			{load.status === "error" && <p>{load.message}</p>}
 			{load.status === "ready" && (
-				<label className="mp-setup__field">
-					Category
-					<select value={categorySlug} onChange={(e) => setCategorySlug(e.target.value)}>
-						{load.categories.map((cat) => (
-							<option key={cat.slug} value={cat.slug}>
-								{cat.title}
-							</option>
-						))}
-					</select>
-				</label>
+				<>
+					<CategoryList categories={load.categories} onSelect={(cat) => setCategorySlug(cat.slug)} selectedSlug={categorySlug} />
+					{/* CategoryList's accordion collapses a section once you move on to
+					    another one, so the highlighted card (see App.css's
+					    .category-card--selected) can end up scrolled out of view — this
+					    line is the one thing that stays visible regardless of which
+					    section is open. */}
+					{selectedCategory && <p className="mp-setup__selected">Selected: {selectedCategory.title}</p>}
+				</>
 			)}
 
 			<form className="mp-setup__add-player" onSubmit={addPlayer}>
