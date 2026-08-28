@@ -97,6 +97,12 @@ recently and what to know before touching anything."
   same step and verify with a SELECT before pushing. This session pushed
   directly to `main` throughout (no PRs) — continue that unless the user
   says otherwise.
+- **Adding a new category specifically** has its own checklist now —
+  agents.md's Content accuracy section, "Checklist: adding a new category"
+  (added 2026-08-28 in response to this exact question coming up, so it
+  doesn't have to be reconstructed from incident writeups again). Read it
+  before adding one; `verify:name-sync` in particular is called out there
+  as required, not optional, every time.
 - Production D1 (`tenable-content`, id `a87ef250-cc94-4765-a821-785acbcd71a4`)
   and KV (`tenable-progress`) are on a **shared Cloudflare account** with
   other, unrelated projects — see agents.md's Cost section before assuming

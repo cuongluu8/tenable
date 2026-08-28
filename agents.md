@@ -440,6 +440,56 @@ named — and add any alias forms that changed) and re-run both `verify:matching
 and `verify:name-sync`. Confirmed different entity → add one line to
 `KNOWN_COLLISIONS` with the reason, don't touch the data.
 
+#### Checklist: adding a new category
+
+Everything above this point, distilled into the actual steps — every rule
+here exists because skipping it shipped a real bug at some point (see the
+incident writeups above for which one).
+
+1. **Scope it as a bounded Top N** (normally 10) — never "every entity that
+   qualifies." If the request sounds like "add more real X", check whether
+   it actually means `answers` or the `reference_entities` typeahead pool
+   before touching either (see "Generic rule" above).
+2. **Pick `entity_type`** — reuse `club`/`player`/`country`/`manager` if it
+   fits. A genuinely new shape needs the value added consistently
+   everywhere it's used; there's no CHECK constraint, so a typo here
+   silently creates a type nothing will ever match against.
+3. **Pick `group_label`/`group_order`** — `'This Season'` only if the
+   category maps to a real football-data.org competition (that's what
+   makes it eligible for step 6 below); otherwise this app's established
+   `'All-Time Records'` / `group_order = 3` convention.
+4. **Verify every ranked entry against at least two independent, reputable
+   sources** before writing it — not just the entry that prompted the
+   category, and not from a single WebSearch synthesis or this agent's own
+   training knowledge alone (see "Content accuracy" above for why that bar
+   exists). Ties broken by recency, with the reasoning in a SQL comment
+   above the `INSERT` — never in the player-visible subtitle.
+5. **Write `answer_aliases` including the canonical name's own normalized
+   form** (required — `matchGuess` never reads `canonical_name` directly)
+   plus real nicknames.
+6. **Run the verification pipeline, in this order** (see "Local
+   development" below for exact commands):
+   - `npm run verify:matching` — always, after any `answers`/
+     `answer_aliases` change.
+   - `npm run verify:name-sync` — **required, not optional, every time a
+     category is added.**
+   - `npm run verify:content-source` — only for `group_label = 'This
+     Season'` categories; add a `MAPPINGS` entry in
+     `scripts/verify-content-source.ts` for the new category first.
+   - `npm run playtest` — before merging. Also bump the hardcoded category-
+     count assertion in `scripts/playtest.ts`.
+7. **Apply the same `INSERT` to production D1 in the same step as
+   committing to `db/seed.sql`**, via the Cloudflare MCP `d1_database_query`
+   tool, and verify with a `SELECT` after — don't let these drift (see the
+   "silently diverged" incident above for what that costs).
+8. **Push and confirm CI (and `content-check.yml`, if `db/seed.sql`
+   changed) are green** before considering it done.
+
+And separately, **whenever a bug is reported in existing content**: don't
+just fix the one entry — audit the rest of that category, and give every
+other dated/`'This Season'` category the same pass (see "Content accuracy"
+above).
+
 ## Local development
 
 ```
