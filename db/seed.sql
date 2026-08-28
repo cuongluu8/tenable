@@ -59629,3 +59629,249 @@ INSERT INTO answer_aliases (answer_id, alias)
 
 UPDATE categories SET entity_type = 'manager', group_label = 'All-Time Records', group_order = 3
 	WHERE slug IN ('ucl-titles-by-manager', 'alltime-manager-trophies', 'pl-longest-serving-managers');
+
+-- ============================================================
+-- League title counts by manager (added 2026-08-28)
+-- ============================================================
+-- Researched via web search, cross-referencing multiple independent
+-- sources. Top 3-4 ranks in each category are high-confidence (repeatedly
+-- and consistently cited); the tail of each list (where several managers
+-- tie on a small title count) carries more uncertainty in exact ordering
+-- -- ties are broken by recency of the most recent qualifying title per
+-- this app's usual convention, but some of those recency comparisons rely
+-- on this session's general football knowledge rather than a single
+-- explicit source, since no source gave a complete ranked list including
+-- exact tiebreak dates for the whole tail. Treat rank 1-5 as solid, 6-10
+-- as reasonable-best-effort.
+INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
+	('pl-titles-by-manager', 'Top 10 Premier League title wins by manager', 'All-time, since 1992-93; ties broken by recency.', 'titles');
+
+INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
+	((SELECT id FROM categories WHERE slug = 'pl-titles-by-manager'), 1, 'Alex Ferguson', '13'),
+	((SELECT id FROM categories WHERE slug = 'pl-titles-by-manager'), 2, 'Pep Guardiola', '6'),
+	((SELECT id FROM categories WHERE slug = 'pl-titles-by-manager'), 3, 'Jose Mourinho', '3'),
+	((SELECT id FROM categories WHERE slug = 'pl-titles-by-manager'), 4, 'Arsene Wenger', '3'),
+	((SELECT id FROM categories WHERE slug = 'pl-titles-by-manager'), 5, 'Mikel Arteta', '1'),
+	((SELECT id FROM categories WHERE slug = 'pl-titles-by-manager'), 6, 'Arne Slot', '1'),
+	((SELECT id FROM categories WHERE slug = 'pl-titles-by-manager'), 7, 'Jurgen Klopp', '1'),
+	((SELECT id FROM categories WHERE slug = 'pl-titles-by-manager'), 8, 'Antonio Conte', '1'),
+	((SELECT id FROM categories WHERE slug = 'pl-titles-by-manager'), 9, 'Claudio Ranieri', '1'),
+	((SELECT id FROM categories WHERE slug = 'pl-titles-by-manager'), 10, 'Manuel Pellegrini', '1');
+
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'ferguson' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'pl-titles-by-manager' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'alex ferguson' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'pl-titles-by-manager' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'sir alex ferguson' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'pl-titles-by-manager' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'guardiola' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'pl-titles-by-manager' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'pep guardiola' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'pl-titles-by-manager' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'pep' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'pl-titles-by-manager' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'mourinho' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'pl-titles-by-manager' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'jose mourinho' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'pl-titles-by-manager' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'wenger' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'pl-titles-by-manager' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'arsene wenger' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'pl-titles-by-manager' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'arteta' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'pl-titles-by-manager' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'mikel arteta' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'pl-titles-by-manager' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'slot' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'pl-titles-by-manager' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'arne slot' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'pl-titles-by-manager' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'klopp' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'pl-titles-by-manager' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'jurgen klopp' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'pl-titles-by-manager' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'conte' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'pl-titles-by-manager' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'antonio conte' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'pl-titles-by-manager' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'ranieri' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'pl-titles-by-manager' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'claudio ranieri' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'pl-titles-by-manager' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'pellegrini' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'pl-titles-by-manager' AND a.rank = 10;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'manuel pellegrini' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'pl-titles-by-manager' AND a.rank = 10;
+
+INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
+	('laliga-titles-by-manager', 'Top 10 La Liga title wins by manager', 'All-time; ties broken by recency.', 'titles');
+
+INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
+	((SELECT id FROM categories WHERE slug = 'laliga-titles-by-manager'), 1, 'Miguel Munoz', '9'),
+	((SELECT id FROM categories WHERE slug = 'laliga-titles-by-manager'), 2, 'Johan Cruyff', '4'),
+	((SELECT id FROM categories WHERE slug = 'laliga-titles-by-manager'), 3, 'Helenio Herrera', '4'),
+	((SELECT id FROM categories WHERE slug = 'laliga-titles-by-manager'), 4, 'Pep Guardiola', '3'),
+	((SELECT id FROM categories WHERE slug = 'laliga-titles-by-manager'), 5, 'Carlo Ancelotti', '2'),
+	((SELECT id FROM categories WHERE slug = 'laliga-titles-by-manager'), 6, 'Diego Simeone', '2'),
+	((SELECT id FROM categories WHERE slug = 'laliga-titles-by-manager'), 7, 'Zinedine Zidane', '2'),
+	((SELECT id FROM categories WHERE slug = 'laliga-titles-by-manager'), 8, 'Luis Enrique', '2'),
+	((SELECT id FROM categories WHERE slug = 'laliga-titles-by-manager'), 9, 'Vicente del Bosque', '2'),
+	((SELECT id FROM categories WHERE slug = 'laliga-titles-by-manager'), 10, 'Enrique Fernandez', '2');
+
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'munoz' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'laliga-titles-by-manager' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'miguel munoz' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'laliga-titles-by-manager' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'cruyff' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'laliga-titles-by-manager' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'johan cruyff' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'laliga-titles-by-manager' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'herrera' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'laliga-titles-by-manager' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'helenio herrera' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'laliga-titles-by-manager' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'guardiola' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'laliga-titles-by-manager' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'pep guardiola' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'laliga-titles-by-manager' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'pep' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'laliga-titles-by-manager' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'ancelotti' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'laliga-titles-by-manager' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'carlo ancelotti' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'laliga-titles-by-manager' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'simeone' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'laliga-titles-by-manager' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'diego simeone' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'laliga-titles-by-manager' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'zidane' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'laliga-titles-by-manager' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'zinedine zidane' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'laliga-titles-by-manager' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'luis enrique' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'laliga-titles-by-manager' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'enrique' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'laliga-titles-by-manager' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'del bosque' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'laliga-titles-by-manager' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'vicente del bosque' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'laliga-titles-by-manager' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'enrique fernandez' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'laliga-titles-by-manager' AND a.rank = 10;
+
+INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
+	('seriea-titles-by-manager', 'Top 10 Serie A Scudetto wins by manager', 'All-time; ties broken by recency.', 'titles');
+
+INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
+	((SELECT id FROM categories WHERE slug = 'seriea-titles-by-manager'), 1, 'Giovanni Trapattoni', '7'),
+	((SELECT id FROM categories WHERE slug = 'seriea-titles-by-manager'), 2, 'Massimiliano Allegri', '6'),
+	((SELECT id FROM categories WHERE slug = 'seriea-titles-by-manager'), 3, 'Antonio Conte', '5'),
+	((SELECT id FROM categories WHERE slug = 'seriea-titles-by-manager'), 4, 'Fabio Capello', '5'),
+	((SELECT id FROM categories WHERE slug = 'seriea-titles-by-manager'), 5, 'Marcello Lippi', '5'),
+	((SELECT id FROM categories WHERE slug = 'seriea-titles-by-manager'), 6, 'Helenio Herrera', '3'),
+	((SELECT id FROM categories WHERE slug = 'seriea-titles-by-manager'), 7, 'Jose Mourinho', '2'),
+	((SELECT id FROM categories WHERE slug = 'seriea-titles-by-manager'), 8, 'Nils Liedholm', '2'),
+	((SELECT id FROM categories WHERE slug = 'seriea-titles-by-manager'), 9, 'Cestmir Vycpalek', '2'),
+	((SELECT id FROM categories WHERE slug = 'seriea-titles-by-manager'), 10, 'Nereo Rocco', '2');
+
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'trapattoni' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'seriea-titles-by-manager' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'giovanni trapattoni' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'seriea-titles-by-manager' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'allegri' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'seriea-titles-by-manager' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'massimiliano allegri' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'seriea-titles-by-manager' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'conte' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'seriea-titles-by-manager' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'antonio conte' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'seriea-titles-by-manager' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'capello' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'seriea-titles-by-manager' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'fabio capello' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'seriea-titles-by-manager' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'lippi' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'seriea-titles-by-manager' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'marcello lippi' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'seriea-titles-by-manager' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'herrera' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'seriea-titles-by-manager' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'helenio herrera' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'seriea-titles-by-manager' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'mourinho' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'seriea-titles-by-manager' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'jose mourinho' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'seriea-titles-by-manager' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'liedholm' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'seriea-titles-by-manager' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'nils liedholm' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'seriea-titles-by-manager' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'vycpalek' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'seriea-titles-by-manager' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'cestmir vycpalek' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'seriea-titles-by-manager' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'rocco' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'seriea-titles-by-manager' AND a.rank = 10;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'nereo rocco' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'seriea-titles-by-manager' AND a.rank = 10;
+
+INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
+	('bundesliga-titles-by-manager', 'Top 10 Bundesliga title wins by manager', 'All-time, since 1963-64; ties broken by recency.', 'titles');
+
+INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
+	((SELECT id FROM categories WHERE slug = 'bundesliga-titles-by-manager'), 1, 'Udo Lattek', '8'),
+	((SELECT id FROM categories WHERE slug = 'bundesliga-titles-by-manager'), 2, 'Ottmar Hitzfeld', '7'),
+	((SELECT id FROM categories WHERE slug = 'bundesliga-titles-by-manager'), 3, 'Jupp Heynckes', '4'),
+	((SELECT id FROM categories WHERE slug = 'bundesliga-titles-by-manager'), 4, 'Hennes Weisweiler', '4'),
+	((SELECT id FROM categories WHERE slug = 'bundesliga-titles-by-manager'), 5, 'Pep Guardiola', '3'),
+	((SELECT id FROM categories WHERE slug = 'bundesliga-titles-by-manager'), 6, 'Felix Magath', '3'),
+	((SELECT id FROM categories WHERE slug = 'bundesliga-titles-by-manager'), 7, 'Otto Rehhagel', '3'),
+	((SELECT id FROM categories WHERE slug = 'bundesliga-titles-by-manager'), 8, 'Hansi Flick', '2'),
+	((SELECT id FROM categories WHERE slug = 'bundesliga-titles-by-manager'), 9, 'Branko Zebec', '2'),
+	((SELECT id FROM categories WHERE slug = 'bundesliga-titles-by-manager'), 10, 'Vincent Kompany', '1');
+
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'lattek' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-titles-by-manager' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'udo lattek' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-titles-by-manager' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'hitzfeld' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-titles-by-manager' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'ottmar hitzfeld' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-titles-by-manager' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'heynckes' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-titles-by-manager' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'jupp heynckes' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-titles-by-manager' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'weisweiler' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-titles-by-manager' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'hennes weisweiler' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-titles-by-manager' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'guardiola' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-titles-by-manager' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'pep guardiola' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-titles-by-manager' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'pep' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-titles-by-manager' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'magath' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-titles-by-manager' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'felix magath' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-titles-by-manager' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'rehhagel' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-titles-by-manager' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'otto rehhagel' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-titles-by-manager' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'flick' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-titles-by-manager' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'hansi flick' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-titles-by-manager' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'zebec' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-titles-by-manager' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'branko zebec' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-titles-by-manager' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'kompany' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-titles-by-manager' AND a.rank = 10;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'vincent kompany' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'bundesliga-titles-by-manager' AND a.rank = 10;
+
+UPDATE categories SET entity_type = 'manager', group_label = 'All-Time Records', group_order = 3
+	WHERE slug IN ('pl-titles-by-manager', 'laliga-titles-by-manager', 'seriea-titles-by-manager', 'bundesliga-titles-by-manager');
