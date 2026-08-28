@@ -1,9 +1,10 @@
-import { useReducer, useState } from "react";
+import { useEffect, useReducer, useState } from "react";
 import "./multiplayer.css";
 import { MultiplayerSetup } from "./MultiplayerSetup";
 import { MultiplayerPlay } from "./MultiplayerPlay";
 import { MultiplayerResult } from "./MultiplayerResult";
 import { multiplayerReducer, initialMpState, type MpCategory } from "./state";
+import type { RevealAnswer } from "../types";
 
 interface CheckGuessResponse {
 	result: "correct" | "duplicate" | "wrong";
@@ -23,6 +24,12 @@ interface Props {
 export function Multiplayer({ onBack }: Props) {
 	const [state, dispatch] = useReducer(multiplayerReducer, initialMpState);
 	const [submitting, setSubmitting] = useState(false);
+	// Full answer list, fetched once the round ends — see
+	// MultiplayerResult.tsx, which shows it alongside the found/missed grid
+	// the same way single-player's PlayScreen does. null before the fetch
+	// resolves (or if it fails); the result screen just shows found answers
+	// only in that case, same as it did before this existed.
+	const [revealed, setRevealed] = useState<RevealAnswer[] | null>(null);
 
 	function startGame(category: MpCategory, playerNames: string[]) {
 		dispatch({ type: "start", category, playerNames });
@@ -56,10 +63,43 @@ export function Multiplayer({ onBack }: Props) {
 		}
 	}
 
-	// Passing is purely a client-side turn transition — no guess to check, so
-	// no network round trip, unlike submitGuess above.
+	// Passing is a client-side turn transition (costs a life, same as a wrong
+	// guess — see state.ts) — no guess to check, so no network round trip,
+	// unlike submitGuess above.
 	function passTurn() {
 		dispatch({ type: "pass" });
+	}
+
+	// Fetches the full answer list exactly once, right when the round
+	// finishes, so the result screen can show what everyone missed.
+	useEffect(() => {
+		if (state.phase !== "finished" || !state.category) return;
+		let cancelled = false;
+		fetch(`/api/multiplayer/reveal/${state.category.slug}`)
+			.then((res) => (res.ok ? (res.json() as Promise<{ answers: RevealAnswer[] }>) : null))
+			.then((data) => {
+				if (!cancelled && data) setRevealed(data.answers);
+			})
+			.catch(() => {
+				// Result screen still works without the reveal — see its found-only
+				// fallback.
+			});
+		return () => {
+			cancelled = true;
+		};
+		// state.category is included for the lint rule, not because it actually
+		// changes while phase stays "finished" — a round's category is fixed
+		// once "start" sets it, and only "reset" (which also flips phase back
+		// to "setup") ever clears it — so this still only re-fetches on the
+		// real phase transition into "finished".
+	}, [state.phase, state.category]);
+
+	// Shared by both "quit mid-round" and "play again" — either way, the next
+	// round's reveal (if it gets that far) needs to start from a clean slate,
+	// not the previous round's answer list.
+	function resetGame() {
+		setRevealed(null);
+		dispatch({ type: "reset" });
 	}
 
 	return (
@@ -73,16 +113,10 @@ export function Multiplayer({ onBack }: Props) {
 				</>
 			)}
 			{state.phase === "playing" && (
-				<MultiplayerPlay
-					state={state}
-					onGuess={submitGuess}
-					onPass={passTurn}
-					submitting={submitting}
-					onQuit={() => dispatch({ type: "reset" })}
-				/>
+				<MultiplayerPlay state={state} onGuess={submitGuess} onPass={passTurn} submitting={submitting} onQuit={resetGame} />
 			)}
 			{state.phase === "finished" && (
-				<MultiplayerResult state={state} onPlayAgain={() => dispatch({ type: "reset" })} />
+				<MultiplayerResult state={state} revealed={revealed} onPlayAgain={resetGame} />
 			)}
 		</div>
 	);

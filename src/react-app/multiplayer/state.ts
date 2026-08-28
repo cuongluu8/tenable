@@ -67,6 +67,9 @@ export type MpPhase = "setup" | "playing" | "finished";
 export interface MpLastAction {
 	playerName: string;
 	guess: string;
+	// "pass" costs a life exactly like "wrong" does — passing is "I don't
+	// know this one", not a free skip, so it can't be used to stall out the
+	// clock without any cost. See the "pass" reducer case below.
 	result: "correct" | "duplicate" | "wrong" | "pass";
 }
 
@@ -150,6 +153,44 @@ function chargeElapsedTime(players: MpPlayer[], turnIndex: number, turnStartedAt
 	return players.map((p, i) => (i === turnIndex ? { ...p, totalTimeMs: p.totalTimeMs + elapsed } : p));
 }
 
+// Shared tail end of both "guessResult" (wrong/duplicate/correct-but-not-
+// last-answer) and "pass": once this turn's players/foundRanks/foundDetails
+// are settled, decide whether the round just ended and either finish or
+// hand the turn to whoever's next.
+function settleTurn(
+	state: MpState,
+	players: MpPlayer[],
+	foundRanks: number[],
+	foundDetails: MpState["foundDetails"],
+	lastAction: MpLastAction,
+	now: number,
+): MpState {
+	const allFound = state.category !== null && foundRanks.length >= state.category.answerCount;
+	const allOut = players.every((p) => p.lives <= 0);
+
+	if (allFound || allOut) {
+		return {
+			...state,
+			players,
+			foundRanks,
+			foundDetails,
+			lastAction,
+			phase: "finished",
+			winReason: allFound ? "all_found" : "all_out_of_lives",
+		};
+	}
+
+	return {
+		...state,
+		players,
+		foundRanks,
+		foundDetails,
+		lastAction,
+		turnIndex: nextTurnIndex(players, state.turnIndex),
+		turnStartedAt: now,
+	};
+}
+
 export function multiplayerReducer(state: MpState, action: MpAction): MpState {
 	switch (action.type) {
 		case "start":
@@ -199,30 +240,7 @@ export function multiplayerReducer(state: MpState, action: MpAction): MpState {
 			// "duplicate" changes neither lives nor foundRanks — the turn still
 			// passes, same as a wrong guess would, just without the life lost.
 
-			const allFound = foundRanks.length >= state.category.answerCount;
-			const allOut = players.every((p) => p.lives <= 0);
-
-			if (allFound || allOut) {
-				return {
-					...state,
-					players,
-					foundRanks,
-					foundDetails,
-					lastAction,
-					phase: "finished",
-					winReason: allFound ? "all_found" : "all_out_of_lives",
-				};
-			}
-
-			return {
-				...state,
-				players,
-				foundRanks,
-				foundDetails,
-				lastAction,
-				turnIndex: nextTurnIndex(players, state.turnIndex),
-				turnStartedAt: now,
-			};
+			return settleTurn(state, players, foundRanks, foundDetails, lastAction, now);
 		}
 
 		case "pass": {
@@ -230,15 +248,14 @@ export function multiplayerReducer(state: MpState, action: MpAction): MpState {
 
 			const now = Date.now();
 			const current = state.players[state.turnIndex];
-			const players = chargeElapsedTime(state.players, state.turnIndex, state.turnStartedAt, now);
+			let players = chargeElapsedTime(state.players, state.turnIndex, state.turnStartedAt, now);
+			// Costs a life, exactly like a wrong guess — otherwise a player could
+			// stall indefinitely (or a struggling player could pass every turn
+			// forever) without ever risking elimination.
+			players = players.map((p, i) => (i === state.turnIndex ? { ...p, lives: p.lives - 1 } : p));
 
-			return {
-				...state,
-				players,
-				lastAction: { playerName: current.name, guess: "", result: "pass" },
-				turnIndex: nextTurnIndex(players, state.turnIndex),
-				turnStartedAt: now,
-			};
+			const lastAction: MpLastAction = { playerName: current.name, guess: "", result: "pass" };
+			return settleTurn(state, players, state.foundRanks, state.foundDetails, lastAction, now);
 		}
 
 		case "reset":

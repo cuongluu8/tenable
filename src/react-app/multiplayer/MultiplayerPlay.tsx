@@ -112,7 +112,7 @@ export function MultiplayerPlay({ state, onGuess, onPass, submitting, onQuit }: 
 			/>
 
 			<button type="button" className="mp-pass-button" onClick={pass} disabled={submitting}>
-				Pass turn
+				Pass turn (costs a life)
 			</button>
 
 			{state.lastAction && (
@@ -120,7 +120,7 @@ export function MultiplayerPlay({ state, onGuess, onPass, submitting, onQuit }: 
 					{state.lastAction.result === "correct" && `✅ ${state.lastAction.playerName} found ${state.lastAction.guess}`}
 					{state.lastAction.result === "duplicate" && `Already found that one.`}
 					{state.lastAction.result === "wrong" && `❌ ${state.lastAction.playerName} — not on the list.`}
-					{state.lastAction.result === "pass" && `⏭️ ${state.lastAction.playerName} passed.`}
+					{state.lastAction.result === "pass" && `⏭️ ${state.lastAction.playerName} passed — lost a life.`}
 				</p>
 			)}
 		</div>
