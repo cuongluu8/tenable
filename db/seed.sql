@@ -59298,27 +59298,43 @@ UPDATE categories SET reference_scope = 'Germany' WHERE slug = 'bundesliga-allti
 -- source and base fees are the more stable, comparable number). World fees
 -- are in euros (the currency these deals were actually done in, or the
 -- standard conversion used by all-time-list sources); Premier League fees
--- are in pounds (as actually paid). Two ties, both broken by recency per
--- this app's existing convention (not stated in the player-visible
--- subtitle -- see the spoiler-prevention note elsewhere in this file):
--- world rank 4/5 Coutinho vs Dembele (both €135m, Coutinho Jan 2018 is
--- more recent than Dembele Aug 2017); PL rank 3/4 Anderson vs Wirtz (both
--- £116m, Anderson 2026 is more recent than Wirtz 2025) and rank 8/9 Tonali
--- vs Grealish (both £100m, Tonali 2026 is more recent than Grealish 2021).
+-- are in pounds (as actually paid).
+--
+-- CORRECTED 2026-08-28, world list only (PL list below was already right):
+-- the original 2026-08-27 research missed three deals that closed *after*
+-- that research (Rogers to Chelsea, Anderson to Man City, Wirtz's Liverpool
+-- fee settling higher than first reported) -- all three were already
+-- correctly in the PL list below by the time this was caught, just never
+-- carried over to the world list. Also corrected Dembele from the
+-- originally-reported €105m/€135m base figure to €148m, the fully-settled
+-- total Barcelona actually paid Dortmund once every add-on clause was
+-- triggered (confirmed 2024, independently reported by multiple outlets) --
+-- more defensible than a base figure for a deal that's long since finished
+-- paying out. Net effect: Enzo Fernandez, Griezmann, and Hazard no longer
+-- crack the world top 10 (Griezmann/Hazard/Enzo are all real, well-sourced
+-- fees, just smaller than this list's new bar).
+--
+-- Three ties, all broken by recency per this app's existing convention (not
+-- stated in the player-visible subtitle -- see the spoiler-prevention note
+-- elsewhere in this file): world rank 6/7/8 Anderson/Wirtz/Coutinho (all
+-- €135m -- Anderson 2026 is most recent, then Wirtz 2025, then Coutinho
+-- Jan 2018); PL rank 3/4 Anderson vs Wirtz (both £116m, Anderson 2026 is
+-- more recent than Wirtz 2025) and rank 8/9 Tonali vs Grealish (both
+-- £100m, Tonali 2026 is more recent than Grealish 2021).
 INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
 	('world-alltime-transfers', 'Top 10 most expensive transfers of all time', 'The highest transfer fees in football history, in euros; ties broken by recency.', '€m');
 
 INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
 	((SELECT id FROM categories WHERE slug = 'world-alltime-transfers'), 1, 'Neymar', '222'),
 	((SELECT id FROM categories WHERE slug = 'world-alltime-transfers'), 2, 'Kylian Mbappe', '180'),
-	((SELECT id FROM categories WHERE slug = 'world-alltime-transfers'), 3, 'Alexander Isak', '145'),
-	((SELECT id FROM categories WHERE slug = 'world-alltime-transfers'), 4, 'Philippe Coutinho', '135'),
-	((SELECT id FROM categories WHERE slug = 'world-alltime-transfers'), 5, 'Ousmane Dembele', '135'),
-	((SELECT id FROM categories WHERE slug = 'world-alltime-transfers'), 6, 'Moises Caicedo', '133'),
-	((SELECT id FROM categories WHERE slug = 'world-alltime-transfers'), 7, 'Joao Felix', '126'),
-	((SELECT id FROM categories WHERE slug = 'world-alltime-transfers'), 8, 'Enzo Fernandez', '121'),
-	((SELECT id FROM categories WHERE slug = 'world-alltime-transfers'), 9, 'Antoine Griezmann', '120'),
-	((SELECT id FROM categories WHERE slug = 'world-alltime-transfers'), 10, 'Eden Hazard', '100');
+	((SELECT id FROM categories WHERE slug = 'world-alltime-transfers'), 3, 'Ousmane Dembele', '148'),
+	((SELECT id FROM categories WHERE slug = 'world-alltime-transfers'), 4, 'Alexander Isak', '145'),
+	((SELECT id FROM categories WHERE slug = 'world-alltime-transfers'), 5, 'Morgan Rogers', '137'),
+	((SELECT id FROM categories WHERE slug = 'world-alltime-transfers'), 6, 'Elliot Anderson', '135'),
+	((SELECT id FROM categories WHERE slug = 'world-alltime-transfers'), 7, 'Florian Wirtz', '135'),
+	((SELECT id FROM categories WHERE slug = 'world-alltime-transfers'), 8, 'Philippe Coutinho', '135'),
+	((SELECT id FROM categories WHERE slug = 'world-alltime-transfers'), 9, 'Moises Caicedo', '133'),
+	((SELECT id FROM categories WHERE slug = 'world-alltime-transfers'), 10, 'Joao Felix', '126');
 
 INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'neymar' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 1;
@@ -59331,37 +59347,37 @@ INSERT INTO answer_aliases (answer_id, alias)
 INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'kylian mbappe' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 2;
 INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'isak' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 3;
+	SELECT a.id, 'dembele' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 3;
 INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'alexander isak' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 3;
+	SELECT a.id, 'ousmane dembele' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 3;
 INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'coutinho' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 4;
+	SELECT a.id, 'isak' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 4;
 INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'philippe coutinho' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 4;
+	SELECT a.id, 'alexander isak' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 4;
 INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'dembele' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 5;
+	SELECT a.id, 'rogers' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 5;
 INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'ousmane dembele' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 5;
+	SELECT a.id, 'morgan rogers' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 5;
 INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'caicedo' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 6;
+	SELECT a.id, 'anderson' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 6;
 INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'moises caicedo' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 6;
+	SELECT a.id, 'elliot anderson' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 6;
 INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'felix' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 7;
+	SELECT a.id, 'wirtz' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 7;
 INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'joao felix' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 7;
+	SELECT a.id, 'florian wirtz' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 7;
 INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'enzo' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 8;
+	SELECT a.id, 'coutinho' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 8;
 INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'enzo fernandez' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 8;
+	SELECT a.id, 'philippe coutinho' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 8;
 INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'griezmann' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 9;
+	SELECT a.id, 'caicedo' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 9;
 INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'antoine griezmann' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 9;
+	SELECT a.id, 'moises caicedo' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 9;
 INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'hazard' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 10;
+	SELECT a.id, 'felix' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 10;
 INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'eden hazard' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 10;
+	SELECT a.id, 'joao felix' FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = 'world-alltime-transfers' AND a.rank = 10;
 
 INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
 	('pl-alltime-transfers', 'Top 10 most expensive Premier League transfers', 'The highest fees paid by Premier League clubs, in pounds; ties broken by recency.', '£m');
