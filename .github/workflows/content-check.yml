@@ -27,6 +27,11 @@ on:
   pull_request:
     branches: [main]
     paths: [db/seed.sql]
+  # Manual trigger — lets this run on demand (e.g. right after adding the
+  # FOOTBALL_DATA_API_KEY secret, to confirm it actually works) without
+  # needing an unrelated db/seed.sql change just to fire the path filter
+  # above.
+  workflow_dispatch: {}
 
 jobs:
   content-check:
