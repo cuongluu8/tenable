@@ -1,0 +1,53 @@
+name: Content check
+
+# Fact-checks "This Season" categories against a live, structured sports-
+# data API (football-data.org), not just the guess-matching mechanics
+# ci.yml already covers. Deliberately separate from ci.yml and gated by
+# `paths: db/seed.sql` — this is the one that answers "did someone
+# actually check these numbers against a real source", so it only needs
+# to run when db/seed.sql itself changes, not on every push regardless of
+# content (a push that only touches app code has nothing here to check).
+# See scripts/verify-content-source.ts for what it actually does, why its
+# coverage is limited to current-season domestic-league/UEFA/FIFA
+# categories (that's what the API covers — nothing free and structured
+# exists for all-time records or transfer fees, as far as anyone here
+# knows), and agents.md for the incident history this replaced (a
+# marker-comment check that ran on every push and verified nothing).
+#
+# Requires a FOOTBALL_DATA_API_KEY repository secret (a free-tier key from
+# https://www.football-data.org/client/register). Until that secret is
+# set, the job runs and prints a clear "skipped" message rather than
+# failing — see the API_KEY check at the top of
+# scripts/verify-content-source.ts's main().
+
+on:
+  push:
+    branches: [main]
+    paths: [db/seed.sql]
+  pull_request:
+    branches: [main]
+    paths: [db/seed.sql]
+
+jobs:
+  content-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Seed local D1
+        run: |
+          npx wrangler d1 execute tenable-content --local --file=db/schema.sql
+          npx wrangler d1 execute tenable-content --local --file=db/seed.sql
+
+      - name: Verify "This Season" categories against the live API
+        env:
+          FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
+        run: npm run verify:content-source

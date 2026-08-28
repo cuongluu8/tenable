@@ -273,27 +273,45 @@ and test the app's *mechanics* against it (does a guess resolve, does a
 name stay in sync with the reference pool, does the HTTP API behave).
 There was never an automated check standing behind rule 1 above ("verify
 every ranked entry... before it goes live") — only the discipline of
-actually doing it, which is exactly the "a manual audit someone claims to
-have run is not a guarantee" problem `verify:matching`/`verify:name-sync`
-already exist to solve for their own bug classes.
+actually doing it.
 
-**`npm run verify:content-freshness` (`scripts/verify-content-freshness.ts`)
-closes this for the highest-risk group — `group_label = 'This Season'`
-categories, the same 7 a current/recent-season table or top-scorer list
-lives in — and it runs in CI on every push/PR to `main`.** It can't
-fact-check the real world either (no live sports feed wired up here); what
-it enforces is that every category in that group carries a
-`-- Verified YYYY-MM-DD: <source>` comment directly above its
-`INSERT INTO categories` in `db/seed.sql`, written at the moment its
-numbers were actually cross-checked per rule 1 above. Missing one is a
-hard failure. One older than 45 days is a warning, not a failure — a
-concluded season's final table doesn't go wrong just because time passed,
-but it's worth a human's eye periodically rather than trusting a snapshot
-forever. **Whenever a "This Season" category's answers are added or
-changed, add/update this marker in the same commit** — it's not an
-optional follow-up step, same as the other two verify scripts. Widen the
-`group_label = 'This Season'` scope in the script if this bug class ever
-turns up in an all-time category too.
+**First attempt at a fix, rejected as the wrong shape (same day):** a
+`verify:content-freshness` script that hard-failed CI on every push/PR
+unless a `group_label = 'This Season'` category carried a
+`-- Verified YYYY-MM-DD: <source>` comment. This was a paper-trail check,
+not a fact-check — it enforced that someone *claimed* to have verified a
+category, not that the claim was true, and it ran regardless of whether
+`db/seed.sql` had even changed. Correctly called out as not what was
+asked for and removed the same day (see git history around 2026-08-27 for
+both the add and the removal).
+
+**`npm run verify:content-source` (`scripts/verify-content-source.ts`) is
+the actual fact-check** — it fetches the real current standings/scorers
+for each mapped category from football-data.org (a live, structured
+sports-data API; free-tier key required, see below) and diffs them
+against `db/seed.sql`, rank by rank, name and stat value. Coverage is
+necessarily partial: the mapping only covers the current-season
+domestic-league/UEFA/FIFA categories the API actually models (exactly
+`group_label = 'This Season'`) — there's no known free, structured API for
+all-time records or transfer fees, so those still depend on manual/AI web
+research at creation time, same as before; rule 1 above still applies to
+them. **This runs via `.github/workflows/content-check.yml`, gated on
+`paths: db/seed.sql` — not in `ci.yml`, and not on every push** — a push
+that doesn't touch `db/seed.sql` has nothing here to check, which was the
+other half of what the first attempt got wrong. Requires a
+`FOOTBALL_DATA_API_KEY` repository secret (free registration at
+football-data.org); until that secret is set, the job runs and prints a
+clear "skipped" message rather than failing.
+
+**This script was written without the ability to test a live call against
+the API from the sandbox it was built in** (its egress proxy blocks every
+external host tried — see "Content accuracy" above and the file's own
+header comment) — it only runs on a real network once it's actually in
+CI. If the API's real response shape differs from what
+`verify-content-source.ts` assumes, the first real run will surface that
+clearly (it fails loudly and prints the raw response rather than silently
+misreading it) — fix the parsing there against that real response, don't
+guess again from a sandbox that can't reach the API to check.
 
 **Incident that motivated `entity_search` (2026-08-25):** a user reported
 Dominik Szoboszlai missing from typeahead despite Liverpool's current squad
@@ -435,10 +453,13 @@ npx wrangler dev --port 8787   # full worker + bindings, http://localhost:8787
 
 npm run lint
 npm run build             # tsc -b && vite build
-npm run verify:matching           # re-seed local D1 first — see scripts/verify-guess-matching.ts
-npm run verify:name-sync          # re-seed local D1 first — see scripts/verify-name-sync.ts
-npm run verify:content-freshness  # re-seed local D1 first — see scripts/verify-content-freshness.ts
-npm run playtest                  # self-resets local D1 + KV — see scripts/playtest.ts
+npm run verify:matching        # re-seed local D1 first — see scripts/verify-guess-matching.ts
+npm run verify:name-sync       # re-seed local D1 first — see scripts/verify-name-sync.ts
+npm run playtest                # self-resets local D1 + KV — see scripts/playtest.ts
+
+# Requires FOOTBALL_DATA_API_KEY (free tier: https://www.football-data.org/client/register)
+# — re-seed local D1 first; prints a "skipped" message rather than failing if the key isn't set.
+FOOTBALL_DATA_API_KEY=... npm run verify:content-source  # see scripts/verify-content-source.ts
 ```
 
 **Run `npm run verify:matching` after any change to `db/seed.sql`'s answers/aliases, or to
@@ -456,13 +477,15 @@ drifted from (or was entered wrong relative to) its reference-pool counterpart �
 incident writeup in "Content accuracy" above for what this looks like in practice and how to
 resolve a finding. **This also runs in CI** (`.github/workflows/ci.yml`).
 
-**Run `npm run verify:content-freshness` after adding or changing any answer in a
-"This Season" category (`group_label = 'This Season'`) — add/update its
-`-- Verified YYYY-MM-DD: <source>` comment in `db/seed.sql` in the same commit.** It
-checks that every category in that group has one, failing hard if not — see the
-incident writeup in "Content accuracy" above for what it does and doesn't catch (it
-enforces the *paper trail* for real-world verification, it can't do the verification
-itself). **This also runs in CI** (`.github/workflows/ci.yml`).
+**Run `npm run verify:content-source` after adding or changing any answer in a
+"This Season" category (`group_label = 'This Season'`).** Unlike the other three
+checks, it fact-checks against a live external source (football-data.org) rather
+than checking the app's own internal consistency — see the incident writeup in
+"Content accuracy" above for what it covers and why its coverage is necessarily
+partial (only categories the API actually models). **This also runs in CI, but
+differently from the other checks: `.github/workflows/content-check.yml`, gated
+on `paths: db/seed.sql`, not `ci.yml`'s every-push job** — see that file and the
+incident writeup for why.
 
 **Run `npm run playtest` before merging any change touching a route, `matchGuess()`,
 `normalize.ts`, `suggestNames()`, or `db/seed.sql`.** It's a black-box end-to-end test —
