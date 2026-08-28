@@ -675,6 +675,18 @@ INSERT INTO answer_aliases (answer_id, alias)
 -- -- a direct, player-specific follow-up search debunked it (Trossard
 -- actually had 1 UCL goal, not 5), confirming the stored rank 10 was
 -- already right.
+--
+-- CORRECTED 2026-08-28 via scripts/verify-content-source.ts's first real
+-- run against football-data.org (a live, structured API, not a WebSearch
+-- summary): ranks 1-5 were genuinely right (rank 4/5 Alvarez/Gordon are a
+-- real tie at 10, order doesn't matter), but 6-10 above were wrong --
+-- Olise/Vinicius/Hakimi/Aubameyang/Griezmann do not appear anywhere in
+-- the API's actual top 10 scorer list for this competition/season. The
+-- 2026-08-27 web-search research that produced them was simply mistaken
+-- for the tail of this list (consistent with the Trossard finding right
+-- above it turning out wrong too) -- this is exactly the failure mode
+-- the real fact-check exists to catch. Replaced with the API's actual
+-- ranks 6-10 below.
 INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
 	('cl-2025-26-top-scorers', 'Top 10 Champions League 2025-26 top scorers', 'Golden Boot, 2025-26 season', 'goals');
 
@@ -684,11 +696,11 @@ INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
 	((SELECT id FROM categories WHERE slug = 'cl-2025-26-top-scorers'), 3, 'Khvicha Kvaratskhelia', '10'),
 	((SELECT id FROM categories WHERE slug = 'cl-2025-26-top-scorers'), 4, 'Julian Alvarez', '10'),
 	((SELECT id FROM categories WHERE slug = 'cl-2025-26-top-scorers'), 5, 'Anthony Gordon', '10'),
-	((SELECT id FROM categories WHERE slug = 'cl-2025-26-top-scorers'), 6, 'Michael Olise', '8'),
-	((SELECT id FROM categories WHERE slug = 'cl-2025-26-top-scorers'), 7, 'Vinicius Junior', '8'),
-	((SELECT id FROM categories WHERE slug = 'cl-2025-26-top-scorers'), 8, 'Achraf Hakimi', '6'),
-	((SELECT id FROM categories WHERE slug = 'cl-2025-26-top-scorers'), 9, 'Pierre-Emerick Aubameyang', '5'),
-	((SELECT id FROM categories WHERE slug = 'cl-2025-26-top-scorers'), 10, 'Antoine Griezmann', '5');
+	((SELECT id FROM categories WHERE slug = 'cl-2025-26-top-scorers'), 6, 'Erling Haaland', '8'),
+	((SELECT id FROM categories WHERE slug = 'cl-2025-26-top-scorers'), 7, 'Ousmane Dembele', '8'),
+	((SELECT id FROM categories WHERE slug = 'cl-2025-26-top-scorers'), 8, 'Victor Osimhen', '7'),
+	((SELECT id FROM categories WHERE slug = 'cl-2025-26-top-scorers'), 9, 'Luis Diaz', '7'),
+	((SELECT id FROM categories WHERE slug = 'cl-2025-26-top-scorers'), 10, 'Gabriel Martinelli', '6');
 
 INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'kylian mbappe' FROM answers a JOIN categories c ON a.category_id = c.id
@@ -724,37 +736,34 @@ INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'gordon' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'cl-2025-26-top-scorers' AND a.rank = 5;
 INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'michael olise' FROM answers a JOIN categories c ON a.category_id = c.id
+	SELECT a.id, 'erling haaland' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'cl-2025-26-top-scorers' AND a.rank = 6;
 INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'olise' FROM answers a JOIN categories c ON a.category_id = c.id
+	SELECT a.id, 'haaland' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'cl-2025-26-top-scorers' AND a.rank = 6;
 INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'vini jr' FROM answers a JOIN categories c ON a.category_id = c.id
+	SELECT a.id, 'ousmane dembele' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'cl-2025-26-top-scorers' AND a.rank = 7;
 INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'vinicius' FROM answers a JOIN categories c ON a.category_id = c.id
+	SELECT a.id, 'dembele' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'cl-2025-26-top-scorers' AND a.rank = 7;
 INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'vinicius junior' FROM answers a JOIN categories c ON a.category_id = c.id
-	WHERE c.slug = 'cl-2025-26-top-scorers' AND a.rank = 7;
-INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'achraf hakimi' FROM answers a JOIN categories c ON a.category_id = c.id
+	SELECT a.id, 'victor osimhen' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'cl-2025-26-top-scorers' AND a.rank = 8;
 INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'hakimi' FROM answers a JOIN categories c ON a.category_id = c.id
+	SELECT a.id, 'osimhen' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'cl-2025-26-top-scorers' AND a.rank = 8;
 INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'aubameyang' FROM answers a JOIN categories c ON a.category_id = c.id
+	SELECT a.id, 'luis diaz' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'cl-2025-26-top-scorers' AND a.rank = 9;
 INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'pierreemerick aubameyang' FROM answers a JOIN categories c ON a.category_id = c.id
+	SELECT a.id, 'diaz' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'cl-2025-26-top-scorers' AND a.rank = 9;
 INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'antoine griezmann' FROM answers a JOIN categories c ON a.category_id = c.id
+	SELECT a.id, 'gabriel martinelli' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'cl-2025-26-top-scorers' AND a.rank = 10;
 INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'griezmann' FROM answers a JOIN categories c ON a.category_id = c.id
+	SELECT a.id, 'martinelli' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'cl-2025-26-top-scorers' AND a.rank = 10;
 
 -- Verified 2026-08-27: cross-referenced final Golden Boot standings via web
