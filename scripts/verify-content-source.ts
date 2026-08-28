@@ -103,11 +103,45 @@ async function apiGet(path: string): Promise<unknown> {
 // error apart from a formatting difference with full confidence, which is
 // exactly why a mismatch here is reported for a human to look at rather
 // than auto-"fixed".
+//
+// A single collapsed-substring check (tried first, see git history around
+// 2026-08-28) isn't enough on real API data: the API's official full name
+// often inserts a word in the *middle* ("Atletico Madrid" vs "Club
+// Atlético de Madrid", "Bayer Leverkusen" vs "Bayer 04 Leverkusen"),
+// which breaks contiguous-substring matching even though every meaningful
+// word still lines up. Comparing token-by-token (prefix/substring, not
+// exact — "inter" vs "internazionale", "milan" vs "milano") tolerates
+// that. A few names are genuinely different words for the same club in
+// different languages, not formatting variants (English "Munich" vs
+// German "München"/"Munchen") — those need an explicit entry in
+// NAME_ALIASES below rather than a smarter string algorithm; add one if a
+// future run reports a name pair that's obviously the same club/player
+// but doesn't token-match.
+const NAME_ALIASES: [string, string][] = [["bayern munich", "fc bayern munchen"]];
+
+function tokens(name: string): string[] {
+	return normalize(name)
+		.split(" ")
+		.map((t) => collapseToAlnum(t))
+		.filter((t) => t.length > 0);
+}
+
 function namesLikelyMatch(a: string, b: string): boolean {
-	const na = collapseToAlnum(normalize(a));
-	const nb = collapseToAlnum(normalize(b));
-	if (!na || !nb) return false;
-	return na === nb || na.includes(nb) || nb.includes(na);
+	const collapsedA = collapseToAlnum(normalize(a));
+	const collapsedB = collapseToAlnum(normalize(b));
+	if (!collapsedA || !collapsedB) return false;
+	if (collapsedA === collapsedB || collapsedA.includes(collapsedB) || collapsedB.includes(collapsedA)) return true;
+
+	for (const [x, y] of NAME_ALIASES) {
+		const cx = collapseToAlnum(x);
+		const cy = collapseToAlnum(y);
+		if ((collapsedA === cx || collapsedA.includes(cx)) && (collapsedB === cy || collapsedB.includes(cy))) return true;
+		if ((collapsedA === cy || collapsedA.includes(cy)) && (collapsedB === cx || collapsedB.includes(cx))) return true;
+	}
+
+	const [shorter, longer] = tokens(a).length <= tokens(b).length ? [tokens(a), tokens(b)] : [tokens(b), tokens(a)];
+	if (shorter.length === 0) return false;
+	return shorter.every((st) => longer.some((lt) => lt === st || lt.startsWith(st) || st.startsWith(lt)));
 }
 
 interface Finding {
@@ -176,6 +210,7 @@ async function checkScorers(mapping: CategoryMapping, answers: AnswerRow[]): Pro
 	}
 
 	const findings: Finding[] = [];
+	let loggedRawList = false;
 	for (const answer of answers) {
 		// Scorers responses aren't guaranteed sorted by goals with stable
 		// index==rank the way a standings table's `position` field is
@@ -187,6 +222,22 @@ async function checkScorers(mapping: CategoryMapping, answers: AnswerRow[]): Pro
 				rank: answer.rank,
 				message: `"${answer.canonical_name}" not found anywhere in the API's top scorers`,
 			});
+			// Print exactly what the API DID return, once per category, the
+			// first time this happens — e.g. if `limit` isn't honored the way
+			// this script assumes and the API only returned 5 names for a
+			// "top 10", printing "not found" five separate times with no raw
+			// data attached would leave a future run just as blind as this
+			// one. See git history around 2026-08-28 for why this exists:
+			// this exact situation, unable to tell "wrong name" apart from
+			// "the API just returned fewer rows than expected" from the
+			// dev sandbox this script was written in (no network access to
+			// the real API to check by hand).
+			if (!loggedRawList) {
+				loggedRawList = true;
+				console.error(
+					`    (API returned ${scorers.length} scorer(s) for ${mapping.competitionCode}/${mapping.season}: ${scorers.map((s) => `${s.player.name} (${s.goals})`).join(", ")})`,
+				);
+			}
 			continue;
 		}
 		const storedGoals = Number.parseFloat(answer.stat_value);
