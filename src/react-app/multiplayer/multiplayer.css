@@ -6,6 +6,12 @@
    only genuinely new UI gets a class here, prefixed .mp- to avoid any
    collision with App.css's names. Colors match App.css's existing palette
    (surface #1f2937, border #374151, accent #4ade80, muted text #9ca3af).
+
+   Per-player color coding (state.ts's PLAYER_COLORS) is threaded through as
+   a --player-color custom property set inline per element (see
+   MultiplayerPlay.tsx/MultiplayerResult.tsx), the same pattern
+   App.css/AnswerGrid.tsx use for --found-color — CSS here just reads the
+   variable rather than needing one rule per color.
  */
 
 .mp-setup {
@@ -69,6 +75,17 @@
 	background: #1f2937;
 	border: 1px solid #374151;
 }
+.mp-setup__player-name {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+.mp-setup__color-dot {
+	width: 0.7rem;
+	height: 0.7rem;
+	border-radius: 50%;
+	flex-shrink: 0;
+}
 .mp-setup__remove {
 	padding: 0.1em 0.5em;
 	background: none;
@@ -113,34 +130,105 @@
 	background: #1f2937;
 	border: 1px solid #374151;
 	min-width: 6rem;
+	/* Every roster chip gets a quiet top edge in its own player color, all
+	   the time (not just while active) — establishes "this is your color"
+	   before the active-state treatment below makes it loud. */
+	border-top: 3px solid var(--player-color, #374151);
 }
 .mp-players__item--active {
-	border-color: #4ade80;
-	background: #14532d;
+	border-color: var(--player-color, #4ade80);
+	background: color-mix(in srgb, var(--player-color, #22c55e) 18%, #1f2937);
 }
 .mp-players__name {
 	font-weight: 600;
 	font-size: 0.9rem;
 }
+.mp-players__total-time {
+	color: #9ca3af;
+	font-size: 0.75rem;
+}
 .mp-players--final li {
 	flex-direction: row;
+	align-items: center;
 	justify-content: space-between;
 	width: 100%;
+	border-top: none;
+	border-left: 3px solid var(--player-color, #374151);
+}
+.mp-players__rank {
+	font-weight: 700;
+	min-width: 2rem;
+}
+.mp-players__stats {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	font-size: 0.85rem;
+}
+.mp-players__found-count {
+	color: #e5e7eb;
+}
+.mp-players--final .mp-players__total-time {
+	font-size: 0.85rem;
 }
 .mp-players__lives-left {
 	color: #9ca3af;
 	font-size: 0.85rem;
 }
 
+/* Turn indicator — deliberately the loudest thing on screen (the device
+   gets physically passed to a new person on every turn, so who's-up-next
+   has to be unmissable), colored to match the current player's roster
+   chip so the color, not just the name, is what a glance registers. */
 .mp-turn-banner {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.75rem;
 	text-align: center;
-	font-size: 1.1rem;
-	font-weight: 600;
+	font-size: 1.35rem;
+	font-weight: 700;
 	margin: 0;
+	padding: 0.6em 1em;
+	border-radius: 10px;
+	background: color-mix(in srgb, var(--player-color, #22c55e) 20%, #1f2937);
+	border: 2px solid var(--player-color, #4ade80);
+}
+.mp-turn-banner__name {
+	color: var(--player-color, #4ade80);
+}
+.mp-turn-banner__timer {
+	font-size: 1rem;
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+	color: #e5e7eb;
+	background: rgba(0, 0, 0, 0.25);
+	padding: 0.15em 0.55em;
+	border-radius: 999px;
+}
+
+.mp-pass-button {
+	align-self: center;
+	padding: 0.4em 1em;
+	font-size: 0.85rem;
+	color: #e5e7eb;
+	background: #1f2937;
+	border: 1px solid #374151;
+}
+.mp-pass-button:hover:not(:disabled) {
+	border-color: #4b5563;
+	color: #fff;
 }
 
 .mp-feedback {
 	margin-top: 0.5rem;
 	text-align: center;
 	min-height: 1.4em;
+}
+
+.mp-result-hint {
+	margin: 0.25rem 0 0;
+	text-align: center;
+	color: #9ca3af;
+	font-size: 0.8rem;
 }

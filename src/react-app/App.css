@@ -461,6 +461,21 @@
 	border-color: #f87171;
 	opacity: 0.85;
 }
+/* Multiplayer only (see AnswerGrid.tsx's foundColorByRank prop): overrides
+   .answer-slot--found's fixed green with whichever player found this
+   answer, via the --found-color custom property set inline per-slot.
+   Single-player never sets --found-color, so this class is never applied
+   there and .answer-slot--found's own rule above is untouched. The first
+   `background` line is a plain fallback for a browser without color-mix()
+   support; the second overrides it wherever color-mix() is understood. */
+.answer-slot--player-tinted {
+	background: #14532d;
+	background: color-mix(in srgb, var(--found-color, #22c55e) 22%, #1f2937);
+	border-color: var(--found-color, #22c55e);
+}
+.answer-slot--player-tinted .answer-slot__rank {
+	color: var(--found-color, #9ca3af);
+}
 
 .guess-form {
 	display: flex;

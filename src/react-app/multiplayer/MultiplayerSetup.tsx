@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { CategoriesResponse, CategorySummary } from "../types";
-import type { MpCategory } from "./state";
+import { colorForPlayerIndex, type MpCategory } from "./state";
 
 interface Props {
 	onStart: (category: MpCategory, playerNames: string[]) => void;
@@ -171,7 +171,14 @@ export function MultiplayerSetup({ onStart }: Props) {
 				<ul className="mp-setup__players">
 					{playerNames.map((name, i) => (
 						<li key={i}>
-							<span>{name}</span>
+							<span className="mp-setup__player-name">
+								<span
+									className="mp-setup__color-dot"
+									style={{ background: colorForPlayerIndex(i) }}
+									aria-hidden="true"
+								/>
+								{name}
+							</span>
 							<button type="button" className="mp-setup__remove" onClick={() => removePlayer(i)} aria-label={`Remove ${name}`}>
 								✕
 							</button>

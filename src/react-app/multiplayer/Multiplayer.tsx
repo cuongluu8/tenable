@@ -56,6 +56,12 @@ export function Multiplayer({ onBack }: Props) {
 		}
 	}
 
+	// Passing is purely a client-side turn transition — no guess to check, so
+	// no network round trip, unlike submitGuess above.
+	function passTurn() {
+		dispatch({ type: "pass" });
+	}
+
 	return (
 		<div className="screen">
 			{state.phase === "setup" && (
@@ -70,6 +76,7 @@ export function Multiplayer({ onBack }: Props) {
 				<MultiplayerPlay
 					state={state}
 					onGuess={submitGuess}
+					onPass={passTurn}
 					submitting={submitting}
 					onQuit={() => dispatch({ type: "reset" })}
 				/>
