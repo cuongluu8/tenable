@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
-import { CategoryList } from "../components/CategoryList";
-import type { CategoriesResponse, CategorySummary } from "../types";
-import { colorForPlayerIndex, type MpCategory } from "./state";
+import { colorForPlayerIndex } from "./state";
 
 interface Props {
-	onStart: (category: MpCategory, playerNames: string[]) => void;
+	onNext: (playerNames: string[]) => void;
+	onBack: () => void;
 }
 
 const MIN_PLAYERS = 2;
@@ -50,49 +49,22 @@ function saveStoredPlayers(names: string[]): void {
 	}
 }
 
-type LoadState =
-	| { status: "loading" }
-	| { status: "error"; message: string }
-	| { status: "ready"; categories: CategorySummary[] };
-
-// Setup screen for single-device pass-and-play: pick a category, then build
-// a player roster before starting. No slug, no joining from another
-// device — see the plan this was built from.
-//
-// Category selection reuses the exact same CategoryList component and
-// /api/categories data single-player's home screen uses (grouped sections,
-// per-category status, everything) — the two pickers are meant to look and
-// behave identically, not a cut-down variant for multiplayer. The one real
-// difference is unavoidable: single-player's CategoryList click navigates
-// straight into that category, but multiplayer still needs a roster before
-// it can start, so a pick here just records the choice (highlighted via
-// CategoryList's selectedSlug prop) rather than starting anything — nothing
-// is pre-selected on load, matching single-player having no concept of a
-// "default" category either.
-export function MultiplayerSetup({ onStart }: Props) {
-	const [load, setLoad] = useState<LoadState>({ status: "loading" });
-	const [categorySlug, setCategorySlug] = useState("");
+// First step of multiplayer setup: build the player roster before ever
+// touching category selection (see MultiplayerCategoryPick.tsx for the
+// second step) — home page picks single-player vs multiplayer, single-
+// player goes straight to categories, multiplayer collects players first.
+export function MultiplayerPlayers({ onNext, onBack }: Props) {
 	const [playerNames, setPlayerNames] = useState<string[]>(loadStoredPlayers);
 	const [nameInput, setNameInput] = useState("");
 	const [nameError, setNameError] = useState<string | null>(null);
 
 	// Keep the remembered roster in sync with whatever's currently shown —
-	// covers adds, removes, and starting a game, so the *next* setup screen
-	// (a fresh mount, whether from "New game" or reloading the page) picks up
-	// right where this one left off.
+	// covers adds, removes, and moving on, so the *next* time this screen
+	// mounts (a fresh game, or coming back from the category step) it picks
+	// up right where this one left off.
 	useEffect(() => {
 		saveStoredPlayers(playerNames);
 	}, [playerNames]);
-
-	useEffect(() => {
-		fetch("/api/categories")
-			.then((res) => {
-				if (!res.ok) throw new Error("Couldn't load categories");
-				return res.json() as Promise<CategoriesResponse>;
-			})
-			.then((data) => setLoad({ status: "ready", categories: data.categories }))
-			.catch((err: Error) => setLoad({ status: "error", message: err.message }));
-	}, []);
 
 	function addPlayer(e: React.FormEvent) {
 		e.preventDefault();
@@ -114,45 +86,17 @@ export function MultiplayerSetup({ onStart }: Props) {
 		setPlayerNames((prev) => prev.filter((_, i) => i !== index));
 	}
 
-	function start() {
-		if (load.status !== "ready") return;
-		const category = load.categories.find((c) => c.slug === categorySlug);
-		if (!category || playerNames.length < MIN_PLAYERS) return;
-		onStart(
-			{
-				slug: category.slug,
-				title: category.title,
-				subtitle: category.subtitle,
-				statLabel: category.statLabel,
-				answerCount: category.answerCount,
-			},
-			playerNames,
-		);
-	}
-
-	const canStart = load.status === "ready" && categorySlug !== "" && playerNames.length >= MIN_PLAYERS;
-	const selectedCategory = load.status === "ready" ? load.categories.find((c) => c.slug === categorySlug) : undefined;
+	const canProceed = playerNames.length >= MIN_PLAYERS;
 
 	return (
 		<div className="mp-setup">
+			<button type="button" className="back-link" onClick={onBack}>
+				← Back
+			</button>
 			<h2>Multiplayer — pass and play</h2>
 			<p className="mp-setup__hint">
 				Everyone plays on this device, taking turns. {MIN_PLAYERS}-{MAX_PLAYERS} players, 3 lives each.
 			</p>
-
-			{load.status === "loading" && <p>Loading categories…</p>}
-			{load.status === "error" && <p>{load.message}</p>}
-			{load.status === "ready" && (
-				<>
-					<CategoryList categories={load.categories} onSelect={(cat) => setCategorySlug(cat.slug)} selectedSlug={categorySlug} />
-					{/* CategoryList's accordion collapses a section once you move on to
-					    another one, so the highlighted card (see App.css's
-					    .category-card--selected) can end up scrolled out of view — this
-					    line is the one thing that stays visible regardless of which
-					    section is open. */}
-					{selectedCategory && <p className="mp-setup__selected">Selected: {selectedCategory.title}</p>}
-				</>
-			)}
 
 			<form className="mp-setup__add-player" onSubmit={addPlayer}>
 				<label className="mp-setup__field">
@@ -194,11 +138,11 @@ export function MultiplayerSetup({ onStart }: Props) {
 				</ul>
 			)}
 
-			<button type="button" className="mp-setup__start" onClick={start} disabled={!canStart}>
-				Start Game
+			<button type="button" className="mp-setup__start" onClick={() => onNext(playerNames)} disabled={!canProceed}>
+				Next: choose a category
 			</button>
-			{playerNames.length > 0 && playerNames.length < MIN_PLAYERS && (
-				<p className="mp-setup__hint">Add at least {MIN_PLAYERS} players to start.</p>
+			{playerNames.length > 0 && !canProceed && (
+				<p className="mp-setup__hint">Add at least {MIN_PLAYERS} players to continue.</p>
 			)}
 		</div>
 	);

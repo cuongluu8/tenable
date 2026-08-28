@@ -1,6 +1,7 @@
 import { useEffect, useReducer, useState } from "react";
 import "./multiplayer.css";
-import { MultiplayerSetup } from "./MultiplayerSetup";
+import { MultiplayerPlayers } from "./MultiplayerPlayers";
+import { MultiplayerCategoryPick } from "./MultiplayerCategoryPick";
 import { MultiplayerPlay } from "./MultiplayerPlay";
 import { MultiplayerResult } from "./MultiplayerResult";
 import { multiplayerReducer, initialMpState, type MpCategory } from "./state";
@@ -30,9 +31,16 @@ export function Multiplayer({ onBack }: Props) {
 	// resolves (or if it fails); the result screen just shows found answers
 	// only in that case, same as it did before this existed.
 	const [revealed, setRevealed] = useState<RevealAnswer[] | null>(null);
+	// Two-step setup wizard, ahead of the reducer's own "setup" phase: null
+	// means still on the roster step (MultiplayerPlayers.tsx); once a roster
+	// is confirmed, this holds it and the category step (MultiplayerCategoryPick.tsx)
+	// takes over. Kept here rather than in either child so a "Back" from the
+	// category step can return to the roster step with names still filled in.
+	const [rosterNames, setRosterNames] = useState<string[] | null>(null);
 
-	function startGame(category: MpCategory, playerNames: string[]) {
-		dispatch({ type: "start", category, playerNames });
+	function startGame(category: MpCategory) {
+		if (!rosterNames) return; // can't happen — the category step never renders without one
+		dispatch({ type: "start", category, playerNames: rosterNames });
 	}
 
 	async function submitGuess(guess: string) {
@@ -96,22 +104,24 @@ export function Multiplayer({ onBack }: Props) {
 
 	// Shared by both "quit mid-round" and "play again" — either way, the next
 	// round's reveal (if it gets that far) needs to start from a clean slate,
-	// not the previous round's answer list.
+	// not the previous round's answer list, and setup goes back to the roster
+	// step (not straight to category picking) even though localStorage will
+	// have it pre-filled — same "start of the wizard" reasoning as never
+	// pre-selecting a category on that step either.
 	function resetGame() {
 		setRevealed(null);
+		setRosterNames(null);
 		dispatch({ type: "reset" });
 	}
 
 	return (
 		<div className="screen">
-			{state.phase === "setup" && (
-				<>
-					<button type="button" className="back-link" onClick={onBack}>
-						← Back
-					</button>
-					<MultiplayerSetup onStart={startGame} />
-				</>
-			)}
+			{state.phase === "setup" &&
+				(rosterNames === null ? (
+					<MultiplayerPlayers onNext={setRosterNames} onBack={onBack} />
+				) : (
+					<MultiplayerCategoryPick onStart={startGame} onBack={() => setRosterNames(null)} />
+				))}
 			{state.phase === "playing" && (
 				<MultiplayerPlay state={state} onGuess={submitGuess} onPass={passTurn} submitting={submitting} onQuit={resetGame} />
 			)}
