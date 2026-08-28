@@ -60130,3 +60130,62 @@ WITH v(name, cat, alias) AS (VALUES
 INSERT INTO reference_entity_aliases (entity_id, alias)
 SELECT re.id, v.alias FROM v
 JOIN reference_entities re ON re.canonical_name = v.name AND re.category = v.cat AND re.entity_type = 'manager';
+
+-- ============================================================
+-- Player reference pool: notable pre-1992 club legends (added 2026-08-28)
+-- ============================================================
+-- Typeahead-only (see schema.sql's reference_entities and agents.md) --
+-- addresses a specific gap found while scoping new "Club Goalscorers"
+-- categories: the "Club Goalscorers" categories are Premier-League-era-only
+-- (since 1992-93), and the ~18,000-player reference pool built from a
+-- FIFA21-era dataset only reaches back that far too -- so a well-known
+-- pre-1992 club legend (someone a player might plausibly still guess,
+-- correctly or not) often wasn't typeable/recognized at all. Confirmed
+-- missing before adding: e.g. Jimmy Greaves, Bobby Tambling, Cliff Bastin
+-- were absent while contemporaries like Bobby Charlton, George Best, and
+-- Eusebio (part of the original ~160-name curated set) were present.
+--
+-- These carry no stat_value/rank and are never checked by matchGuess() or
+-- the live-API fact-check -- the bar is "a real, well-known historical
+-- footballer with a correctly spelled name", the same lower bar the
+-- 100-manager reference batch used, not the sourced/ranked bar `answers`
+-- content is held to. No aliases added (per schema.sql's entity_search
+-- note: a plain INSERT is enough for name/prefix search to work; aliases
+-- are only needed for genuine nicknames not derivable from the name
+-- itself, and none of these have one).
+INSERT INTO reference_entities (canonical_name, category, entity_type) VALUES
+	('Cliff Bastin', 'England', 'player'),
+	('Ted Drake', 'England', 'player'),
+	('David Jack', 'England', 'player'),
+	('Doug Lishman', 'England', 'player'),
+	('Roger Hunt', 'England', 'player'),
+	('Billy Liddell', 'Scotland', 'player'),
+	('Kevin Keegan', 'England', 'player'),
+	('Dixie Dean', 'England', 'player'),
+	('Bob Latchford', 'England', 'player'),
+	('Denis Law', 'Scotland', 'player'),
+	('Dennis Viollet', 'England', 'player'),
+	('Colin Bell', 'England', 'player'),
+	('Francis Lee', 'England', 'player'),
+	('Bobby Tambling', 'England', 'player'),
+	('Peter Osgood', 'England', 'player'),
+	('Kerry Dixon', 'England', 'player'),
+	('Jimmy Greaves', 'England', 'player'),
+	('Bobby Smith', 'England', 'player'),
+	('Martin Chivers', 'England', 'player'),
+	('Cliff Jones', 'Wales', 'player'),
+	('Malcolm Macdonald', 'England', 'player'),
+	('Jackie Milburn', 'England', 'player'),
+	('Hughie Gallacher', 'Scotland', 'player'),
+	('Allan Clarke', 'England', 'player'),
+	('Peter Lorimer', 'Scotland', 'player'),
+	('Peter Withe', 'England', 'player'),
+	('Tony Hateley', 'England', 'player'),
+	('Josip Skoblar', 'Yugoslavia', 'player'),
+	('Delio Onnis', 'France', 'player'),
+	('Nobby Stiles', 'England', 'player'),
+	('Nat Lofthouse', 'England', 'player'),
+	('Tom Finney', 'England', 'player'),
+	('Stanley Matthews', 'England', 'player'),
+	('Billy Wright', 'England', 'player'),
+	('Duncan Edwards', 'England', 'player');
