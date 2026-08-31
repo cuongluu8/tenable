@@ -55,12 +55,12 @@ interface CategoryRow {
 	entity_type: string;
 }
 interface AnswerRow {
-	id: number;
+	entity_id: number;
 	rank: number;
 	canonical_name: string;
 }
 interface AliasRow {
-	answer_id: number;
+	entity_id: number;
 	alias: string;
 }
 interface ReferenceRow {
@@ -303,7 +303,7 @@ const FALLBACK_WRONG_GUESSES: Record<string, string[]> = {
 
 function pickWrongGuesses(entityType: string, excludeNames: Set<string>, count: number): string[] {
 	const rows = queryLocalD1<ReferenceRow>(
-		`SELECT DISTINCT canonical_name FROM reference_entities WHERE entity_type = '${entityType}' ORDER BY canonical_name LIMIT 200;`,
+		`SELECT DISTINCT canonical_name FROM entities WHERE entity_type = '${entityType}' ORDER BY canonical_name LIMIT 200;`,
 	);
 	const pool = rows.map((r) => r.canonical_name).filter((n) => !excludeNames.has(n));
 	const fallback = (FALLBACK_WRONG_GUESSES[entityType] ?? []).filter((n) => !excludeNames.has(n));
@@ -361,7 +361,7 @@ async function playCategoryToWin(
 	let foundCount = 0;
 	for (const [canonicalName, members] of groups) {
 		members.sort((a, b) => a.rank - b.rank);
-		const aliases = aliasesByAnswer.get(members[0].id) ?? [];
+		const aliases = aliasesByAnswer.get(members[0].entity_id) ?? [];
 		const obscureGuess = obscure(pickObscureAlias(canonicalName, aliases));
 
 		for (const [i, member] of members.entries()) {
@@ -411,7 +411,7 @@ async function main(): Promise<void> {
 
 	try {
 		const categories = queryLocalD1<CategoryRow>("SELECT slug, entity_type FROM categories ORDER BY id;");
-		assertEqual(categories.length, 42, "total category count");
+		assertEqual(categories.length, 48, "total category count");
 
 		// Every category, one continuous "device" playing through all of
 		// them in classic mode — obscure aliases, mixed case, punctuation
@@ -429,16 +429,16 @@ async function main(): Promise<void> {
 		for (const category of categories) {
 			console.log(`Playing ${category.slug} (${category.entity_type})...`);
 			const answers = queryLocalD1<AnswerRow>(
-				`SELECT a.id, a.rank, a.canonical_name FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = '${category.slug}' ORDER BY a.rank;`,
+				`SELECT ca.entity_id, ca.rank, e.canonical_name FROM category_answers ca JOIN entities e ON e.id = ca.entity_id JOIN categories c ON ca.category_id = c.id WHERE c.slug = '${category.slug}' ORDER BY ca.rank;`,
 			);
 			const aliasRows = queryLocalD1<AliasRow>(
-				`SELECT al.answer_id, al.alias FROM answer_aliases al JOIN answers a ON al.answer_id = a.id JOIN categories c ON a.category_id = c.id WHERE c.slug = '${category.slug}';`,
+				`SELECT al.entity_id, al.alias FROM entity_aliases al JOIN category_answers ca ON al.entity_id = ca.entity_id JOIN categories c ON ca.category_id = c.id WHERE c.slug = '${category.slug}';`,
 			);
 			const aliasesByAnswer = new Map<number, string[]>();
 			for (const row of aliasRows) {
-				const list = aliasesByAnswer.get(row.answer_id) ?? [];
+				const list = aliasesByAnswer.get(row.entity_id) ?? [];
 				list.push(row.alias);
-				aliasesByAnswer.set(row.answer_id, list);
+				aliasesByAnswer.set(row.entity_id, list);
 			}
 
 			try {
@@ -518,7 +518,7 @@ async function main(): Promise<void> {
 		const deviceB = new Device();
 		const lossSlug = categories[0].slug;
 		const lossAnswers = queryLocalD1<AnswerRow>(
-			`SELECT a.id, a.rank, a.canonical_name FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = '${lossSlug}' ORDER BY a.rank;`,
+			`SELECT ca.entity_id, ca.rank, e.canonical_name FROM category_answers ca JOIN entities e ON e.id = ca.entity_id JOIN categories c ON ca.category_id = c.id WHERE c.slug = '${lossSlug}' ORDER BY ca.rank;`,
 		);
 		const lossWrongGuesses = pickWrongGuesses(
 			categories[0].entity_type,
@@ -539,16 +539,16 @@ async function main(): Promise<void> {
 		console.log("Playing tension mode (win path, with some wrong guesses mixed in)...");
 		const winSlug = categories[1].slug;
 		const winAnswers = queryLocalD1<AnswerRow>(
-			`SELECT a.id, a.rank, a.canonical_name FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = '${winSlug}' ORDER BY a.rank;`,
+			`SELECT ca.entity_id, ca.rank, e.canonical_name FROM category_answers ca JOIN entities e ON e.id = ca.entity_id JOIN categories c ON ca.category_id = c.id WHERE c.slug = '${winSlug}' ORDER BY ca.rank;`,
 		);
 		const winAliasRows = queryLocalD1<AliasRow>(
-			`SELECT al.answer_id, al.alias FROM answer_aliases al JOIN answers a ON al.answer_id = a.id JOIN categories c ON a.category_id = c.id WHERE c.slug = '${winSlug}';`,
+			`SELECT al.entity_id, al.alias FROM entity_aliases al JOIN category_answers ca ON al.entity_id = ca.entity_id JOIN categories c ON ca.category_id = c.id WHERE c.slug = '${winSlug}';`,
 		);
 		const winAliasesByAnswer = new Map<number, string[]>();
 		for (const row of winAliasRows) {
-			const list = winAliasesByAnswer.get(row.answer_id) ?? [];
+			const list = winAliasesByAnswer.get(row.entity_id) ?? [];
 			list.push(row.alias);
-			winAliasesByAnswer.set(row.answer_id, list);
+			winAliasesByAnswer.set(row.entity_id, list);
 		}
 		await playCategoryToWin(deviceB, winSlug, categories[1].entity_type, winAnswers, winAliasesByAnswer, "tension", 2);
 		const winList = await deviceB.get<CategoriesListResponse>("/api/categories");

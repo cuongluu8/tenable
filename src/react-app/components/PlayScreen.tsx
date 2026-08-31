@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AnswerGrid } from "./AnswerGrid";
 import { GuessInput } from "./GuessInput";
 import { LivesIndicator } from "./LivesIndicator";
+import { formatAsOfDate } from "../lib/formatAsOfDate";
 import type {
 	Category,
 	CategoryResponse,
@@ -185,6 +186,9 @@ export function PlayScreen({ slug, onBack }: Props) {
 			<section className="category">
 				<h2>{category.title}</h2>
 				{category.subtitle && <p className="category__subtitle">{category.subtitle}</p>}
+				{formatAsOfDate(category.asOfDate) && (
+					<p className="category__as-of">{formatAsOfDate(category.asOfDate)}</p>
+				)}
 			</section>
 
 			{streak && streak.current > 0 && <p className="streak">🔥 {streak.current}-day streak</p>}

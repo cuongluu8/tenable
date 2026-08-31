@@ -14,21 +14,28 @@ interface CategoryRow {
 interface CategoryRowWithCount extends CategoryRow {
 	answer_count: number;
 	group_label: string;
+	as_of_date: string | null;
 }
 
 // The full category library, grouped for the "pick a category" list on the
 // client (see schema.sql's group_label/group_order) — categories stay in id
 // order within a group, so adding a new one to an existing group is just an
 // UPDATE, never a reshuffle of the others.
+//
+// answer_count/as_of_date come from category_answers (the materialized
+// snapshot), never computed live from entity_stats — see rebuild.ts for why
+// gameplay always reads the snapshot. as_of_date is the actual currency
+// guarantee shown to players: the latest date any of this category's
+// answers are accurate up to, not a hand-written claim in the subtitle.
 export async function getAllCategories(
 	db: D1Database,
 ): Promise<CategoryRowWithCount[]> {
 	const result = await db
 		.prepare(
 			`SELECT c.id, c.slug, c.title, c.subtitle, c.stat_label, c.group_label,
-			        COUNT(a.id) as answer_count
+			        COUNT(ca.id) as answer_count, MAX(ca.as_of_date) as as_of_date
 			 FROM categories c
-			 LEFT JOIN answers a ON a.category_id = c.id
+			 LEFT JOIN category_answers ca ON ca.category_id = c.id
 			 GROUP BY c.id
 			 ORDER BY c.group_order ASC, c.id ASC`,
 		)
@@ -55,15 +62,33 @@ export async function getAnswerCount(
 	categoryId: number,
 ): Promise<number> {
 	const row = await db
-		.prepare(`SELECT COUNT(*) as count FROM answers WHERE category_id = ?`)
+		.prepare(`SELECT COUNT(*) as count FROM category_answers WHERE category_id = ?`)
 		.bind(categoryId)
 		.first<{ count: number }>();
 	return row?.count ?? 0;
 }
 
+// Companion to getAnswerCount for the two player-facing GET routes, which
+// also need to show the "data as of" date — a single aggregate query rather
+// than a second round trip.
+export async function getCategoryMeta(
+	db: D1Database,
+	categoryId: number,
+): Promise<{ answerCount: number; asOfDate: string | null }> {
+	const row = await db
+		.prepare(
+			`SELECT COUNT(*) as answer_count, MAX(as_of_date) as as_of_date
+			 FROM category_answers WHERE category_id = ?`,
+		)
+		.bind(categoryId)
+		.first<{ answer_count: number; as_of_date: string | null }>();
+	return { answerCount: row?.answer_count ?? 0, asOfDate: row?.as_of_date ?? null };
+}
+
 export function toPublic(
 	row: CategoryRow,
 	answerCount: number,
+	asOfDate: string | null = null,
 ): CategoryPublic {
 	return {
 		slug: row.slug,
@@ -71,47 +96,34 @@ export function toPublic(
 		subtitle: row.subtitle,
 		statLabel: row.stat_label,
 		answerCount,
+		asOfDate,
 	};
 }
 
 interface AnswerMatchRow {
-	id: number;
+	entity_id: number;
 	rank: number;
 	canonical_name: string;
 	stat_value: string;
 }
 
-interface AnswerAliasRow extends AnswerMatchRow {
-	alias: string;
-}
-
 // Server-authoritative guess check: normalize the guess and look it up
-// against this category's answer_aliases (never canonical_name directly,
-// since aliases also carry curated nicknames — "psg", "cr7" — a name's
-// own letters can't produce). Answers are never sent to the client, so
-// this is the only place a guess can be validated.
+// against this category's current answers (category_answers), matching
+// either an entity's own canonical name or one of its curated aliases.
+// Answers are never sent to the client, so this is the only place a guess
+// can be validated.
 //
-// The comparison is deliberately dumb: every alias for the category is
-// pulled in one query (a category tops out around 10 answers with a
-// handful of aliases each — tens of rows, not worth filtering in SQL),
-// then both the guess and every alias are reduced to just their letters
-// and digits (collapseToAlnum(), see normalize.ts) and compared for exact
-// equality. Rebuilt this way 2026-08-26 after a real bug (see git history)
-// turned into a game of whack-a-mole: normalize() deletes punctuation
-// without leaving a space behind, so a canonical name with any
-// punctuation-joined word boundary — a hyphen ("Paris Saint-Germain"), an
-// ampersand ("Oleg Salenko & Hristo Stoichkov") — normalizes a guess (or a
-// suggestion selected verbatim off the typeahead) to a form that's only
-// guaranteed to match if someone remembered to author that *exact*
-// spelling as an alias by hand. The first fix special-cased hyphens in
-// SQL; the second bug (a plain ampersand) needed the same fix again for a
-// different character. Comparing on letters-and-digits-only sidesteps the
-// question of which punctuation mark it is, or whether the "right" reading
-// merges two words or spaces them, entirely — collapsing doesn't change
-// how two already-equal strings compare, so this is a strict superset of
-// plain exact matching, not a different, riskier one. (Checked for
-// same-category collisions between different answers across the full
-// database before switching to this — none exist.)
+// Unlike the old answers/answer_aliases model, an entity's own name is
+// ALWAYS a valid match target here — there's no separate "did someone
+// remember to add the self-alias" step (see entity_aliases' comment in
+// schema.sql). That closes off the exact bug class that shipped three times
+// in production (a real, displayed name the matching logic silently
+// rejected because no alias row for it existed).
+//
+// Comparison is on collapseToAlnum() (letters/digits only, see
+// normalize.ts) for the same reason as before: it sidesteps which
+// punctuation mark joins two words in a name ("Paris Saint-Germain", "Oleg
+// Salenko & Hristo Stoichkov") without needing to special-case each one.
 export async function matchGuess(
 	db: D1Database,
 	categoryId: number,
@@ -123,29 +135,49 @@ export async function matchGuess(
 
 	const result = await db
 		.prepare(
-			`SELECT a.id, a.rank, a.canonical_name, a.stat_value, al.alias
-			 FROM answers a
-			 JOIN answer_aliases al ON al.answer_id = a.id
-			 WHERE a.category_id = ?`,
+			`SELECT ca.entity_id, ca.rank, e.canonical_name, ca.display_value AS stat_value, al.alias
+			 FROM category_answers ca
+			 JOIN entities e ON e.id = ca.entity_id
+			 LEFT JOIN entity_aliases al ON al.entity_id = e.id
+			 WHERE ca.category_id = ?`,
 		)
 		.bind(categoryId)
-		.all<AnswerAliasRow>();
+		.all<AnswerMatchRow & { alias: string | null }>();
 
-	const candidates = (result.results ?? []).filter(
-		(row) => collapseToAlnum(row.alias) === collapsedGuess,
+	// A category tops out around 10 answers with a handful of aliases each —
+	// tens of rows, not worth filtering in SQL. Group by RANK, not entity —
+	// `category_answers` is UNIQUE(category_id, rank), so rank is already the
+	// right per-row key; a "one row per occurrence" category (see below)
+	// deliberately has the SAME entity_id at two different ranks, and
+	// grouping by entity_id instead would collapse those two occurrences
+	// into one candidate, permanently losing the second one (caught by
+	// playtest against wc-recent-golden-boot's repeat winner). Each rank is
+	// tested once against its entity's name + every alias, not once per
+	// alias row.
+	const byRank = new Map<number, AnswerMatchRow & { matchStrings: string[] }>();
+	for (const row of result.results ?? []) {
+		let entry = byRank.get(row.rank);
+		if (!entry) {
+			entry = { ...row, matchStrings: [row.canonical_name] };
+			byRank.set(row.rank, entry);
+		}
+		if (row.alias) entry.matchStrings.push(row.alias);
+	}
+
+	const candidates = [...byRank.values()].filter((entry) =>
+		entry.matchStrings.some((s) => collapseToAlnum(s) === collapsedGuess),
 	);
 	if (candidates.length === 0) return null;
 
 	// A handful of categories are "one row per occurrence" rather than "one
 	// row per entity" — e.g. a World Cup Golden Boot winner who won it in
-	// two different tournaments gets two answer rows with the same
-	// canonical_name/alias, one per rank. Preferring a not-yet-found rank
-	// (falling back to an already-found one, so guess.ts's existing
-	// "duplicate" handling still applies once every occurrence is found)
-	// means each repeat guess of the name advances a different occurrence,
-	// rather than always resolving to the same one and permanently capping
-	// that category below 100%. The rank tie-break after that just makes an
-	// otherwise-arbitrary choice between multiple matching rows deterministic.
+	// two different tournaments gets two category_answers rows for the same
+	// entity, one per rank. Preferring a not-yet-found rank (falling back to
+	// an already-found one, so guess.ts's existing "duplicate" handling
+	// still applies once every occurrence is found) means each repeat guess
+	// of the name advances a different occurrence, rather than always
+	// resolving to the same one and permanently capping that category below
+	// 100%.
 	candidates.sort((a, b) => {
 		const aFound = foundRanks.includes(a.rank) ? 1 : 0;
 		const bFound = foundRanks.includes(b.rank) ? 1 : 0;
@@ -166,8 +198,10 @@ export async function getAllAnswers(
 ): Promise<FullAnswerRow[]> {
 	const result = await db
 		.prepare(
-			`SELECT rank, canonical_name, stat_value FROM answers
-			 WHERE category_id = ? ORDER BY rank ASC`,
+			`SELECT ca.rank, e.canonical_name, ca.display_value AS stat_value
+			 FROM category_answers ca
+			 JOIN entities e ON e.id = ca.entity_id
+			 WHERE ca.category_id = ? ORDER BY ca.rank ASC`,
 		)
 		.bind(categoryId)
 		.all<FullAnswerRow>();
@@ -175,55 +209,30 @@ export async function getAllAnswers(
 }
 
 // Typeahead suggestions for the guess box. Deliberately searches across every
-// category's names/aliases, not just the one being played — scoping it to
-// the current category would turn "which names autocomplete" into a list of
-// the correct answers. This only helps with spelling, not with cheating.
+// entity, not just the current category's own answers — scoping it to the
+// current category would turn "which names autocomplete" into a list of the
+// correct answers. This only helps with spelling, not with cheating.
 //
-// Also unions in `reference_entities` — real names that aren't necessarily a
-// correct answer anywhere (e.g. clubs that have never won the category
-// they'd be guessed in). That keeps the answer set itself bounded (Top N)
-// while letting players type/select any real name, right or wrong. See the
-// "Generic rule" section in agents.md.
+// Every entity is fair game (there's no separate "reference pool" table any
+// more — see schema.sql): the distinction the old two-table version drew
+// between "a correct answer somewhere" and "typeahead-only" is now just a
+// tier computed via EXISTS against category_answers, not a different source
+// table. That keeps the actual answer set bounded (Top N, via category_defs)
+// while letting players type/select any real name, right or wrong.
 //
-// Both sources are filtered to `entityType` (the *playing* category's own
-// entity_type, e.g. 'club' or 'player') so a player-guessing category never
-// suggests a club name and vice versa — matching the kind of answer a player
-// is actually looking for, without touching which guess is correct.
+// Both entity_search (tokenized match) and entity_aliases (curated
+// nicknames not derivable from tokenizing the name — "psg", "vvd") are
+// filtered to `entityType` (the *playing* category's own entity_type) so a
+// player-guessing category never suggests a club name and vice versa.
 //
-// The main match is `entity_search`, an FTS5 index (see schema.sql) that
-// tokenizes every canonical name on word boundaries, so a prefix query finds
-// ANY word in the name — "szo" finds "Dominik Szoboszlai" via its second
-// word — without a per-name alias row. The alias tables are still unioned in
-// on top of that, but only earn their keep for real nicknames that aren't a
-// substring of the canonical name at all ("psg", "barca", "vvd") — those
-// can't be derived by tokenizing the name, so they still need a curated row.
-//
-// Ranked "answer" matches first, THEN reference matches that share this
-// category's `scope` (e.g. 'Spain' for a La Liga table — see
-// categories.reference_scope), THEN everything else, THEN by name length
-// within a tier: `limit` is small (the guess box only shows a handful of
-// suggestions), and the reference pool (~7,800+ players, most of them not
-// famous — a bulk FIFA-dataset load, see agents.md) is far bigger than the
-// actual quiz answers. Sorting by length alone let short, obscure
-// reference-pool names bury a real answer — e.g. searching "ronal" put
-// "Ronald Matarrita" and "Ronald de la Fuente" ahead of "Cristiano Ronaldo",
-// an actual Top-10 answer in three categories, pushing him to the edge of
-// the limit. A name that's a real answer somewhere is definitionally
-// notable (it's the correct answer to a trivia question); one that's only
-// in the reference pool might not be — so answers win the tiebreak
-// regardless of name length.
-//
-// The `scope` tier (found 2026-08-26) fixes the same kind of burying one
-// level down: playing the La Liga table and typing "re" returned Remo
-// (Brazil), Rennes (France), Reading (England) and Recoleta (Argentina)
-// ahead of Real Oviedo — an actual 2025-26 La Liga club — purely because
-// they're shorter names, with no notion that Real Oviedo is the one
-// actually relevant to what's being played. `scope` (nullable — most
-// categories, e.g. pan-European or all-time-across-many-countries ones,
-// have none and this tier is a no-op for them) lets a same-country
-// reference match win that tiebreak without hiding the rest of the world's
-// names outright, which would undo the "type any name for spelling help"
-// behavior global search was deliberately built for.
+// Ranked: an entity that's a real answer in ANY category first, then
+// entities sharing this category's scope (e.g. `entities.scope = 'Spain'`
+// for a La Liga table — see categories.reference_scope), then everything
+// else, then by name length within a tier — a name that's a real answer
+// somewhere is definitionally notable, so it wins the tiebreak regardless of
+// how short an unrelated reference-only name is (see git history around
+// 2026-08-26 for why: without this, short obscure names buried real
+// answers, e.g. "Ronald Matarrita" ahead of "Cristiano Ronaldo").
 export interface SuggestResult {
 	names: string[];
 	// True when more rows matched than `limit` allowed through — i.e. the
@@ -248,41 +257,36 @@ export async function suggestNames(
 			`SELECT name FROM (
 				SELECT name, MIN(priority) AS priority
 				FROM (
-					-- Tokenized full-text match against answers: any word of the
-					-- name, not just its start. Always top-tier.
-					SELECT name, 0 AS priority
-					FROM entity_search
-					WHERE entity_search MATCH ?1 AND entity_type = ?3 AND source = 'answer'
-					UNION ALL
-					-- Tokenized full-text match against the reference pool, ranked
-					-- ahead of the rest of the world when it shares this category's
-					-- scope (e.g. reference_entities.category = 'Spain').
+					-- Tokenized full-text match against every entity's canonical
+					-- name: any word of the name, not just its start.
 					SELECT es.name,
-					       CASE WHEN ?5 IS NOT NULL AND re.category = ?5 THEN 1 ELSE 2 END AS priority
+					       CASE
+					           WHEN EXISTS (SELECT 1 FROM category_answers WHERE entity_id = es.entity_id) THEN 0
+					           WHEN ?4 IS NOT NULL AND e.scope = ?4 THEN 1
+					           ELSE 2
+					       END AS priority
 					FROM entity_search es
-					JOIN reference_entities re ON re.id = es.source_id AND es.source = 'reference'
-					WHERE es.entity_search MATCH ?1 AND es.entity_type = ?3
+					JOIN entities e ON e.id = es.entity_id
+					WHERE es.entity_search MATCH ?1 AND es.entity_type = ?2
 					UNION ALL
-					-- Curated nickname aliases (answers)
-					SELECT a.canonical_name AS name, 0 AS priority
-					FROM answer_aliases al
-					JOIN answers a ON al.answer_id = a.id
-					JOIN categories c ON a.category_id = c.id
-					WHERE al.alias LIKE ?2 || '%' AND c.entity_type = ?3
-					UNION ALL
-					-- Curated nickname aliases (reference pool)
-					SELECT re.canonical_name AS name,
-					       CASE WHEN ?5 IS NOT NULL AND re.category = ?5 THEN 1 ELSE 2 END AS priority
-					FROM reference_entity_aliases rel
-					JOIN reference_entities re ON rel.entity_id = re.id
-					WHERE rel.alias LIKE ?2 || '%' AND re.entity_type = ?3
+					-- Curated nickname aliases — not derivable by tokenizing the
+					-- canonical name itself, so these still need a curated row.
+					SELECT e.canonical_name AS name,
+					       CASE
+					           WHEN EXISTS (SELECT 1 FROM category_answers WHERE entity_id = e.id) THEN 0
+					           WHEN ?4 IS NOT NULL AND e.scope = ?4 THEN 1
+					           ELSE 2
+					       END AS priority
+					FROM entity_aliases al
+					JOIN entities e ON al.entity_id = e.id
+					WHERE al.alias LIKE ?3 || '%' AND e.entity_type = ?2
 				 )
 				 GROUP BY name
 			 )
 			 ORDER BY priority ASC, LENGTH(name) ASC, name ASC
-			 LIMIT ?4`,
+			 LIMIT ?5`,
 		)
-		.bind(ftsQuery, normalizedPrefix, entityType, limit + 1, scope)
+		.bind(ftsQuery, entityType, normalizedPrefix, scope, limit + 1)
 		.all<{ name: string }>();
 	const names = (result.results ?? []).map((r) => r.name);
 	const truncated = names.length > limit;

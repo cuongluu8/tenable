@@ -8,6 +8,12 @@ export interface Category {
 	subtitle: string | null;
 	statLabel: string;
 	answerCount: number;
+	// UTC "YYYY-MM-DD" — the latest date this category's answers are verified
+	// accurate up to. Always shown alongside the title/subtitle (see
+	// formatAsOfDate in lib/) rather than folded silently into copy: this is
+	// the mechanical currency guarantee, computed from the data itself, not
+	// a hand-written "through 2025-26" claim that can go stale unnoticed.
+	asOfDate: string | null;
 }
 
 export interface CategorySummary extends Category {

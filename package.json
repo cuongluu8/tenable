@@ -42,7 +42,7 @@
 		"lint": "eslint .",
 		"preview": "npm run build && vite preview",
 		"verify:matching": "node --experimental-strip-types scripts/verify-guess-matching.ts",
-		"verify:name-sync": "node --experimental-strip-types scripts/verify-name-sync.ts",
+		"verify:category-defs": "node --experimental-strip-types scripts/verify-category-defs.ts",
 		"verify:content-source": "node --experimental-strip-types scripts/verify-content-source.ts",
 		"playtest": "node --experimental-strip-types scripts/playtest.ts"
 	},

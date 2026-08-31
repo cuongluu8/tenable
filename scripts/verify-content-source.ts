@@ -263,7 +263,7 @@ async function main(): Promise<void> {
 	const allFindings: Finding[] = [];
 	for (const mapping of MAPPINGS) {
 		const answers = queryLocalD1<AnswerRow>(
-			`SELECT a.rank, a.canonical_name, a.stat_value FROM answers a JOIN categories c ON a.category_id = c.id WHERE c.slug = '${mapping.slug}' ORDER BY a.rank;`,
+			`SELECT ca.rank, e.canonical_name, ca.display_value AS stat_value FROM category_answers ca JOIN entities e ON e.id = ca.entity_id JOIN categories c ON ca.category_id = c.id WHERE c.slug = '${mapping.slug}' ORDER BY ca.rank;`,
 		);
 		if (answers.length === 0) {
 			console.warn(`  ⚠ [${mapping.slug}] no answers found in local D1 — skipping (re-seed local D1 first?)`);

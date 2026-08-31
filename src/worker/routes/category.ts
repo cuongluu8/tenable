@@ -1,23 +1,30 @@
 import { Hono } from "hono";
 import { getOrSetDeviceId } from "../lib/device";
-import { getCategoryBySlug, getAnswerCount, getAllAnswers, toPublic } from "../lib/categories";
+import { getCategoryBySlug, getCategoryMeta, getAllAnswers, toPublic } from "../lib/categories";
+import { cachedContentQuery } from "../lib/responseCache";
 import { getProgress } from "../lib/progressStore";
 
 const category = new Hono<{ Bindings: Env }>();
 
 // A single category (answers withheld) plus this device's progress on it,
-// if any. Used both to start a fresh round and to resume/review one.
+// if any. Used both to start a fresh round and to resume/review one. Same
+// split as categories.ts: the category row + its metadata (public, same
+// for everyone) is edge-cached; this device's progress from KV is not.
 category.get("/:slug", async (c) => {
 	const slug = c.req.param("slug");
 	const deviceId = getOrSetDeviceId(c);
 
-	const row = await getCategoryBySlug(c.env.DB, slug);
+	const row = await cachedContentQuery(c.env.DB, c.executionCtx, `category:${slug}`, () =>
+		getCategoryBySlug(c.env.DB, slug),
+	);
 	if (!row) {
 		return c.json({ error: "Unknown category" }, 404);
 	}
 
-	const [answerCount, progress] = await Promise.all([
-		getAnswerCount(c.env.DB, row.id),
+	const [meta, progress] = await Promise.all([
+		cachedContentQuery(c.env.DB, c.executionCtx, `category-meta:${slug}`, () =>
+			getCategoryMeta(c.env.DB, row.id),
+		),
 		getProgress(c.env.PROGRESS, deviceId, slug),
 	]);
 
@@ -35,7 +42,7 @@ category.get("/:slug", async (c) => {
 	}
 
 	return c.json({
-		category: toPublic(row, answerCount),
+		category: toPublic(row, meta.answerCount, meta.asOfDate),
 		progress,
 		foundAnswers,
 	});

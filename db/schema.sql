@@ -1,7 +1,25 @@
 -- Tenable content schema
--- One row per "Top 10" category. Answers live in a child table so we can
--- query/validate individual guesses server-side without shipping the full
--- answer list to the client.
+--
+-- Rebuilt (2026-08-31) around a single source of truth for identity. The
+-- previous schema kept a category's answer names (`answers.canonical_name`)
+-- and the typeahead reference pool (`reference_entities.canonical_name`) as
+-- two separate free-text strings for the same real-world person/club/
+-- country, reconciled only by convention and a drift-detection script
+-- (`verify-name-sync.ts`). That shipped the same bug three times in
+-- production (see git history around 2026-08-26/27: "Igor Thiago" entered
+-- as just "Thiago", "Daniel Welbeck" vs. "Danny Welbeck", "Raul Gonzalez"
+-- vs. "Raul") before it was fixed as data each time. It's fixed as schema
+-- now: `entities` is the only place a name lives; everything else
+-- (aliases, stats, answers) references it by id.
+--
+-- The second change: a category's Top N used to be hand-typed rows
+-- (`answers`). It's now a *query* (`category_defs`) over dated, sourced
+-- observations (`entity_stats`), materialized into `category_answers` for
+-- gameplay to actually read/grade against. This is what lets "add more
+-- statistical data" open up new categories without hand-authoring a new
+-- answer set for each one, and lets every category state plainly what date
+-- its numbers are accurate up to (`as_of_date`) instead of a hand-written,
+-- easily-stale claim in a subtitle.
 
 CREATE TABLE IF NOT EXISTS categories (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -12,8 +30,9 @@ CREATE TABLE IF NOT EXISTS categories (
 	scheduled_date TEXT UNIQUE,      -- YYYY-MM-DD, the day this category is "today's puzzle"
 	entity_type TEXT NOT NULL DEFAULT 'club',
 		-- what kind of thing every answer in this category is: 'club', 'player',
-		-- or 'country' (extend as new category shapes are added). Used to scope
-		-- typeahead suggestions to the same kind of thing — see suggestNames().
+		-- 'country', 'manager' (extend as new category shapes are added). Used
+		-- to scope typeahead suggestions to the same kind of thing — see
+		-- suggestNames().
 	group_label TEXT NOT NULL DEFAULT 'All-Time Records',
 		-- heading the category list groups under on the client, e.g.
 		-- "This Season", "Club Goalscorers" — purely presentational, doesn't
@@ -21,147 +40,156 @@ CREATE TABLE IF NOT EXISTS categories (
 		-- entity_type: adding a new section is just a new label, no migration.
 	group_order INTEGER NOT NULL DEFAULT 0,
 		-- display order of group_label sections on the client (ascending);
-		-- categories within a group stay in id order. Ties within the same
-		-- group_order are harmless (falls back to id), but every category in
-		-- one section should share the same group_order or the section will
-		-- render out of its intended position.
+		-- categories within a group stay in id order.
 	reference_scope TEXT
-		-- optional reference_entities.category value (e.g. 'Spain', 'England')
-		-- this category's answers belong to. NULL means "no single scope" —
-		-- e.g. a pan-European or all-time-across-many-countries category —
-		-- and suggestNames() falls back to its previous global-reference
-		-- behavior. Set only on single-country club-table categories (found
-		-- 2026-08-26: searching "re" while playing La Liga returned Remo,
-		-- Rennes, Reading, Recoleta — clubs from four other countries —
-		-- ahead of Real Oviedo, an actual 2025-26 La Liga club, because the
-		-- reference pool was searched globally with no notion of which
-		-- country's clubs this category's answers are drawn from; see
-		-- suggestNames() for how this narrows that without hiding the rest
-		-- of the world's names entirely, which would remove the
-		-- "type any name for spelling help" behavior that global search was
-		-- deliberately built for).
+		-- optional entities.scope value (e.g. 'Spain', 'England') this
+		-- category's answers belong to. NULL means "no single scope" — see
+		-- suggestNames() for how this narrows typeahead ranking without
+		-- hiding the rest of the world's names outright.
 );
 
-CREATE TABLE IF NOT EXISTS answers (
-	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	category_id INTEGER NOT NULL REFERENCES categories(id),
-	rank INTEGER NOT NULL,           -- 1 = best/most, matches the category's ordering
-	canonical_name TEXT NOT NULL,    -- display name, e.g. "Cristiano Ronaldo"
-	stat_value TEXT NOT NULL,        -- e.g. "145" — paired with categories.stat_label
-	UNIQUE (category_id, rank)
-);
-
-CREATE TABLE IF NOT EXISTS answer_aliases (
-	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	answer_id INTEGER NOT NULL REFERENCES answers(id),
-	alias TEXT NOT NULL              -- normalized (lowercase, no accents/punctuation) match string
-);
-
-CREATE INDEX IF NOT EXISTS idx_answers_category ON answers(category_id);
-CREATE INDEX IF NOT EXISTS idx_aliases_answer ON answer_aliases(answer_id);
-CREATE INDEX IF NOT EXISTS idx_aliases_alias ON answer_aliases(alias);
-
--- Typeahead-only reference pool: real-world names (e.g. football clubs) that
--- are NOT necessarily a correct answer in any category. suggestNames() reads
--- this alongside answer_aliases so the guess box can suggest/autocomplete any
--- recognizable name, not just this category's answers. Guess validation
--- (matchGuess) never reads these tables — they can't make a wrong guess
--- "count". See agents.md for the rule this exists to satisfy.
-CREATE TABLE IF NOT EXISTS reference_entities (
+-- The one and only place a real-world name lives. An answer IS an entity
+-- (via category_answers.entity_id); the typeahead pool IS every entity.
+-- There is no second copy of a name to drift out of sync with this one.
+CREATE TABLE IF NOT EXISTS entities (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	canonical_name TEXT NOT NULL,
-	category TEXT NOT NULL,          -- loose grouping (e.g. a country), not a FK
-	entity_type TEXT NOT NULL DEFAULT 'club'
-		-- same vocabulary as categories.entity_type ('club', 'player', 'country'),
-		-- so a reference entity only ever surfaces as a suggestion for a
-		-- category asking for the same kind of thing.
+	entity_type TEXT NOT NULL DEFAULT 'club',   -- same vocabulary as categories.entity_type
+	scope TEXT       -- loose grouping (e.g. a country/confederation), not a FK —
+		-- same role the old reference_entities.category played.
+	-- Duplicate canonical_name across rows is expected and allowed at this
+	-- scale (two different real people/clubs can share a name) — identity is
+	-- always the id, never the name string. Typeahead disambiguates same-name
+	-- entities by scope/entity_type context, not by assuming names are unique.
 );
+CREATE INDEX IF NOT EXISTS idx_entities_type ON entities(entity_type);
+CREATE INDEX IF NOT EXISTS idx_entities_scope ON entities(scope);
 
-CREATE TABLE IF NOT EXISTS reference_entity_aliases (
+CREATE TABLE IF NOT EXISTS entity_aliases (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	entity_id INTEGER NOT NULL REFERENCES reference_entities(id),
-	alias TEXT NOT NULL              -- normalized, same rules as answer_aliases.alias
+	entity_id INTEGER NOT NULL REFERENCES entities(id),
+	alias TEXT NOT NULL
+		-- normalized (lowercase, no accents/punctuation) match string. Only
+		-- for real nicknames that aren't derivable from the canonical name
+		-- itself ("psg", "vvd", "cr7") — matching an entity's own name never
+		-- requires an alias row here, see matchGuess()/suggestNames() below,
+		-- which is what closes off the "forgot to add the self-alias" bug
+		-- class structurally rather than by convention.
+);
+CREATE INDEX IF NOT EXISTS idx_entity_aliases_entity ON entity_aliases(entity_id);
+CREATE INDEX IF NOT EXISTS idx_entity_aliases_alias ON entity_aliases(alias);
+
+-- Dated, sourced observations about an entity. Append-only by convention: a
+-- correction or an updated in-progress-season total is a new row with a new
+-- as_of_date, never an UPDATE in place — so "what did we believe true, and
+-- as of when" stays recoverable instead of being silently overwritten, and
+-- a category can honestly state the date its numbers are accurate up to.
+CREATE TABLE IF NOT EXISTS entity_stats (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	entity_id INTEGER NOT NULL REFERENCES entities(id),
+	stat_key TEXT NOT NULL,        -- e.g. 'pl-alltime-top-scorers', 'career-ucl-goals'
+	scope TEXT NOT NULL DEFAULT 'default',  -- season/competition qualifier, e.g. '2025-26'
+	value_numeric REAL,            -- sortable number; NULL only if genuinely not orderable
+	display_value TEXT NOT NULL,   -- what's actually shown, e.g. "145", "£222m", "2025-26"
+	as_of_date TEXT NOT NULL,      -- UTC "YYYY-MM-DD" this value is accurate up to
+	origin_rank INTEGER,           -- optional manual order pin AND occurrence
+		-- identity — two roles, both load-bearing (see rebuild.ts's
+		-- REBUILD_QUERY_SQL comment for the mechanics): (1) breaks a tie left
+		-- unresolved by value_numeric/tiebreak_stat_key according to curator
+		-- judgment (e.g. "most recent title" when two clubs are tied on count
+		-- and the tiebreak stat itself isn't modeled yet); (2) for a "one row
+		-- per occurrence" category (e.g. a World Cup Golden Boot winner who
+		-- won it twice), distinguishes genuinely different occurrences of the
+		-- same entity so they don't collapse into one — rows sharing
+		-- (entity_id, stat_key, scope, origin_rank) are the SAME fact
+		-- re-observed over time and collapse to their latest as_of_date; rows
+		-- differing only in origin_rank are kept as separate results. Not a
+		-- migration-only field — any category can use it going forward.
+	source TEXT,                   -- where this value came from (outlet/site/API)
+	verified_at TEXT                -- UTC "YYYY-MM-DD" this was actually checked, vs. as_of_date's "true as of"
+);
+CREATE INDEX IF NOT EXISTS idx_entity_stats_entity ON entity_stats(entity_id);
+CREATE INDEX IF NOT EXISTS idx_entity_stats_key_scope ON entity_stats(stat_key, scope);
+
+-- The query a category's Top N is computed from. One row per category
+-- (1:1). See src/worker/lib/rebuild.ts for what actually runs this.
+CREATE TABLE IF NOT EXISTS category_defs (
+	category_id INTEGER PRIMARY KEY REFERENCES categories(id),
+	stat_key TEXT NOT NULL,
+	scope TEXT NOT NULL DEFAULT 'default',
+	sort_dir TEXT NOT NULL DEFAULT 'DESC' CHECK (sort_dir IN ('ASC', 'DESC')),
+	tiebreak_stat_key TEXT,          -- optional secondary entity_stats.stat_key
+	tiebreak_scope TEXT NOT NULL DEFAULT 'default',
+	tiebreak_dir TEXT NOT NULL DEFAULT 'DESC' CHECK (tiebreak_dir IN ('ASC', 'DESC')),
+	limit_n INTEGER NOT NULL DEFAULT 10,   -- bounded Top N — never "every qualifier",
+		-- see the "Generic rule" this codifies in agents.md
+	target_date TEXT                -- NULL = always the latest known value (recomputed
+		-- every rebuild); a fixed date freezes a genuinely historical question
+		-- ("Top scorers as of end of 2010") to always resolve the same way.
 );
 
-CREATE INDEX IF NOT EXISTS idx_reference_entities_category ON reference_entities(category);
-CREATE INDEX IF NOT EXISTS idx_reference_entity_aliases_entity ON reference_entity_aliases(entity_id);
-CREATE INDEX IF NOT EXISTS idx_reference_entity_aliases_alias ON reference_entity_aliases(alias);
+-- Materialized answers — what gameplay actually reads and grades against.
+-- Written only by rebuildCategory(), never hand-edited: this is the
+-- snapshot that keeps a round's answer set stable while entity_stats keeps
+-- accumulating new dated observations underneath it.
+CREATE TABLE IF NOT EXISTS category_answers (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	category_id INTEGER NOT NULL REFERENCES categories(id),
+	rank INTEGER NOT NULL,
+	entity_id INTEGER NOT NULL REFERENCES entities(id),
+	value_numeric REAL,
+	display_value TEXT NOT NULL,
+	as_of_date TEXT NOT NULL,        -- surfaced to players — the actual currency guarantee
+	computed_at TEXT NOT NULL,
+	UNIQUE (category_id, rank)
+);
+CREATE INDEX IF NOT EXISTS idx_category_answers_category ON category_answers(category_id);
+CREATE INDEX IF NOT EXISTS idx_category_answers_entity ON category_answers(entity_id);
 
--- Full-text search index backing suggestNames() typeahead. Indexes the
--- canonical name of every answer and every reference_entities row, tokenized
--- on word boundaries (unicode61, diacritics stripped) so a prefix query
--- matches ANY word in the name, not just its start — "szo" finds "Dominik
--- Szoboszlai", "arnold" finds "Trent Alexander-Arnold" — with no per-name
--- alias row required. That's the fix for a whole class of bug found
--- 2026-08-25: an answer_aliases/reference_entity_aliases row is still the
--- only way to match a name that ISN'T a substring of canonical_name at all
--- (a real nickname — "psg", "barca", "vvd" — not derivable by tokenizing the
--- name itself), so those alias tables stay and suggestNames() still unions
--- them in; they're just no longer required just to make first/last-name
--- search work.
+-- Single-row version counter, bumped on every rebuild. Used as a cache-
+-- busting key for the Cache API layer (src/worker/index.ts) so the two
+-- public read routes can be edge-cached without a D1 read to check
+-- freshness on every request.
+CREATE TABLE IF NOT EXISTS content_version (
+	id INTEGER PRIMARY KEY CHECK (id = 1),
+	version INTEGER NOT NULL DEFAULT 1,
+	updated_at TEXT NOT NULL
+);
+INSERT OR IGNORE INTO content_version (id, version, updated_at) VALUES (1, 1, '2026-08-31');
+
+-- Full-text search index backing suggestNames() typeahead. Indexes every
+-- entity's canonical name, tokenized on word boundaries (unicode61,
+-- diacritics stripped) so a prefix query matches ANY word in the name, not
+-- just its start — "szo" finds "Dominik Szoboszlai", "arnold" finds "Trent
+-- Alexander-Arnold" — with no per-name alias row required.
 --
--- Not "external content" FTS5 (which ties the index to exactly one source
--- table) because this indexes two: answers and reference_entities. Kept in
--- sync by the triggers below instead — INSERT/UPDATE/DELETE on either source
--- table mirrors into entity_search. `source`/`source_id` identify which row
--- produced an entity_search row (for the DELETE side of an UPDATE); neither
--- is otherwise used by suggestNames() and both are UNINDEXED (stored, not
--- full-text-searched), same as entity_type.
+-- This is simpler than the previous version by construction: entity_search
+-- used to mirror two different source tables (answers, reference_entities)
+-- with a source/source_id discriminator, plus a trigger watching
+-- categories.entity_type UPDATEs to fix up denormalized type on already-
+-- inserted answer rows. Now every entity carries its own entity_type
+-- directly and permanently — there's exactly one source table, and nothing
+-- to cascade.
 CREATE VIRTUAL TABLE IF NOT EXISTS entity_search USING fts5(
 	name,
 	entity_type UNINDEXED,
-	source UNINDEXED,
-	source_id UNINDEXED,
+	entity_id UNINDEXED,
 	tokenize = 'unicode61 remove_diacritics 2'
 );
 
-CREATE TRIGGER IF NOT EXISTS entity_search_answers_ai AFTER INSERT ON answers BEGIN
-	INSERT INTO entity_search (name, entity_type, source, source_id)
-	SELECT NEW.canonical_name, c.entity_type, 'answer', NEW.id
-	FROM categories c WHERE c.id = NEW.category_id;
+CREATE TRIGGER IF NOT EXISTS entity_search_ai AFTER INSERT ON entities BEGIN
+	INSERT INTO entity_search (name, entity_type, entity_id)
+	VALUES (NEW.canonical_name, NEW.entity_type, NEW.id);
 END;
 
-CREATE TRIGGER IF NOT EXISTS entity_search_answers_au AFTER UPDATE ON answers BEGIN
-	DELETE FROM entity_search WHERE source = 'answer' AND source_id = OLD.id;
-	INSERT INTO entity_search (name, entity_type, source, source_id)
-	SELECT NEW.canonical_name, c.entity_type, 'answer', NEW.id
-	FROM categories c WHERE c.id = NEW.category_id;
+CREATE TRIGGER IF NOT EXISTS entity_search_au AFTER UPDATE ON entities BEGIN
+	DELETE FROM entity_search WHERE entity_id = OLD.id;
+	INSERT INTO entity_search (name, entity_type, entity_id)
+	VALUES (NEW.canonical_name, NEW.entity_type, NEW.id);
 END;
 
-CREATE TRIGGER IF NOT EXISTS entity_search_answers_ad AFTER DELETE ON answers BEGIN
-	DELETE FROM entity_search WHERE source = 'answer' AND source_id = OLD.id;
-END;
-
--- entity_search denormalizes categories.entity_type onto every one of that
--- category's answer rows (so a lookup never needs to join out to categories
--- just to filter by type). That denormalization goes stale if a category's
--- entity_type is corrected *after* its answers already exist — which seed.sql
--- itself does (categories are inserted with entity_type defaulting to
--- 'club', then `UPDATE categories SET entity_type = 'player' WHERE slug IN
--- (...)` fixes up player/country categories afterward) — so this trigger is
--- required, not optional, for entity_search to end up correct even on a
--- fresh seed.
-CREATE TRIGGER IF NOT EXISTS entity_search_categories_au AFTER UPDATE OF entity_type ON categories BEGIN
-	DELETE FROM entity_search WHERE source = 'answer'
-		AND source_id IN (SELECT id FROM answers WHERE category_id = NEW.id);
-	INSERT INTO entity_search (name, entity_type, source, source_id)
-	SELECT canonical_name, NEW.entity_type, 'answer', id
-	FROM answers WHERE category_id = NEW.id;
-END;
-
-CREATE TRIGGER IF NOT EXISTS entity_search_reference_ai AFTER INSERT ON reference_entities BEGIN
-	INSERT INTO entity_search (name, entity_type, source, source_id)
-	VALUES (NEW.canonical_name, NEW.entity_type, 'reference', NEW.id);
-END;
-
-CREATE TRIGGER IF NOT EXISTS entity_search_reference_au AFTER UPDATE ON reference_entities BEGIN
-	DELETE FROM entity_search WHERE source = 'reference' AND source_id = OLD.id;
-	INSERT INTO entity_search (name, entity_type, source, source_id)
-	VALUES (NEW.canonical_name, NEW.entity_type, 'reference', NEW.id);
-END;
-
-CREATE TRIGGER IF NOT EXISTS entity_search_reference_ad AFTER DELETE ON reference_entities BEGIN
-	DELETE FROM entity_search WHERE source = 'reference' AND source_id = OLD.id;
+CREATE TRIGGER IF NOT EXISTS entity_search_ad AFTER DELETE ON entities BEGIN
+	DELETE FROM entity_search WHERE entity_id = OLD.id;
 END;
 
 -- Cost guardrails (see agents.md — Cloudflare has no account-wide spending

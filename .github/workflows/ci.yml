@@ -9,25 +9,27 @@ name: CI
 # KV, no Cloudflare credentials needed — `--local` mode never talks to the
 # real account) through every category the way an actual player would,
 # deliberately using obscure aliases, mixed case, and punctuation swapped
-# between space/hyphen to try to break guess matching. verify-name-sync
-# catches a related but different bug class: an answer whose canonical name
-# has drifted from the same real person/club's reference_entities row (e.g.
-# "Thiago" vs. the real "Igor Thiago"), which can both silently reject a
-# correctly-spelled guess and make one entity look like two in typeahead.
-# None of the three checks below can tell a category's *numbers* are simply
-# wrong against the real world (pl-2025-26-final-table shipped with the
-# wrong 9th/10th place for a while — a user caught it, not this suite,
-# because nothing here checks real-world correctness at all; a follow-up
-# attempt at a fix — a marker comment claiming a category had been
-# checked, enforced on every push — was rightly rejected: it didn't verify
-# anything, and ran regardless of whether content had even changed). The
-# actual fact-check against a live sports-data API lives in
-# scripts/verify-content-source.ts, run by content-check.yml, which
-# triggers only when db/seed.sql changes — not here. See
-# scripts/playtest.ts, scripts/verify-guess-matching.ts, and
-# scripts/verify-name-sync.ts for what each check below actually asserts,
-# and agents.md for how to run all four (three here, one in the other
-# workflow) locally.
+# between space/hyphen to try to break guess matching. verify-category-defs
+# catches a bug class introduced by the entities/entity_stats/category_defs
+# rebuild model (see db/schema.sql and agents.md): a category's Top N is now
+# *derived* (ORDER BY value_numeric) rather than hand-typed, so a
+# display_value that doesn't match its value_numeric, or a category_defs row
+# whose query silently produces zero or stale rows, is now a real,
+# undetectable-by-eye bug class the old hand-ordered `answers` model made
+# impossible by construction. None of the checks below can tell a
+# category's *numbers* are simply wrong against the real world
+# (pl-2025-26-final-table shipped with the wrong 9th/10th place for a while
+# — a user caught it, not this suite, because nothing here checks
+# real-world correctness at all; a follow-up attempt at a fix — a marker
+# comment claiming a category had been checked, enforced on every push —
+# was rightly rejected: it didn't verify anything, and ran regardless of
+# whether content had even changed). The actual fact-check against a live
+# sports-data API lives in scripts/verify-content-source.ts, run by
+# content-check.yml, which triggers only when db/seed.sql changes — not
+# here. See scripts/playtest.ts, scripts/verify-guess-matching.ts, and
+# scripts/verify-category-defs.ts for what each check below actually
+# asserts, and agents.md for how to run all four (three here, one in the
+# other workflow) locally.
 
 on:
   push:
@@ -69,8 +71,8 @@ jobs:
       - name: Verify guess-matching correctness (all answers/aliases)
         run: npm run verify:matching
 
-      - name: Verify answer names stay in sync with the reference pool
-        run: npm run verify:name-sync
+      - name: Verify category defs produce their materialized answers
+        run: npm run verify:category-defs
 
       - name: Playtest every category end to end
         run: npm run playtest

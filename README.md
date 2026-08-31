@@ -16,7 +16,9 @@ this app is built and run; keep this README as the quick-start only.
 
 - [**React**](https://react.dev/) + [**Vite**](https://vite.dev/) — frontend, in `src/react-app/`
 - [**Hono**](https://hono.dev/) — backend on [**Cloudflare Workers**](https://developers.cloudflare.com/workers/), in `src/worker/`
-- **Cloudflare D1** — quiz content (categories, answers, typeahead reference data)
+- **Cloudflare D1** — quiz content: categories, entities (players/clubs/countries/
+  managers — the single source for both answers and typeahead), dated stats,
+  and the derived, materialized answer sets
 - **Cloudflare KV** — per-device progress/streak state
 
 ## Development

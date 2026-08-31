@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { CategorySummary } from "../types";
 import { GroupIcon } from "./GroupIcon";
+import { formatAsOfDate } from "../lib/formatAsOfDate";
 
 interface Props {
 	categories: CategorySummary[];
@@ -106,6 +107,9 @@ export function CategoryList({ categories, onSelect, selectedSlug }: Props) {
 													<strong>{cat.title}</strong>
 													{cat.subtitle && (
 														<span className="category-card__subtitle">{cat.subtitle}</span>
+													)}
+													{formatAsOfDate(cat.asOfDate) && (
+														<span className="category-card__as-of">{formatAsOfDate(cat.asOfDate)}</span>
 													)}
 												</div>
 												<span className={`category-card__status category-card__status--${cat.status}`}>

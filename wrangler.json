@@ -15,6 +15,14 @@
 		"SUGGEST_RATE_LIMIT_PER_MINUTE": 30
 	},
 	"upload_source_maps": true,
+	"triggers": {
+		// Nightly rebuild of category_answers from entity_stats (see
+		// src/worker/lib/rebuild.ts and index.ts's scheduled()). Cron Triggers
+		// run in this same Worker on the Free plan — no external scheduler,
+		// no new billable resource. 03:00 UTC is off-peak for this app's
+		// (currently nonexistent) traffic; revisit only if that changes.
+		"crons": ["0 3 * * *"]
+	},
 	"assets": {
 		"directory": "./dist/client",
 		"not_found_handling": "single-page-application"

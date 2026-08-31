@@ -356,6 +356,12 @@
 	font-size: 0.8rem;
 	font-weight: 400;
 }
+.category-card__as-of {
+	color: #6b7280;
+	font-size: 0.7rem;
+	font-style: italic;
+	font-weight: 400;
+}
 .category-card__status {
 	flex-shrink: 0;
 	font-size: 0.8rem;
@@ -391,6 +397,12 @@
 	margin: 0.25rem 0 0;
 	color: #9ca3af;
 	font-size: 0.9rem;
+}
+.category__as-of {
+	margin: 0.15rem 0 0;
+	color: #6b7280;
+	font-size: 0.75rem;
+	font-style: italic;
 }
 
 .mode-picker {

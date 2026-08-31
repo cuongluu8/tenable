@@ -30,7 +30,7 @@ guesses) or Tension (5 lives) mode.
 
 ```
 src/worker/
-  index.ts            # route mounting
+  index.ts            # route mounting + scheduled() cron handler (nightly rebuild)
   routes/
     categories.ts      # GET /api/categories — full library + this device's status per category
     category.ts         # GET /api/categories/:slug — one category + progress
@@ -38,7 +38,9 @@ src/worker/
     reveal.ts             # GET /api/reveal/:slug — full answers, gated on completion
     stats.ts               # GET /api/stats — streak + lifetime totals
   lib/
-    categories.ts    # D1 queries
+    categories.ts    # D1 queries (entities/category_answers, not answers/reference_entities)
+    rebuild.ts          # category_defs + entity_stats -> category_answers (see Data model)
+    responseCache.ts # Cache API wrapper for the two public read routes
     progressStore.ts # KV reads/writes (progress, streak, lifetime)
     normalize.ts       # guess/alias normalization (lowercase, strip accents/punctuation)
     device.ts            # anonymous device-id cookie
@@ -52,159 +54,172 @@ src/react-app/
     PlayScreen.tsx     # mode picker → guess UI → result panel, per category
     AnswerGrid.tsx
     LivesIndicator.tsx
+  lib/
+    formatAsOfDate.ts  # renders a category's asOfDate as the "Data as of ..." label
 
 db/
-  schema.sql   # categories / answers / answer_aliases / reference_entities tables
-  seed.sql       # starter content — NOT a fact-checked library, see below
+  schema.sql   # categories / entities / entity_aliases / entity_stats / category_defs / category_answers
+  seed.sql       # GENERATED export of production D1's content tables — never edit by hand, see below
 ```
 
 ## Data model
 
-- `categories` — one row per topic (slug, title, subtitle, stat_label).
-- `answers` — usually 10 rows per category (rank, canonical_name, stat_value).
-  `answerCount` is always derived from `COUNT(*)` rather than assumed to be
-  10, so a category *can* have more if a topic genuinely calls for it — but
-  **the default for every category, including `copa-libertadores-alltime-titles`,
-  is a bounded Top N (normally 10)**, not "every entity that qualifies at
-  all." An earlier pass expanded the Libertadores category to all 27 clubs
-  that have ever won it; that was a misreading of a request that was actually
-  about typeahead coverage (see below), not the answer set, and was reverted.
-  Ties within a Top N are broken by most recent title/achievement (same
-  convention across the Champions League, Serie A, and Libertadores
-  categories) — don't uncap a category just because a tiebreak excludes a
-  real qualifier; that's the tiebreak working as intended.
-- `answer_aliases` — normalized match strings per answer (e.g. "psg", "paris
-  saint-germain" both point at the "Paris Saint-Germain" answer). Guess
-  matching (`matchGuess` in `src/worker/lib/categories.ts`) only ever compares
-  against this table, never `canonical_name` directly, so seed data must
-  always include the canonical name's own normalized form as one alias.
+**Rebuilt 2026-08-31 around a single source of truth for identity, plus a
+derived rather than hand-authored answer set.** The rest of this section
+describes the current model; see "Historical incidents" below for the
+previous `answers`/`reference_entities` design and the bugs that motivated
+replacing it — several of those bug classes are now structurally closed
+rather than merely checked for, which is worth knowing when you read them.
+
+- `categories` — one row per topic (slug, title, subtitle, stat_label,
+  `entity_type`, `group_label`/`group_order`, `reference_scope`). Unchanged
+  in shape from before.
+- `entities` — **the one and only place a real-world name lives.** A club,
+  player, country, or manager gets exactly one row, identified by `id`, not
+  by name (duplicate `canonical_name` across rows is expected and allowed —
+  two different real people can share a full name — so never assume a name
+  string uniquely identifies an entity). An entity IS the typeahead pool
+  (every row is a `suggestNames()` candidate) AND, via `category_answers`
+  below, IS how an answer is represented — there's no second copy of a name
+  to drift out of sync with this one, which is what the old
+  `answers.canonical_name` vs. `reference_entities.canonical_name` split
+  could do (see "Historical incidents").
+- `entity_aliases` — normalized nicknames per entity ("psg", "vvd", "cr7").
+  **Only for genuine nicknames that aren't derivable from tokenizing the
+  canonical name itself** — matching an entity's own name is now automatic
+  (see `matchGuess`/`suggestNames` below), so there's no "remember to add
+  the self-alias" step any more, and no reason to add one for a name's own
+  words/parts.
+- `entity_stats` — **dated, sourced observations** about an entity:
+  `(entity_id, stat_key, scope, value_numeric, display_value, as_of_date,
+  origin_rank, source, verified_at)`. Append-only by convention — a
+  correction or an updated in-progress-season total is a **new row with a
+  new `as_of_date`**, never an `UPDATE` in place, so "what did we believe
+  true, and as of when" stays recoverable instead of silently overwritten,
+  and a category can honestly state the date its numbers are accurate up
+  to instead of a hand-written subtitle claim that can go stale unnoticed.
+  `origin_rank` has two load-bearing roles, not one — see its comment in
+  schema.sql and `rebuild.ts`'s `REBUILD_QUERY_SQL` comment: it's both a
+  manual order-pin for otherwise-unresolved ties, and (grouped with
+  `entity_id`) the thing that keeps a "one row per occurrence" category
+  (e.g. a repeat World Cup Golden Boot winner) from collapsing two real
+  occurrences of the same entity into one when the rebuild picks "the
+  latest observation."
+- `category_defs` — **the query a category's Top N is computed from**, one
+  row per category: `stat_key`, `scope`, `sort_dir`, an optional
+  `tiebreak_stat_key`/`tiebreak_dir`, `limit_n` (the bounded Top N — see
+  below), and `target_date` (`NULL` = always the latest known value; a
+  fixed date freezes a genuinely historical question so it always resolves
+  the same way regardless of when it's played).
+- `category_answers` — **the materialized snapshot gameplay actually reads
+  and grades against**, written only by `rebuildCategory()`
+  (`src/worker/lib/rebuild.ts`), never hand-edited. Materializing into a
+  real table rather than computing a category's Top N live on every request
+  is deliberate: `entity_stats` keeps accumulating new dated observations
+  underneath it (a season's goal tally ticking up, say), but a round in
+  progress needs a *stable* answer set for its whole duration — see
+  `rebuild.ts`'s module comment. Each row carries its own `as_of_date`; the
+  category-level "Data as of ..." date shown to players (see
+  `formatAsOfDate.ts`) is `MAX(as_of_date)` across a category's rows,
+  computed at query time, not a separately-tracked field that could drift
+  from the rows it's summarizing.
+- `content_version` — single-row counter, bumped by `rebuildAll()` on every
+  rebuild. Used as the Cache API cache-busting key (`responseCache.ts`) for
+  the two public read routes — see Serving/caching below. Never part of
+  `db/seed.sql` (schema.sql seeds it fresh via `INSERT OR IGNORE` on every
+  setup; a freshly-seeded local D1 has no prior rebuild history to version).
 
 ### Generic rule: answers stay bounded, typeahead is broader
 
-This applies to every category, not just one: **the `answers` table is the
-bounded guessable set (Top N) for a category and stays that size; the
-typeahead/autocomplete pool for the guess box is a separate concern that
-covers far more real, recognizable names than just the current answers**, so
-players can type/select accurately even when guessing something that turns
-out to be wrong. If a request sounds like "include more real X" for a
-category, check whether it actually means the answer set or the typeahead
-pool before touching `answers` — the Libertadores category was expanded to
-27 clubs and reverted once already because of this ambiguity.
+This still applies to every category, not just one, and the mechanism for
+it changed but the rule didn't: **a category's answer set is a bounded Top N
+(`category_defs.limit_n`, normally 10) — the typeahead/autocomplete pool for
+the guess box is every entity**, which covers far more real, recognizable
+names than just the current answers, so players can type/select accurately
+even when guessing something that turns out to be wrong. If a request
+sounds like "include more real X" for a category, check whether it actually
+means the answer set (`limit_n` / what `category_defs`' query returns) or
+the general entity pool before touching either — the Libertadores category
+was expanded to 27 clubs and reverted once already (see "Historical
+incidents") because of exactly this ambiguity, back when the two pools were
+separate tables; the same ambiguity is just as real now that they're one.
 
-This is implemented via `reference_entities` / `reference_entity_aliases`
-(see schema.sql) — a typeahead-only pool, decoupled from `answers`.
-`matchGuess` (guess validation/scoring) never reads these tables (or
-`entity_search`, below), so adding a name here can't make a wrong guess
-"count" — it only helps typing.
+`matchGuess` (guess validation/scoring) only ever reads a category's current
+`category_answers` rows (joined out to `entities`/`entity_aliases`) — a name
+existing in the general entity pool can't make a wrong guess "count" on its
+own; it has to actually be one of that category's materialized answers.
 
 **`suggestNames()` matches primarily through `entity_search`, an FTS5
-virtual table (added 2026-08-25), not through the alias tables.**
-`entity_search` indexes the canonical name of every `answers` row and every
-`reference_entities` row, tokenized on word boundaries (`unicode61
-remove_diacritics 2`), and is queried with a per-word prefix `MATCH` (see
-`toFtsPrefixQuery()` in `normalize.ts`) — so a search matches ANY word of a
-name, not just its start: typing "szo" finds "Dominik Szoboszlai" via its
-second word, with no alias row required. It's kept in sync automatically by
-triggers on `answers`, `reference_entities`, and `categories` (the last one
-matters: `categories.entity_type` can be corrected by an `UPDATE` *after*
-that category's answers already exist — seed.sql itself does this — and
-`entity_search` denormalizes `entity_type` onto each answer row, so without
-a trigger watching that `UPDATE` too, answers inserted before the fix-up
-would carry a stale type forever; don't drop that trigger when touching this
-area). `answer_aliases` / `reference_entity_aliases` are still unioned in on
-top of the FTS match, but only earn their keep now for genuine nicknames
-that aren't a substring of the canonical name at all and so can't be found
-by tokenizing it — "psg", "barca", "spurs", "vvd". A missing nickname alias
-is a minor, expected gap (add one if a real one is reported missing); it is
-**not** the same class of bug as a missing `reference_entity_aliases` row
-used to be before this change (see the incident below) — first/last-name
-search no longer depends on alias rows existing at all.
+virtual table**, not through `entity_aliases`. It indexes every entity's
+canonical name, tokenized on word boundaries (`unicode61 remove_diacritics
+2`), queried with a per-word prefix `MATCH` (see `toFtsPrefixQuery()` in
+`normalize.ts`) — so a search matches ANY word of a name, not just its
+start: typing "szo" finds "Dominik Szoboszlai" via its second word, with no
+alias row required. Kept in sync by a trigger on `entities` alone now (see
+schema.sql's `entity_search` comment for why this is simpler than before:
+the old version mirrored two source tables with a `source`/`source_id`
+discriminator, plus a separate trigger watching `categories.entity_type`
+UPDATEs to fix up denormalized type on already-inserted rows — merging into
+one `entities` table removed both of those, there's nothing left to
+cascade). `entity_aliases` is still unioned in on top of the FTS match, but
+only earns its keep for genuine nicknames that aren't a substring of the
+canonical name at all — "psg", "barca", "spurs", "vvd" — those can't be
+found by tokenizing the name itself.
 
-**Adding a new `reference_entities` row (or answer) needs nothing beyond
-the plain `INSERT`** — the trigger populates `entity_search` for you. Only
-add alias rows for actual nicknames, not for the name itself or its parts.
+**Adding a new `entities` row needs nothing beyond the plain `INSERT`** —
+the trigger populates `entity_search` for you. Only add `entity_aliases`
+rows for actual nicknames, not the name itself or its parts.
 
-Seeded
-so far (see the bottom of `db/seed.sql`):
-- Several hundred football clubs, `entity_type = 'club'` (South American
-  top-flight rosters plus a full English/Scottish league expansion added
-  later, `category` column holds the country).
+Seeded so far (see `db/seed.sql`; a `SELECT entity_type, COUNT(*) FROM
+entities GROUP BY entity_type` on production is the fast way to check this
+hasn't drifted from what's below):
+- Several hundred football clubs, `entity_type = 'club'`.
 - ~110 countries, `entity_type = 'country'` (UEFA + CAF members — scoped to
-  the confederations the two 'country' categories actually cover, `category`
-  column holds the confederation).
-- **~7,800+ players and growing toward ~18,000**, `entity_type = 'player'`
-  (originally a curated ~160 broadly-recognizable Ballon d'Or-calibre names;
-  as of 2026-08-25 this is mid-expansion to a much broader "every player
-  since 1992" pool sourced from a cleaned FIFA 21 dataset — see "In-progress
-  player expansion" below). **Explicitly not exhaustive** — unlike the
-  club/country lists (which are objectively bounded: "current top-flight
-  roster", "confederation members"), "notable players" has no natural
-  boundary. Expand as gaps show up rather than trying to front-load
-  completeness.
+  the confederations the two 'country' categories actually cover).
+- 100 well-known managers, `entity_type = 'manager'`.
+- **~18,400 players**, `entity_type = 'player'` (a cleaned FIFA 21 dataset,
+  loaded in 70 batches — see "Historical incidents" for that expansion's
+  own story). **Explicitly not exhaustive** — unlike the club/country lists
+  (objectively bounded: "current top-flight roster", "confederation
+  members"), "notable players" has no natural boundary. Expand as gaps show
+  up rather than trying to front-load completeness.
 
-This pool is **best-effort, not held to the same fact-checking bar as
-`answers` content** (see Content accuracy below) — it doesn't affect
-scoring, only what the guess box suggests, so an occasional stale or missing
-entry here is a much smaller problem than an error in `answers`. Extend the
-same way for other regions/entity types as new categories get added — don't
-grow `answers` past its category's actual Top N to solve a typeahead gap.
+The typeahead-only portion of this pool (entities that have never been a
+category answer) is **best-effort, not held to the same fact-checking bar as
+`entity_stats`/`category_answers` content** (see Content accuracy below) —
+it doesn't affect scoring, only what the guess box suggests, so an
+occasional stale or missing entry here is a much smaller problem than a
+wrong Top N. Extend the same way for other regions/entity types as new
+categories get added — don't grow a category's `limit_n` past its actual
+Top N to solve a typeahead gap.
 
-**`db/seed.sql` and production D1 previously diverged for
-`reference_entities` — now resolved (2026-08-27), see below for what to do
-if it ever recurs.** The original intent (see git history) was that every
-reference-data addition gets appended to `seed.sql` and then mirrored to
-production by hand via the Cloudflare MCP `d1_database_query` tool. The
-large player-pool expansion (2026-08-25 onward, see below) broke that
-invariant for a while: batches were applied directly to production only,
-without being back-ported into `seed.sql` — caught, fixed (seed.sql
-regenerated from a verified-clean production export), and from batch 061
-onward every batch was applied to production **and** appended to
-`db/seed.sql` in the same step specifically to not reintroduce this drift.
-As of the completed player expansion below, `db/seed.sql` and production
-match exactly. **Still confirm this hasn't drifted again before trusting
-either file** — compare
-`SELECT entity_type, COUNT(*) FROM reference_entities GROUP BY entity_type;`
-against production rather than assuming — but there is no known divergence
-right now.
+**`db/seed.sql` is now a GENERATED export of production D1's content
+tables, not a hand-maintained parallel copy** — see the header comment in
+`db/seed.sql` itself for the exact regeneration command. This closes off a
+bug class that bit this project twice under the old model (see "Historical
+incidents": the seed.sql/production divergence incidents) rather than
+relying on remembering to mirror every change by hand a third time. If
+you're ever unsure whether `db/seed.sql` matches production, don't assume
+it does — regenerate it, don't hand-edit toward a guess.
 
-### Player expansion (started 2026-08-25, completed 2026-08-27)
+### Type-scoped typeahead
 
-At the user's request ("I want every player since 1992"), the player
-typeahead pool was expanded from ~160 curated names to over 18,000 real
-players, sourced from a cleaned FIFA 21 player dataset (EA's fabricated/
-placeholder players — an entire fake Brazilian Série A, detected via
-uniform-squad-size statistical fingerprinting — were filtered out first).
-Names were normalized and aliased to match `normalize()` in
-`src/worker/lib/normalize.ts`, deduped against pre-existing content, and
-loaded in 70 batches of ~250 players each (sorted by FIFA overall rating
-descending, so the most recognizable players loaded first in case the job
-was interrupted — which it was, for several sessions). No bulk-upload API
-exists for D1 from this environment, so each batch was a separate
-`d1_database_query` MCP call.
+Both `categories` and `entities` carry an `entity_type` column (`'club'` |
+`'player'` | `'country'` | `'manager'`, extend as new category shapes are
+added — defaults to `'club'`). `suggestNames()` takes the *playing*
+category's own `entity_type` and filters to it, so a players category (e.g.
+Ballon d'Or) never suggests a club and a clubs category never suggests a
+player. The `/api/suggest` route (`src/worker/routes/suggest.ts`) requires a
+`category` query param for this — it looks up that category's `entity_type`
+via `getCategoryBySlug` and returns no suggestions at all if the slug is
+missing or unknown, rather than falling back to an unscoped, mixed-type
+list. The frontend (`GuessInput.tsx`, via a `categorySlug` prop threaded
+from `PlayScreen.tsx`) always sends it. When adding a new category whose
+answers aren't clubs, players, countries, or managers, add the new
+`entity_type` value here and to any seed data using it — the column has no
+CHECK constraint, so a typo silently creates a type nothing will ever match
+against.
 
-**This is now finished** — all 70 batches (000-069) are applied to
-production and present in `db/seed.sql`; production `reference_entities`
-has 18,440 players (club=419, country=110), matching `db/seed.sql` exactly.
-The `db/pending_player_batches/` working directory this used (batch files,
-`PROGRESS.md`) has been fully consumed and removed — if you see either
-referenced elsewhere (e.g. old commit messages), that's historical, not a
-sign of remaining work. There is no pending batch work to resume.
-
-**Type-scoped**: both `categories` and `reference_entities` carry an
-`entity_type` column (`'club'` | `'player'` | `'country'`, extend as new
-category shapes are added — defaults to `'club'`). `suggestNames()` takes
-the *playing* category's own `entity_type` and filters both sources to it,
-so a players category (e.g. Ballon d'Or) never suggests a club and a clubs
-category never suggests a player. The `/api/suggest` route
-(`src/worker/routes/suggest.ts`) requires a `category` query param for this
-— it looks up that category's `entity_type` via `getCategoryBySlug` and
-returns no suggestions at all if the slug is missing or unknown, rather than
-falling back to an unscoped, mixed-type list. The frontend
-(`GuessInput.tsx`, via a `categorySlug` prop threaded from `PlayScreen.tsx`)
-always sends it. When adding a new category whose answers aren't clubs,
-players, or countries, add the new `entity_type` value here and to any
-seed data using it — the column has no CHECK constraint, so a typo silently
-creates a type nothing will ever match against.
 - Categories are **not** date-gated — every category is playable any time.
   Per-device progress lives in KV, keyed by `progress:{deviceId}:{slug}`, kept
   indefinitely (no TTL) so a finished category is remembered and never
@@ -214,17 +229,64 @@ creates a type nothing will ever match against.
   it; a loss never erases it). Lifetime totals (`lifetime:{deviceId}`) move on
   every completion regardless of mode/result.
 
+### Serving/caching and the rebuild job
+
+- **`rebuildAll()` / `rebuildCategory()`** (`src/worker/lib/rebuild.ts`) run
+  every `category_defs` row's query against `entity_stats` and rewrite that
+  category's `category_answers` rows, then bump `content_version`. Driven by
+  a **Cron Trigger** (`wrangler.json`'s `triggers.crons`, `0 3 * * *` UTC) —
+  a `scheduled()` handler in the same Worker (`index.ts`), no external
+  scheduler or new billable resource (Cron Triggers run on the Workers Free
+  plan). Re-run it by hand (or on a shorter cadence) if you need a content
+  fix to take effect before the next 03:00 UTC firing.
+- **`cachedContentQuery()`** (`src/worker/lib/responseCache.ts`) wraps the
+  D1 query behind `GET /api/categories` and `GET /api/categories/:slug` —
+  the category metadata portion only, never the per-device progress/streak
+  data those routes merge in from KV afterwards (caching the whole response
+  would leak one device's "already played" status to another device hitting
+  the same cache key). Keyed on a synthetic internal URL plus
+  `content_version`, via Cloudflare's edge Cache API — a cache hit costs one
+  cheap indexed point-read (`content_version`) instead of the full
+  `categories`/`category_answers` join, and a rebuild's version bump
+  invalidates every cached entry for free, no explicit purge to remember.
+  `GET /api/reveal/:slug` and `GET /api/multiplayer/reveal/:slug` are
+  **never** cached this way — they contain actual answer content gated on
+  completion, and caching them behind a version key shared by every visitor
+  would let anyone request a completed device's cached reveal.
+- D1 `VIEW`s were considered and rejected for the materialization step:
+  SQLite views aren't materialized (a `SELECT` against one re-runs the
+  underlying query every time, same row-reads as querying the tables
+  directly) — no perf win, and no answer-set stability during a round
+  either. `category_answers` being a real table, written by an explicit
+  rebuild, is what actually delivers both.
+
 ### Content accuracy
 
-`db/seed.sql` is hand-curated, not pulled from a live API. Anything involving
-recent seasons/tournaments needs fact-checking before being trusted — cross
-reference multiple independent sources (WebSearch works from this
-environment for that; direct WebFetch to most sports/reference sites does
-not — it's blocked by the sandbox's egress proxy). When a topic is legally or
-factually contested (e.g. an appealed match result), leave it out of seed
-content rather than guess. See git history on `db/seed.sql` for precedent
-(PSG's Champions League tiebreak, the AFCON 2025/26 dispute left
-deliberately unmodeled).
+Content is hand/AI-researched, not pulled from a live API except where noted
+below. Anything involving recent seasons/tournaments needs fact-checking
+before being trusted — cross reference multiple independent sources
+(WebSearch works from this environment for that; direct WebFetch to most
+sports/reference sites does not — it's blocked by the sandbox's egress
+proxy). When a topic is legally or factually contested (e.g. an appealed
+match result), leave it out rather than guess. See git history on
+`db/seed.sql` for precedent (PSG's Champions League tiebreak, the AFCON
+2025/26 dispute left deliberately unmodeled).
+
+**Deriving a category's order from `entity_stats` raises this bar, not
+lowers it, and adds one new bug class the old hand-typed `answers` model
+made impossible by construction: a silently wrong sort.** Whoever wrote an
+`answers` `INSERT` chose the display order directly — a sorting bug simply
+couldn't happen. Now that order comes from `ORDER BY value_numeric`, a
+`display_value` that doesn't actually match its `value_numeric` (e.g.
+display "£222m" entered alongside `value_numeric` 220000000) produces a
+wrong-but-plausible-looking ranking with no visual tell. `npm run
+verify:category-defs` is the standing check for this — see "Local
+development" below — but it's still on you to get the number right when you
+write it; the check only catches an internal inconsistency, not a
+real-world-wrong one, same limitation `verify:matching`/`playtest` always
+had (see the "none of the automated checks can catch a category whose
+numbers are simply wrong" incident below — still true, just for
+`entity_stats` now instead of `answers`).
 
 **A wrong answer is not a minor bug — a user found one in
 `pl-2025-26-top-scorers` (Antoine Semenyo missing from rank 3 entirely, fixed
@@ -248,7 +310,7 @@ category. Two things follow from this:
    claiming a player had transferred clubs mid-search that better sources
    didn't corroborate) — check which underlying source each claim actually
    traces to, don't take the search tool's synthesized answer at face value.
-2. **After any bug report on `answers` content, don't just fix the one
+2. **After any bug report on category content, don't just fix the one
    reported item — audit the rest of that category, and give the other
    time-sensitive categories (anything with "2025-26", "2026", or "through
    <season>" in its subtitle) the same pass.** One bug found by a user is a
@@ -266,7 +328,8 @@ category. Two things follow from this:
 are simply wrong (2026-08-27).** `pl-2025-26-final-table` shipped with the
 wrong 9th/10th place (Fulham/Newcastle United instead of the real
 Brentford/Chelsea) and stayed wrong until a user caught it by eye.
-`verify:matching`, `verify:name-sync`, and `playtest` all passed the whole
+`verify:matching` and `playtest` (this was before `verify:category-defs` and
+`entity_stats`/`category_answers` existed — see below) all passed the whole
 time — none of them are wrong to have passed, because none of them check
 real-world correctness at all: they treat whatever's in D1 as ground truth
 and test the app's *mechanics* against it (does a guess resolve, does a
@@ -339,15 +402,23 @@ SELECT * FROM entity_search WHERE entity_search MATCH 'yourprefix*';
 ```
 An empty result there (rather than a missing alias) is now the thing to
 chase — e.g. a trigger that didn't fire, or a bulk load that wrote
-`reference_entities` some other way than a plain `INSERT` (bypassing the
-trigger).
+`entities` (`reference_entities` at the time of this incident — see the
+Data model section above for the current single-table model) some other way
+than a plain `INSERT` (bypassing the trigger).
 
-**Production D1 is not auto-applied from `db/seed.sql`.** Workers Builds
-(see Deployment) only builds and deploys the Worker/frontend code — it does
-not run any D1 migration or seed step. So far, content changes have been
+**Production D1 is not auto-applied from `db/seed.sql` — it's the other way
+around now (as of the 2026-08-31 entities/`category_defs` rebuild).**
+Workers Builds (see Deployment) only builds and deploys the Worker/frontend
+code — it does not run any D1 migration or seed step. Content changes are
 applied to production D1 by hand via the Cloudflare MCP `d1_database_query`
-tool, mirroring whatever changed in `db/seed.sql`. If that ever changes (e.g.
-a migration step gets added to the build), update this paragraph.
+tool (a content edit is an `entity_stats` `INSERT` + rebuild, not a direct
+`category_answers` edit — see Data model above), and `db/seed.sql` is then
+**regenerated from production**, not hand-edited to match it — see
+`db/seed.sql`'s header comment for the exact export command. The incidents
+below describe what happened under the *previous* mirror-by-hand model
+(both directions, hand-edited seed.sql "mirrored" to production) and are
+kept for the history of why that model was replaced — they're not a
+description of the current process.
 
 **This mirroring silently stopped happening for a while (discovered and
 fixed 2026-08-26) — treat "changes have been applied to production" as a
@@ -388,10 +459,10 @@ outstanding are now resolved (2026-08-27):**
 The player-reference-pool expansion is complete; there is no further
 pending batch work.
 
-If you're ever unsure whether `db/seed.sql` still matches production,
-don't assume it does — compare counts (`SELECT entity_type, COUNT(*) FROM
-reference_entities GROUP BY entity_type` on both sides is a fast sanity
-check) before trusting either one.
+If you're ever unsure whether `db/seed.sql` still matches production, don't
+assume it does — regenerate it from production (see `db/seed.sql`'s header)
+rather than comparing counts and hand-patching; that's the whole point of it
+being a generated export now instead of a second hand-maintained copy.
 
 **Incident: an answer's name silently drifting from its reference-pool
 counterpart (2026-08-26).** A user guessed "Igor Thiago" in
@@ -415,30 +486,38 @@ confirmed-different-people alias collisions that are fine as-is (Tim vs.
 Gary Cahill, Andy Cole vs. Ashley Cole, etc. — see `KNOWN_COLLISIONS` in the
 script below).
 
-**`npm run verify:name-sync` (`scripts/verify-name-sync.ts`) is the standing
-check for this bug class, and it runs in CI on every push/PR to `main`** —
-same enforcement pattern as `verify:matching` below, for the same reason: a
-manual audit someone claims to have done is not a guarantee the next
-category addition won't reintroduce this. **Whenever a new category (or new
-answers in an existing one) is added, this must pass before it's considered
-done** — it's not an optional follow-up step. What it checks: for every
-answer, if one of its aliases is *unambiguously* claimed by exactly one
-`reference_entities` row (i.e. no other real entity in the pool shares that
-alias) and that row's `canonical_name` differs from the answer's own, that's
-flagged as a likely same-entity mismatch needing a fix — *unless* it's
-already in the script's `KNOWN_COLLISIONS` allowlist as a confirmed
-different real person/club that happens to share a surname or short name
-(e.g. Tim Cahill vs. Gary Cahill). When it fires on something new: **first
-figure out whether it's actually the same real-world entity** (the honest
-default assumption — that's what it was in 3 of the 5 categories of finding
-uncovered so far) **or a genuine different-entity collision.** Same entity →
-sync the names (pick whichever form the game already uses as its
-convention for that kind of entity — e.g. bare mononyms like "Pele"/"Raul"
-for players known that way, short common club names like "Bournemouth" over
-"AFC Bournemouth" to match how every other club in that category is
-named — and add any alias forms that changed) and re-run both `verify:matching`
-and `verify:name-sync`. Confirmed different entity → add one line to
-`KNOWN_COLLISIONS` with the reason, don't touch the data.
+**`verify-name-sync.ts` (and its `KNOWN_COLLISIONS` allowlist) is retired
+(2026-08-31) — the bug class it existed for is now structurally closed, not
+just checked for.** There's only one `canonical_name` per real-world entity
+now (see Data model above); an "answer's name" and "its reference-pool
+counterpart" can't drift apart because they're the same row. If you're
+reading old commit history and see `verify:name-sync` referenced, that's
+this incident and the retired script, not a currently-running check.
+
+**That merge introduced a related-but-different collision risk, found
+during the 2026-08-31 migration itself (not in production, in the migration
+dry-run — see "Serving/caching and the rebuild job" above and the
+migration's verification pass): two DIFFERENT real people sharing a bare
+alias across the two formerly-separate alias tables.** Cristiano Ronaldo's
+old `reference_entities` row carried a legacy "ronaldo" alias (harmless
+before — reference aliases only ever fed typeahead, never scoring); Ronaldo
+Nazário's answer in `wc-alltime-goalscorers`/`ballon-dor-most-wins`
+genuinely needs "ronaldo" as a scoring alias (his `canonical_name` is
+"Ronaldo Nazario", two words, so a bare "ronaldo" guess doesn't self-match).
+Merging both alias sets into one `entity_aliases` table put both entities'
+"ronaldo" alias in the same table for the first time, and `verify-guess-
+matching.ts`'s cross-entity collision check (see below) caught it
+immediately, in the same category. Fixed by deleting the redundant alias
+from Cristiano Ronaldo's entity — it added no typeahead value his tokenized
+`entity_search` match on "Cristiano **Ronaldo**" doesn't already cover, and
+his own canonical name is always a valid match target now regardless (see
+Data model above), so the alias row was pure legacy risk with no upside.
+**The general lesson, not just this pair:** merging identity tables can
+surface latent ambiguity that used to be inert because the two uses (answer
+scoring vs. typeahead-only) were structurally separated — `verify-guess-
+matching.ts`'s collision check is what catches this now, and it's exactly
+why that check stayed (see below) rather than being retired alongside
+name-sync.
 
 #### Checklist: adding a new category
 
@@ -446,43 +525,57 @@ Everything above this point, distilled into the actual steps — every rule
 here exists because skipping it shipped a real bug at some point (see the
 incident writeups above for which one).
 
-1. **Scope it as a bounded Top N** (normally 10) — never "every entity that
-   qualifies." If the request sounds like "add more real X", check whether
-   it actually means `answers` or the `reference_entities` typeahead pool
-   before touching either (see "Generic rule" above).
+1. **Scope it as a bounded Top N** (normally 10, via `category_defs.limit_n`)
+   — never "every entity that qualifies." If the request sounds like "add
+   more real X", check whether it actually means the answer set or the
+   general entity pool before touching either (see "Generic rule" above).
 2. **Pick `entity_type`** — reuse `club`/`player`/`country`/`manager` if it
    fits. A genuinely new shape needs the value added consistently
    everywhere it's used; there's no CHECK constraint, so a typo here
    silently creates a type nothing will ever match against.
 3. **Pick `group_label`/`group_order`** — `'This Season'` only if the
    category maps to a real football-data.org competition (that's what
-   makes it eligible for step 6 below); otherwise this app's established
+   makes it eligible for step 7 below); otherwise this app's established
    `'All-Time Records'` / `group_order = 3` convention.
 4. **Verify every ranked entry against at least two independent, reputable
    sources** before writing it — not just the entry that prompted the
    category, and not from a single WebSearch synthesis or this agent's own
    training knowledge alone (see "Content accuracy" above for why that bar
-   exists). Ties broken by recency, with the reasoning in a SQL comment
-   above the `INSERT` — never in the player-visible subtitle.
-5. **Write `answer_aliases` including the canonical name's own normalized
-   form** (required — `matchGuess` never reads `canonical_name` directly)
-   plus real nicknames.
-6. **Run the verification pipeline, in this order** (see "Local
+   exists). Ties broken by recency (or whatever the category's convention
+   is), with the reasoning in a SQL comment above the `INSERT` — never in
+   the player-visible subtitle.
+5. **Insert or reuse `entities` rows for every answer**, each with a real
+   `as_of_date` (the date the number is actually accurate up to — not
+   today's date unless that's genuinely when it was verified) and, if
+   needed, a `tiebreak_stat_key`/`origin_rank` on `category_defs` for how
+   ties resolve. Add `entity_aliases` only for genuine nicknames not
+   derivable from tokenizing the canonical name — an entity's own name is
+   always a valid match target with no alias row required (see Data model
+   above).
+6. **Write the `category_defs` row** (`stat_key`, `scope`, `sort_dir`,
+   `limit_n`, `target_date`) and run the rebuild (`rebuildCategory()`/
+   `rebuildAll()` — see `rebuild.ts`) to materialize `category_answers`.
+7. **Run the verification pipeline, in this order** (see "Local
    development" below for exact commands):
-   - `npm run verify:matching` — always, after any `answers`/
-     `answer_aliases` change.
-   - `npm run verify:name-sync` — **required, not optional, every time a
-     category is added.**
+   - `npm run verify:matching` — always, after any `entity_stats`/
+     `entity_aliases`/`category_defs` change.
+   - `npm run verify:category-defs` — **required, not optional, every time
+     a category is added or `entity_stats` changes** (catches a
+     `display_value`/`value_numeric` mismatch or a query that silently
+     produces the wrong row count — see "Content accuracy" above).
    - `npm run verify:content-source` — only for `group_label = 'This
      Season'` categories; add a `MAPPINGS` entry in
      `scripts/verify-content-source.ts` for the new category first.
    - `npm run playtest` — before merging. Also bump the hardcoded category-
      count assertion in `scripts/playtest.ts`.
-7. **Apply the same `INSERT` to production D1 in the same step as
-   committing to `db/seed.sql`**, via the Cloudflare MCP `d1_database_query`
-   tool, and verify with a `SELECT` after — don't let these drift (see the
-   "silently diverged" incident above for what that costs).
-8. **Push and confirm CI (and `content-check.yml`, if `db/seed.sql`
+8. **Apply the same content to production D1 in the same step**, via the
+   Cloudflare MCP `d1_database_query` tool (the `entity_stats`/
+   `category_defs` `INSERT`s, plus running the rebuild against production),
+   verify with a `SELECT` after, then **regenerate `db/seed.sql` from
+   production** (see its header comment) rather than hand-editing it — don't
+   let these drift (see the "silently diverged" incident above for what
+   that cost under the old hand-mirrored model).
+9. **Push and confirm CI (and `content-check.yml`, if `db/seed.sql`
    changed) are green** before considering it done.
 
 And separately, **whenever a bug is reported in existing content**: don't
@@ -504,7 +597,7 @@ npx wrangler dev --port 8787   # full worker + bindings, http://localhost:8787
 npm run lint
 npm run build             # tsc -b && vite build
 npm run verify:matching        # re-seed local D1 first — see scripts/verify-guess-matching.ts
-npm run verify:name-sync       # re-seed local D1 first — see scripts/verify-name-sync.ts
+npm run verify:category-defs   # re-seed local D1 first — see scripts/verify-category-defs.ts
 npm run playtest                # self-resets local D1 + KV — see scripts/playtest.ts
 
 # Requires FOOTBALL_DATA_API_KEY (free tier: https://www.football-data.org/client/register)
@@ -512,20 +605,28 @@ npm run playtest                # self-resets local D1 + KV — see scripts/play
 FOOTBALL_DATA_API_KEY=... npm run verify:content-source  # see scripts/verify-content-source.ts
 ```
 
-**Run `npm run verify:matching` after any change to `db/seed.sql`'s answers/aliases, or to
-`matchGuess()`/`normalize.ts`.** It checks two things against local D1: every answer's own
-canonical name actually matches one of its own aliases (the class of bug that shipped three
-times in production before this existed — see git history around 2026-08-26), and no two
-different answers in the same category collapse to the same alias. A passing run is not
-optional evidence you can skip and still claim you checked — it's the actual check.
+**Run `npm run verify:matching` after any change to `entity_stats`/`entity_aliases`/
+`category_defs`, or to `matchGuess()`/`normalize.ts`.** It checks against local D1: every
+current answer's own canonical name is (trivially, always) reachable — matching an entity's
+own name no longer depends on an alias row existing (see Data model above), so this half of
+the old check is now closed by construction rather than merely tested — plus referential/rank
+integrity of `category_answers`, and the check that's still a genuine live risk: no two
+DIFFERENT entities answering the same category collapse to the same match string (name or
+alias). That last one is exactly what caught the Cristiano Ronaldo / Ronaldo Nazário alias
+collision during the 2026-08-31 entities migration — see the incident writeup in "Content
+accuracy" above. A passing run is not optional evidence you can skip and still claim you
+checked — it's the actual check.
 
-**Run `npm run verify:name-sync` after any change to `db/seed.sql`'s answers, and always
-when adding a new category — this is a required step, not an optional one.** It checks
-every answer's `canonical_name` against `reference_entities` for the same real-world entity
-under an unambiguous shared alias, catching the class of bug where an answer's name has
-drifted from (or was entered wrong relative to) its reference-pool counterpart — see the
-incident writeup in "Content accuracy" above for what this looks like in practice and how to
-resolve a finding. **This also runs in CI** (`.github/workflows/ci.yml`).
+**Run `npm run verify:category-defs` after any change to `entity_stats` or `category_defs`,
+and always when adding a new category — this is a required step, not an optional one.** It
+checks that every `entity_stats` row's `display_value` is actually consistent with its
+`value_numeric` (catches the "£222m" display next to a contradictory raw number" class of bug
+— see "Content accuracy" above for why deriving order from `value_numeric` makes this a real,
+previously-impossible risk), and that every `category_defs` row's query produces a non-empty
+result matching what's actually materialized in `category_answers` (catches a typo'd
+`stat_key`/`scope`, or a stale rebuild). **This also runs in CI** (`.github/workflows/ci.yml`)
+— it's the direct replacement for the retired `verify:name-sync` in that pipeline, covering a
+different bug class specific to the derived-answers model.
 
 **Run `npm run verify:content-source` after adding or changing any answer in a
 "This Season" category (`group_label = 'This Season'`).** Unlike the other three

@@ -8,6 +8,13 @@ export interface CategoryPublic {
 	subtitle: string | null;
 	statLabel: string;
 	answerCount: number;
+	// UTC "YYYY-MM-DD" — the latest date any of this category's answers are
+	// verified accurate up to (MAX across category_answers.as_of_date, see
+	// rebuild.ts). Null only for a category with zero answers. This is the
+	// mechanical currency guarantee shown to players — never a hand-written
+	// "through 2025-26" claim that can drift from what the data actually
+	// reflects.
+	asOfDate: string | null;
 }
 
 export type CategoryStatus = "new" | "in_progress" | "won" | "lost";
