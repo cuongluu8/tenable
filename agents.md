@@ -218,13 +218,48 @@ creates a type nothing will ever match against.
 
 `db/seed.sql` is hand-curated, not pulled from a live API. Anything involving
 recent seasons/tournaments needs fact-checking before being trusted — cross
-reference multiple independent sources (WebSearch works from this
-environment for that; direct WebFetch to most sports/reference sites does
-not — it's blocked by the sandbox's egress proxy). When a topic is legally or
-factually contested (e.g. an appealed match result), leave it out of seed
+reference multiple independent sources. WebSearch works from this
+environment for that, but only returns fragmentary result snippets, not full
+page content — not precise enough to read an exact ranked table off of, and
+direct WebFetch to most sports/reference sites doesn't work either (blocked
+by the sandbox's egress proxy — confirmed repeatedly). `.github/workflows/
+research-fetch.yml` is the actual workaround: a `workflow_dispatch`-only
+GitHub Actions job (real, unblocked internet access) that curls a list of
+URLs and prints their content into the job log, optionally grep-filtered
+(with a configurable context-line window — a 10+ row wikitable can run past
+a narrow one) down to just the relevant section — read the log back via
+`get_job_logs` (pass `tail_lines` explicitly for anything beyond a couple of
+URLs; its default truncates from the *start* of a large log, silently
+dropping earlier content). Wikipedia's `?action=raw` suffix (raw wikitext,
+plain-curlable) is the most reliable source this way; several others that
+look promising are not: 11v11.com, worldfootball.net, footballdatabase.eu,
+and transfermarkt.com all sit behind a Cloudflare JS bot-challenge that
+returns nothing but a "Just a moment..." interstitial to curl, and
+statmuse.com renders its actual answer client-side (the initial HTML is an
+empty app shell). premierleague.com itself is *not* behind a bot-challenge
+and its backing API (`footballapi.pulselive.com`, no auth needed) returns
+plain JSON for e.g. `/football/clubs` and `/football/competitions/1/
+compseasons` — but its actual player-stats ranking endpoint's exact path/
+params weren't found in the time spent trying (see "Category gap" below);
+worth another attempt if this becomes needed again. When a topic is legally
+or factually contested (e.g. an appealed match result), leave it out of seed
 content rather than guess. See git history on `db/seed.sql` for precedent
 (PSG's Champions League tiebreak, the AFCON 2025/26 dispute left
 deliberately unmodeled).
+
+**Category gap (2026-08-31): per-club Premier League-only top scorers only
+exist for 7 of England's biggest clubs** (Arsenal/Liverpool/Everton/Man Utd/
+Man City, plus Tottenham and West Ham — check the current category list),
+not the requested Chelsea/Newcastle/Leeds/Aston Villa expansion. Wikipedia's
+"records and statistics" article for each of those 4 clubs has an all-
+competitions top-scorer table and a single-line "most PL/First Division
+goals" record holder, but no PL-only ranked top-10 — confirmed for Chelsea
+by reading its full article. `research-fetch.yml` found no other
+plain-curlable source with this exact breakdown (see above). Ligue 1's own
+categories (all-time top scorers, all-time titles by club, this-season
+table) and 3 more "recent unique winners" spins (Euro/Copa América/AFCON)
+were completed the same session and don't have this problem — Wikipedia
+carries all of that directly.
 
 **A wrong answer is not a minor bug — a user found one in
 `pl-2025-26-top-scorers` (Antoine Semenyo missing from rank 3 entirely, fixed

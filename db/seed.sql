@@ -60189,3 +60189,524 @@ INSERT INTO reference_entities (canonical_name, category, entity_type) VALUES
 	('Stanley Matthews', 'England', 'player'),
 	('Billy Wright', 'England', 'player'),
 	('Duncan Edwards', 'England', 'player');
+
+-- Category: the last 10 unique national teams to win the UEFA European
+-- Championship, most recent first -- mirrors ucl-recent-unique-winners'
+-- shape but for country winners of the Euros. West Germany's three titles
+-- (1972/1980/1996 -- 1996 as unified Germany) count as one nation's most
+-- recent title (1996), matching Wikipedia's own "Results by nation" table,
+-- which tracks West Germany and Germany as the same entity. Exactly 10
+-- nations have ever won the Euros, so this list covers the entire history
+-- of winners, not just a recent slice.
+-- Sourced 2026-08-31 via research-fetch.yml against Wikipedia's
+-- "List of UEFA European Championship finals" (raw wikitext, full
+-- year-by-year winners table, 1960-2024) -- cross-checked against
+-- well-established prior knowledge of the same recent finals (Spain 2024,
+-- Italy 2020, Portugal 2016), which matched exactly.
+INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
+	('euro-recent-unique-winners', 'Top 10 most recent unique UEFA European Championship winners', 'The last 10 unique nations to win the Euros, most recent first. Through Euro 2024.', 'title-winning year');
+
+INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
+	((SELECT id FROM categories WHERE slug = 'euro-recent-unique-winners'), 1, 'Spain', '2024'),
+	((SELECT id FROM categories WHERE slug = 'euro-recent-unique-winners'), 2, 'Italy', '2020'),
+	((SELECT id FROM categories WHERE slug = 'euro-recent-unique-winners'), 3, 'Portugal', '2016'),
+	((SELECT id FROM categories WHERE slug = 'euro-recent-unique-winners'), 4, 'Greece', '2004'),
+	((SELECT id FROM categories WHERE slug = 'euro-recent-unique-winners'), 5, 'France', '2000'),
+	((SELECT id FROM categories WHERE slug = 'euro-recent-unique-winners'), 6, 'Germany', '1996'),
+	((SELECT id FROM categories WHERE slug = 'euro-recent-unique-winners'), 7, 'Denmark', '1992'),
+	((SELECT id FROM categories WHERE slug = 'euro-recent-unique-winners'), 8, 'Netherlands', '1988'),
+	((SELECT id FROM categories WHERE slug = 'euro-recent-unique-winners'), 9, 'Czechoslovakia', '1976'),
+	((SELECT id FROM categories WHERE slug = 'euro-recent-unique-winners'), 10, 'Soviet Union', '1960');
+
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'spain' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'euro-recent-unique-winners' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'italy' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'euro-recent-unique-winners' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'portugal' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'euro-recent-unique-winners' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'greece' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'euro-recent-unique-winners' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'france' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'euro-recent-unique-winners' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'germany' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'euro-recent-unique-winners' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'west germany' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'euro-recent-unique-winners' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'denmark' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'euro-recent-unique-winners' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'netherlands' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'euro-recent-unique-winners' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'holland' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'euro-recent-unique-winners' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'czechoslovakia' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'euro-recent-unique-winners' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'soviet union' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'euro-recent-unique-winners' AND a.rank = 10;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'ussr' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'euro-recent-unique-winners' AND a.rank = 10;
+
+-- Category: the last unique national teams to win the Copa America
+-- (including its 1916-1967 "South American Championship" predecessor,
+-- same tournament under an earlier name -- same convention this app
+-- already uses for combining England's Football League First Division/
+-- Premier League eras). Only 8 nations have EVER won it in the
+-- tournament's entire history, so unlike the Euros/AFCON spins this one
+-- is a Top 8, not a Top 10 -- there is no 9th or 10th unique winner to
+-- list (see agents.md: answerCount is always derived from COUNT(*), a
+-- category is not required to have exactly 10 answers).
+-- Sourced 2026-08-31 via research-fetch.yml against Wikipedia's
+-- "List of Copa America finals" -- Results-by-nation table gives each
+-- nation's full list of title years; most-recent-per-nation figures
+-- (Argentina 2024, Brazil 2019, Uruguay 2011) cross-checked against
+-- well-established prior knowledge, which matched exactly.
+INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
+	('copa-america-recent-unique-winners', 'Top 8 most recent unique Copa America winners', 'Every nation that has ever won the Copa America (including its South American Championship-era predecessor), most recent title first. Through Copa America 2024.', 'title-winning year');
+
+INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
+	((SELECT id FROM categories WHERE slug = 'copa-america-recent-unique-winners'), 1, 'Argentina', '2024'),
+	((SELECT id FROM categories WHERE slug = 'copa-america-recent-unique-winners'), 2, 'Brazil', '2019'),
+	((SELECT id FROM categories WHERE slug = 'copa-america-recent-unique-winners'), 3, 'Chile', '2016'),
+	((SELECT id FROM categories WHERE slug = 'copa-america-recent-unique-winners'), 4, 'Uruguay', '2011'),
+	((SELECT id FROM categories WHERE slug = 'copa-america-recent-unique-winners'), 5, 'Colombia', '2001'),
+	((SELECT id FROM categories WHERE slug = 'copa-america-recent-unique-winners'), 6, 'Paraguay', '1979'),
+	((SELECT id FROM categories WHERE slug = 'copa-america-recent-unique-winners'), 7, 'Peru', '1975'),
+	((SELECT id FROM categories WHERE slug = 'copa-america-recent-unique-winners'), 8, 'Bolivia', '1963');
+
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'argentina' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'copa-america-recent-unique-winners' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'brazil' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'copa-america-recent-unique-winners' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'chile' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'copa-america-recent-unique-winners' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'uruguay' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'copa-america-recent-unique-winners' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'colombia' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'copa-america-recent-unique-winners' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'paraguay' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'copa-america-recent-unique-winners' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'peru' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'copa-america-recent-unique-winners' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'bolivia' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'copa-america-recent-unique-winners' AND a.rank = 8;
+
+-- Category: the last 10 unique national teams to win the Africa Cup of
+-- Nations, most recent first -- mirrors ucl-recent-unique-winners'
+-- shape but for AFCON. 2025's winner is Morocco, not Senegal, matching
+-- this app's already-established afcon-titles-by-country canon and its
+-- SQL-comment note above: Morocco won the match on the pitch 1-0... no --
+-- see that category's comment: Senegal won on the pitch but Morocco was
+-- awarded the title 3-0 on forfeit after Senegal walked off and CAF
+-- upheld the forfeit on appeal.
+-- Sourced 2026-08-31 via research-fetch.yml against Wikipedia's
+-- "List of Africa Cup of Nations finals" -- Results-by-nation table's
+-- title years cross-checked rank-for-rank against this app's own
+-- afcon-titles-by-country counts (Egypt 7, Cameroon 5, Nigeria 3, Ivory
+-- Coast 3, Algeria 2, Zambia 1, Tunisia 1, Morocco 2), which matched
+-- exactly -- strong independent confirmation of both categories.
+INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
+	('afcon-recent-unique-winners', 'Top 10 most recent unique Africa Cup of Nations winners', 'The last 10 unique nations to win AFCON, most recent first. Through AFCON 2025.', 'title-winning year');
+
+INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
+	((SELECT id FROM categories WHERE slug = 'afcon-recent-unique-winners'), 1, 'Morocco', '2025'),
+	((SELECT id FROM categories WHERE slug = 'afcon-recent-unique-winners'), 2, 'Ivory Coast', '2023'),
+	((SELECT id FROM categories WHERE slug = 'afcon-recent-unique-winners'), 3, 'Senegal', '2021'),
+	((SELECT id FROM categories WHERE slug = 'afcon-recent-unique-winners'), 4, 'Algeria', '2019'),
+	((SELECT id FROM categories WHERE slug = 'afcon-recent-unique-winners'), 5, 'Cameroon', '2017'),
+	((SELECT id FROM categories WHERE slug = 'afcon-recent-unique-winners'), 6, 'Nigeria', '2013'),
+	((SELECT id FROM categories WHERE slug = 'afcon-recent-unique-winners'), 7, 'Zambia', '2012'),
+	((SELECT id FROM categories WHERE slug = 'afcon-recent-unique-winners'), 8, 'Egypt', '2010'),
+	((SELECT id FROM categories WHERE slug = 'afcon-recent-unique-winners'), 9, 'Tunisia', '2004'),
+	((SELECT id FROM categories WHERE slug = 'afcon-recent-unique-winners'), 10, 'South Africa', '1996');
+
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'morocco' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'afcon-recent-unique-winners' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'ivory coast' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'afcon-recent-unique-winners' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'cote divoire' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'afcon-recent-unique-winners' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'senegal' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'afcon-recent-unique-winners' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'algeria' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'afcon-recent-unique-winners' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'cameroon' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'afcon-recent-unique-winners' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'nigeria' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'afcon-recent-unique-winners' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'zambia' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'afcon-recent-unique-winners' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'egypt' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'afcon-recent-unique-winners' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'tunisia' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'afcon-recent-unique-winners' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'south africa' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'afcon-recent-unique-winners' AND a.rank = 10;
+
+-- Category: This Season group, matching the shape of
+-- pl-2025-26-final-table/la-liga-2025-26-table/etc. -- final points from
+-- win/draw/loss records; Marseille and Rennes tied on 59 points, Marseille
+-- ahead on goal difference (+18 vs +9, the real tiebreak, same convention
+-- pl-2025-26-final-table's own comment documents for its own 8th/9th
+-- tie); Toulouse and Lorient tied on 45, Toulouse ahead on goal difference
+-- (+1 vs -3).
+-- Sourced 2026-08-31 via research-fetch.yml against Wikipedia's
+-- "Template:2025-26 Ligue 1 table" (raw wikitext -- the actual win/draw/
+-- loss/goals-for/goals-against figures backing the transcluded standings
+-- table on the 2025-26 Ligue 1 season article) -- team_order in that
+-- template (the season's actual final ranking, as edited in by
+-- Wikipedia's own editors) matches the points/goal-difference ordering
+-- computed here exactly, an internal cross-check within the same source.
+-- Needs a MAPPINGS entry in scripts/verify-content-source.ts (added) so
+-- content-check.yml's live football-data.org diff covers it like the
+-- other This-Season table categories.
+INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
+	('ligue-1-2025-26-table', 'Top 10 Ligue 1 2025-26 final table', 'Final standings, 2025-26 season', 'points');
+
+INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
+	((SELECT id FROM categories WHERE slug = 'ligue-1-2025-26-table'), 1, 'Paris Saint-Germain', '76 (Champions)'),
+	((SELECT id FROM categories WHERE slug = 'ligue-1-2025-26-table'), 2, 'Lens', '70'),
+	((SELECT id FROM categories WHERE slug = 'ligue-1-2025-26-table'), 3, 'Lille', '61'),
+	((SELECT id FROM categories WHERE slug = 'ligue-1-2025-26-table'), 4, 'Lyon', '60'),
+	((SELECT id FROM categories WHERE slug = 'ligue-1-2025-26-table'), 5, 'Marseille', '59'),
+	((SELECT id FROM categories WHERE slug = 'ligue-1-2025-26-table'), 6, 'Rennes', '59'),
+	((SELECT id FROM categories WHERE slug = 'ligue-1-2025-26-table'), 7, 'AS Monaco', '54'),
+	((SELECT id FROM categories WHERE slug = 'ligue-1-2025-26-table'), 8, 'Strasbourg', '53'),
+	((SELECT id FROM categories WHERE slug = 'ligue-1-2025-26-table'), 9, 'Toulouse', '45'),
+	((SELECT id FROM categories WHERE slug = 'ligue-1-2025-26-table'), 10, 'Lorient', '45');
+
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'paris saint-germain' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-2025-26-table' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'paris saint germain' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-2025-26-table' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'paris saintgermain' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-2025-26-table' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'psg' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-2025-26-table' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'paris' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-2025-26-table' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'lens' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-2025-26-table' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'rc lens' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-2025-26-table' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'lille' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-2025-26-table' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'lille osc' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-2025-26-table' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'lyon' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-2025-26-table' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'olympique lyonnais' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-2025-26-table' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'ol' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-2025-26-table' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'marseille' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-2025-26-table' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'olympique de marseille' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-2025-26-table' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'om' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-2025-26-table' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'rennes' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-2025-26-table' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'stade rennais' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-2025-26-table' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'monaco' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-2025-26-table' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'as monaco' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-2025-26-table' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'strasbourg' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-2025-26-table' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'rc strasbourg' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-2025-26-table' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'toulouse' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-2025-26-table' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'toulouse fc' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-2025-26-table' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'lorient' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-2025-26-table' AND a.rank = 10;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'fc lorient' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-2025-26-table' AND a.rank = 10;
+
+-- Category: All-Time Records group, matching the shape of
+-- pl-alltime-top-scorers/cl-alltime-top-scorers -- career Ligue 1 goals,
+-- 1932-33 season onward (includes the pre-1970 "Division 1" era under the
+-- same competition, same convention as Arsenal/Man Utd's PL categories
+-- combining pre/post-rebrand top-flight goals -- Ligue 1 itself has never
+-- been discontinued or replaced the way England's top flight was, so this
+-- is even more clearly one continuous competition throughout). Carlos
+-- Bianchi and Gunnar Andersson are tied at 179 for 10th; ties broken by
+-- recency (Bianchi's career ran 1973-1980, Andersson's 1950-1960) --
+-- same convention as this app's other goalscorer categories.
+-- Sourced 2026-08-31 via research-fetch.yml against Wikipedia's
+-- "List of Ligue 1 top scorers" (raw wikitext, full all-time top-10+
+-- ranked wikitable with goals/apps/first-last-season/clubs columns for
+-- each player, sourced there to pari-et-gagne.com and updated as of
+-- 30 August 2026 -- i.e. through the actual end of the 2025-26 season).
+INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
+	('ligue-1-alltime-top-scorers', 'Top 10 Ligue 1 all-time goalscorers', 'By Ligue 1 goals only, through the 2025-26 season; ties broken by recency.', 'goals');
+
+INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
+	((SELECT id FROM categories WHERE slug = 'ligue-1-alltime-top-scorers'), 1, 'Delio Onnis', '299'),
+	((SELECT id FROM categories WHERE slug = 'ligue-1-alltime-top-scorers'), 2, 'Bernard Lacombe', '255'),
+	((SELECT id FROM categories WHERE slug = 'ligue-1-alltime-top-scorers'), 3, 'Herve Revelli', '216'),
+	((SELECT id FROM categories WHERE slug = 'ligue-1-alltime-top-scorers'), 4, 'Roger Courtois', '210'),
+	((SELECT id FROM categories WHERE slug = 'ligue-1-alltime-top-scorers'), 5, 'Thadee Cisowski', '206'),
+	((SELECT id FROM categories WHERE slug = 'ligue-1-alltime-top-scorers'), 6, 'Roger Piantoni', '203'),
+	((SELECT id FROM categories WHERE slug = 'ligue-1-alltime-top-scorers'), 7, 'Kylian Mbappe', '191'),
+	((SELECT id FROM categories WHERE slug = 'ligue-1-alltime-top-scorers'), 8, 'Joseph Ujlaki', '190'),
+	((SELECT id FROM categories WHERE slug = 'ligue-1-alltime-top-scorers'), 9, 'Fleury Di Nallo', '187'),
+	((SELECT id FROM categories WHERE slug = 'ligue-1-alltime-top-scorers'), 10, 'Carlos Bianchi', '179');
+
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'delio onnis' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-top-scorers' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'onnis' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-top-scorers' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'bernard lacombe' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-top-scorers' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'lacombe' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-top-scorers' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'herve revelli' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-top-scorers' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'revelli' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-top-scorers' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'roger courtois' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-top-scorers' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'courtois' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-top-scorers' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'thadee cisowski' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-top-scorers' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'cisowski' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-top-scorers' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'roger piantoni' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-top-scorers' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'piantoni' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-top-scorers' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'kylian mbappe' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-top-scorers' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'mbappe' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-top-scorers' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'joseph ujlaki' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-top-scorers' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'ujlaki' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-top-scorers' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'fleury di nallo' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-top-scorers' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'di nallo' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-top-scorers' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'carlos bianchi' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-top-scorers' AND a.rank = 10;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'bianchi' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-top-scorers' AND a.rank = 10;
+
+-- Category: All-Time Records group, matching the shape of
+-- serie-a-alltime-titles/ucl-titles-by-club -- Ligue 1 (and its pre-1970
+-- "Division 1" predecessor, same one continuous competition) titles by
+-- club. Two ties land exactly on the top-10 boundary and both members of
+-- each tie fit within it, so no cut was needed: Monaco/Nantes tied at 8
+-- (Monaco's last title 2016-17 vs Nantes' 2000-01 -- Monaco ordered
+-- first, ties broken by recency, matching this app's convention) and
+-- Bordeaux/Reims tied at 6 (Bordeaux 2008-09 vs Reims 1961-62) and
+-- Lille/Nice tied at 4 (Lille 2020-21 vs Nice 1958-59) -- all three ties
+-- resolve the same direction Wikipedia's own table already orders them.
+-- Sourced 2026-08-31 via research-fetch.yml against Wikipedia's "Ligue 1"
+-- article's own "Champions" section (raw wikitext, full per-club titles/
+-- runners-up/winning-seasons wikitable) -- PSG's 14 titles and
+-- Saint-Etienne's 10 both independently corroborated by the same
+-- article's prose ("PSG are the most successful club with 14 league
+-- titles. Saint-Etienne was the first club with 10 titles").
+INSERT INTO categories (slug, title, subtitle, stat_label) VALUES
+	('ligue-1-alltime-titles', 'Top 10 Ligue 1 all-time titles by club', 'By club, through the 2025-26 season; ties broken by most recent title.', 'titles');
+
+INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
+	((SELECT id FROM categories WHERE slug = 'ligue-1-alltime-titles'), 1, 'Paris Saint-Germain', '14'),
+	((SELECT id FROM categories WHERE slug = 'ligue-1-alltime-titles'), 2, 'Saint-Etienne', '10'),
+	((SELECT id FROM categories WHERE slug = 'ligue-1-alltime-titles'), 3, 'Marseille', '9'),
+	((SELECT id FROM categories WHERE slug = 'ligue-1-alltime-titles'), 4, 'AS Monaco', '8'),
+	((SELECT id FROM categories WHERE slug = 'ligue-1-alltime-titles'), 5, 'Nantes', '8'),
+	((SELECT id FROM categories WHERE slug = 'ligue-1-alltime-titles'), 6, 'Lyon', '7'),
+	((SELECT id FROM categories WHERE slug = 'ligue-1-alltime-titles'), 7, 'Bordeaux', '6'),
+	((SELECT id FROM categories WHERE slug = 'ligue-1-alltime-titles'), 8, 'Reims', '6'),
+	((SELECT id FROM categories WHERE slug = 'ligue-1-alltime-titles'), 9, 'Lille', '4'),
+	((SELECT id FROM categories WHERE slug = 'ligue-1-alltime-titles'), 10, 'Nice', '4');
+
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'paris saint-germain' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-titles' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'paris saint germain' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-titles' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'paris saintgermain' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-titles' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'psg' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-titles' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'paris' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-titles' AND a.rank = 1;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'saint-etienne' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-titles' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'saint etienne' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-titles' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'st etienne' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-titles' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'as saint-etienne' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-titles' AND a.rank = 2;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'marseille' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-titles' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'olympique de marseille' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-titles' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'om' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-titles' AND a.rank = 3;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'monaco' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-titles' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'as monaco' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-titles' AND a.rank = 4;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'nantes' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-titles' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'fc nantes' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-titles' AND a.rank = 5;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'lyon' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-titles' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'olympique lyonnais' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-titles' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'ol' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-titles' AND a.rank = 6;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'bordeaux' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-titles' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'girondins de bordeaux' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-titles' AND a.rank = 7;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'reims' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-titles' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'stade de reims' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-titles' AND a.rank = 8;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'lille' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-titles' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'lille osc' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-titles' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'nice' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-titles' AND a.rank = 10;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'ogc nice' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-alltime-titles' AND a.rank = 10;
+
+-- entity_type / group_label for the 6 categories added above (2026-08-31):
+-- the 3 recent-unique-winners spins are national-team winners (like
+-- euro-titles-by-country/afcon-titles-by-country); Ligue 1's table/titles
+-- categories are clubs (the entity_type default, no UPDATE needed); its
+-- top-scorers category is players (like the other top-scorer categories).
+UPDATE categories SET entity_type = 'country' WHERE slug IN (
+	'euro-recent-unique-winners',
+	'copa-america-recent-unique-winners',
+	'afcon-recent-unique-winners'
+);
+UPDATE categories SET entity_type = 'player' WHERE slug IN (
+	'ligue-1-alltime-top-scorers'
+);
+UPDATE categories SET group_label = 'This Season', group_order = 0 WHERE slug IN (
+	'ligue-1-2025-26-table'
+);
+UPDATE categories SET group_label = 'Recent Winners', group_order = 2 WHERE slug IN (
+	'euro-recent-unique-winners',
+	'copa-america-recent-unique-winners',
+	'afcon-recent-unique-winners'
+);
+UPDATE categories SET group_label = 'All-Time Records', group_order = 3 WHERE slug IN (
+	'ligue-1-alltime-top-scorers',
+	'ligue-1-alltime-titles'
+);

@@ -121,6 +121,15 @@ const KNOWN_COLLISIONS = new Set<string>([
 	// guess of just his name register, by design (see matchGuess's rank
 	// tie-break comment in categories.ts), not a naming error.
 	"wc-recent-golden-boot::Oleg Salenko & Hristo Stoichkov::Hristo Stoichkov",
+	// Roger Courtois (Ligue 1 all-time scorer, 1930s-1950s Sochaux/Troyes)
+	// vs. Thibaut Courtois (modern Belgium/Real Madrid goalkeeper) —
+	// different players; only Thibaut Courtois is in the reference pool
+	// under the bare "courtois" alias.
+	"ligue-1-alltime-top-scorers::Roger Courtois::Thibaut Courtois",
+	// Carlos Bianchi (Reims/PSG/Strasbourg forward, 1970s) vs. Bruno
+	// Bianchi — different players; only Bruno Bianchi is in the reference
+	// pool under the bare "bianchi" alias.
+	"ligue-1-alltime-top-scorers::Carlos Bianchi::Bruno Bianchi",
 ]);
 
 const answers = queryLocalD1<AnswerRow>(

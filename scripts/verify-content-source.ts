@@ -62,6 +62,7 @@ const MAPPINGS: CategoryMapping[] = [
 		compareField: "position",
 	},
 	{ slug: "cl-2025-26-top-scorers", competitionCode: "CL", kind: "scorers", season: 2025, compareField: "points" },
+	{ slug: "ligue-1-2025-26-table", competitionCode: "FL1", kind: "standings", season: 2025, compareField: "points" },
 	// football-data.org's free tier may not expose a scorers endpoint for
 	// international tournaments at all (unconfirmed from this sandbox — see
 	// file header). fetchScorers() below handles a 404/empty response for
