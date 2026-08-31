@@ -60378,8 +60378,17 @@ INSERT INTO answer_aliases (answer_id, alias)
 -- win/draw/loss records; Marseille and Rennes tied on 59 points, Marseille
 -- ahead on goal difference (+18 vs +9, the real tiebreak, same convention
 -- pl-2025-26-final-table's own comment documents for its own 8th/9th
--- tie); Toulouse and Lorient tied on 45, Toulouse ahead on goal difference
--- (+1 vs -3).
+-- tie).
+-- Fixed 2026-08-31: ranks 9-10 were originally written as Toulouse/Lorient
+-- (aggregate goal difference: Toulouse +1 vs Lorient -3, which looked like
+-- the natural tiebreak), but content-check.yml's live football-data.org
+-- diff caught that the real final table has them the other way around
+-- (Lorient 9th, Toulouse 10th) -- Ligue 1's own tiebreak order runs
+-- points -> goal difference -> head-to-head record -> ... (see the "Ligue
+-- 1" article's own class_rules, fetched alongside this table), so
+-- something in that fuller chain resolves it differently than aggregate
+-- GD alone predicts. Trusting the live API over the derived guess, same
+-- as this app's established practice for any live/derived conflict.
 -- Sourced 2026-08-31 via research-fetch.yml against Wikipedia's
 -- "Template:2025-26 Ligue 1 table" (raw wikitext -- the actual win/draw/
 -- loss/goals-for/goals-against figures backing the transcluded standings
@@ -60402,8 +60411,8 @@ INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
 	((SELECT id FROM categories WHERE slug = 'ligue-1-2025-26-table'), 6, 'Rennes', '59'),
 	((SELECT id FROM categories WHERE slug = 'ligue-1-2025-26-table'), 7, 'AS Monaco', '54'),
 	((SELECT id FROM categories WHERE slug = 'ligue-1-2025-26-table'), 8, 'Strasbourg', '53'),
-	((SELECT id FROM categories WHERE slug = 'ligue-1-2025-26-table'), 9, 'Toulouse', '45'),
-	((SELECT id FROM categories WHERE slug = 'ligue-1-2025-26-table'), 10, 'Lorient', '45');
+	((SELECT id FROM categories WHERE slug = 'ligue-1-2025-26-table'), 9, 'Lorient', '45'),
+	((SELECT id FROM categories WHERE slug = 'ligue-1-2025-26-table'), 10, 'Toulouse', '45');
 
 INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'paris saint-germain' FROM answers a JOIN categories c ON a.category_id = c.id
@@ -60469,16 +60478,16 @@ INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'rc strasbourg' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'ligue-1-2025-26-table' AND a.rank = 8;
 INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'toulouse' FROM answers a JOIN categories c ON a.category_id = c.id
-	WHERE c.slug = 'ligue-1-2025-26-table' AND a.rank = 9;
-INSERT INTO answer_aliases (answer_id, alias)
-	SELECT a.id, 'toulouse fc' FROM answers a JOIN categories c ON a.category_id = c.id
-	WHERE c.slug = 'ligue-1-2025-26-table' AND a.rank = 9;
-INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'lorient' FROM answers a JOIN categories c ON a.category_id = c.id
-	WHERE c.slug = 'ligue-1-2025-26-table' AND a.rank = 10;
+	WHERE c.slug = 'ligue-1-2025-26-table' AND a.rank = 9;
 INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'fc lorient' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-2025-26-table' AND a.rank = 9;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'toulouse' FROM answers a JOIN categories c ON a.category_id = c.id
+	WHERE c.slug = 'ligue-1-2025-26-table' AND a.rank = 10;
+INSERT INTO answer_aliases (answer_id, alias)
+	SELECT a.id, 'toulouse fc' FROM answers a JOIN categories c ON a.category_id = c.id
 	WHERE c.slug = 'ligue-1-2025-26-table' AND a.rank = 10;
 
 -- Category: All-Time Records group, matching the shape of
