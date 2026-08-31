@@ -111,6 +111,52 @@ CREATE TABLE IF NOT EXISTS entity_stats (
 CREATE INDEX IF NOT EXISTS idx_entity_stats_entity ON entity_stats(entity_id);
 CREATE INDEX IF NOT EXISTS idx_entity_stats_key_scope ON entity_stats(stat_key, scope);
 
+-- A single transfer event. Kept as its own table rather than shoehorned
+-- into entity_stats: a transfer inherently references TWO other entities
+-- (the selling and buying club), and entity_stats only ever carries one
+-- entity_id per row — cramming the counterpart club into `scope` as a bare
+-- string would repeat exactly the "identity is a name string, not an id"
+-- mistake this whole redesign exists to close off. from_club_id/to_club_id
+-- are real FKs into entities so a transfer is always resolvable to the
+-- actual club rows, never just their name at time of writing.
+CREATE TABLE IF NOT EXISTS transfers (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	player_id INTEGER NOT NULL REFERENCES entities(id),
+	from_club_id INTEGER REFERENCES entities(id),  -- NULL: youth academy graduate / no prior club on record
+	to_club_id INTEGER REFERENCES entities(id),    -- NULL: retired / released with no club on record yet
+	transfer_date TEXT NOT NULL,     -- UTC "YYYY-MM-DD"; use the 1st of the month if only month/year is known
+	transfer_type TEXT NOT NULL DEFAULT 'permanent'
+		CHECK (transfer_type IN ('permanent', 'loan', 'free', 'undisclosed')),
+	fee_eur_value REAL,              -- NULL for free/loan/undisclosed
+	fee_gbp_value REAL,              -- approximate: converted from fee_eur_value at the approximate
+		-- EUR/GBP rate for transfer_date's year (see docs/fx-rates.md, or wherever this
+		-- ends up documented) — never a live/current-day rate applied to a historical fee.
+	display_value TEXT NOT NULL,     -- what's shown, e.g. "€222m (~£195m)" or "Free transfer" or "Loan"
+	source TEXT NOT NULL,
+	verified_at TEXT NOT NULL        -- UTC "YYYY-MM-DD" this was actually checked
+);
+CREATE INDEX IF NOT EXISTS idx_transfers_player ON transfers(player_id);
+CREATE INDEX IF NOT EXISTS idx_transfers_from_club ON transfers(from_club_id);
+CREATE INDEX IF NOT EXISTS idx_transfers_to_club ON transfers(to_club_id);
+
+-- A single managerial spell — one club (or national team; club_id can
+-- reference an entity_type='country' row for that case), one start date,
+-- an end date that's NULL while the spell is still open as of verified_at.
+-- Same "this needs two entity references, not one" reasoning as transfers
+-- above is why it isn't folded into entity_stats.
+CREATE TABLE IF NOT EXISTS management_spells (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	manager_id INTEGER NOT NULL REFERENCES entities(id),
+	club_id INTEGER REFERENCES entities(id),  -- may reference a country entity for a national-team job
+	start_date TEXT NOT NULL,        -- UTC "YYYY-MM-DD"; use the 1st of the month if only month/year is known
+	end_date TEXT,                   -- NULL: still in charge as of verified_at
+	titles_won TEXT,                 -- free-text summary for this spell, e.g. "1x league title, 1x domestic cup"
+	source TEXT NOT NULL,
+	verified_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_management_spells_manager ON management_spells(manager_id);
+CREATE INDEX IF NOT EXISTS idx_management_spells_club ON management_spells(club_id);
+
 -- The query a category's Top N is computed from. One row per category
 -- (1:1). See src/worker/lib/rebuild.ts for what actually runs this.
 CREATE TABLE IF NOT EXISTS category_defs (
