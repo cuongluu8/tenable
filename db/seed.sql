@@ -60379,16 +60379,17 @@ INSERT INTO answer_aliases (answer_id, alias)
 -- ahead on goal difference (+18 vs +9, the real tiebreak, same convention
 -- pl-2025-26-final-table's own comment documents for its own 8th/9th
 -- tie).
--- Fixed 2026-08-31: ranks 9-10 were originally written as Toulouse/Lorient
--- (aggregate goal difference: Toulouse +1 vs Lorient -3, which looked like
--- the natural tiebreak), but content-check.yml's live football-data.org
--- diff caught that the real final table has them the other way around
--- (Lorient 9th, Toulouse 10th) -- Ligue 1's own tiebreak order runs
--- points -> goal difference -> head-to-head record -> ... (see the "Ligue
--- 1" article's own class_rules, fetched alongside this table), so
--- something in that fuller chain resolves it differently than aggregate
--- GD alone predicts. Trusting the live API over the derived guess, same
--- as this app's established practice for any live/derived conflict.
+-- Fixed 2026-08-31 (two rounds, both caught by content-check.yml's live
+-- football-data.org diff, not by eye): ranks 9-10 were originally written
+-- as Toulouse 45/Lorient 45 (from the Wikipedia standings template's win/
+-- draw/loss/goals figures) with Toulouse ordered ahead on aggregate goal
+-- difference (+1 vs -3) -- both the order AND Toulouse's point total were
+-- wrong. The live API's real final table has Lorient 9th on 45 and
+-- Toulouse 10th on 44 (not tied at all -- the Wikipedia template's win/
+-- draw/loss numbers for Toulouse this session transcribed don't match the
+-- real season; not investigated further once the live source settled it).
+-- Trusting the live API over the derived Wikipedia-template computation,
+-- same as this app's established practice for any live/derived conflict.
 -- Sourced 2026-08-31 via research-fetch.yml against Wikipedia's
 -- "Template:2025-26 Ligue 1 table" (raw wikitext -- the actual win/draw/
 -- loss/goals-for/goals-against figures backing the transcluded standings
@@ -60412,7 +60413,7 @@ INSERT INTO answers (category_id, rank, canonical_name, stat_value) VALUES
 	((SELECT id FROM categories WHERE slug = 'ligue-1-2025-26-table'), 7, 'AS Monaco', '54'),
 	((SELECT id FROM categories WHERE slug = 'ligue-1-2025-26-table'), 8, 'Strasbourg', '53'),
 	((SELECT id FROM categories WHERE slug = 'ligue-1-2025-26-table'), 9, 'Lorient', '45'),
-	((SELECT id FROM categories WHERE slug = 'ligue-1-2025-26-table'), 10, 'Toulouse', '45');
+	((SELECT id FROM categories WHERE slug = 'ligue-1-2025-26-table'), 10, 'Toulouse', '44');
 
 INSERT INTO answer_aliases (answer_id, alias)
 	SELECT a.id, 'paris saint-germain' FROM answers a JOIN categories c ON a.category_id = c.id
