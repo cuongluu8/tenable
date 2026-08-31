@@ -18,25 +18,26 @@ pipeline (`entity_stats` → `category_defs` → `category_answers`, rebuilt by
 "Checklist: adding a new category" are in `agents.md` — read it, don't
 reconstruct this from git log.
 
-**This is pushed to a branch, NOT merged to `main`, and NOT deployed:**
+**This has been merged to `main` and is LIVE:**
 
-- Branch: `claude/single-source-of-truth-r37g3r`, latest commit `dd4f283`.
-  Pushed to `origin`. No PR opened (none was requested).
-- `main` still has the old worker code (reading `answers`/`reference_entities`)
-  and is what's actually live at https://tenable.cuong-luu.workers.dev right
-  now. **The live site is unaffected and fully functional** — nothing about
-  this session's work changed what's deployed.
+- Fast-forwarded `claude/single-source-of-truth-r37g3r` onto `main` (no PR —
+  the user explicitly said to commit straight to `main`) and pushed. `main`
+  is now at `df90e5c`, which auto-deploys via Cloudflare Workers Builds.
+  Confirmed the deployed worker's bundled code (via
+  `workers_get_worker_code`) already contains `asOfDate`/`rebuildAll`/
+  `category_answers` and zero occurrences of `reference_entities`/
+  `answer_aliases` — the new code is live, not just pushed.
+  https://tenable.cuong-luu.workers.dev could not be curl'd/WebFetched from
+  this sandbox to double-check the HTTP response directly (egress to that
+  host is proxy-blocked here, same known sandbox limitation as
+  football-data.org) — if something looks off on the live site, that's the
+  first thing to actually load in a real browser/from outside this sandbox.
 - Production D1 (`tenable-content`, `a87ef250-cc94-4765-a821-785acbcd71a4`)
-  now has **both** the old tables (`answers`, `answer_aliases`,
-  `reference_entities`, `reference_entity_aliases` — untouched, still what
-  `main`'s deployed code reads) **and** the new tables (`entities`,
-  `entity_aliases`, `entity_stats`, `category_defs`, `category_answers`,
-  `entity_search` FTS5), fully populated and verified. The new tables are
-  currently inert — nothing reads them until the new worker code deploys.
-- **Before merging this branch to `main`**: the old tables become dead
-  weight once the new code is live and confirmed working, but don't drop
-  them in the same deploy — keep them as a rollback fallback for at least
-  one deploy cycle, then drop in a follow-up.
+  still has the **old** tables (`answers`, `answer_aliases`,
+  `reference_entities`, `reference_entity_aliases`) sitting alongside the
+  new ones — deliberately left in place as a rollback fallback, not yet
+  read by anything. **Follow-up**: once the new code has been live and
+  confirmed stable for a while, drop those four old tables.
 - New tables verified in production: 48/48 `categories`, 48/48
   `category_defs`, 473/473 `entity_stats`, 473/473 `category_answers`, 0
   orphaned rows (every `category_answers.entity_id` resolves, every
@@ -78,15 +79,14 @@ reconstruct this from git log.
 
 ## What a fresh session needs to do next (in order)
 
-1. If the user wants this live: merge `claude/single-source-of-truth-r37g3r`
-   to `main` (or open a PR if they ask for one) and let Workers Builds
-   auto-deploy. Watch the first deploy closely — this is a schema cutover,
-   not an incremental change.
+1. Actually load the live site (from outside this sandbox) and play a
+   category end to end to confirm the deploy is genuinely healthy, not
+   just "the bundled code looks right" — this session couldn't do that
+   itself (egress to the live host is proxy-blocked here).
 2. Load the remaining entities/aliases to production D1 (the deliberate gap
-   above) — either before merging (safest, no user-visible gap ever) or
-   right after (typeahead will just be narrower than intended until done).
+   below) so typeahead/alias-guessing match `db/seed.sql` again.
 3. Confirm the Cron Trigger (`0 3 * * *`, rebuilds `category_answers` from
-   `entity_stats` daily) actually fires in production after deploy —
+   `entity_stats` daily) actually fires in production —
    `wrangler dev --test-scheduled` could not be gotten to work locally in
    this sandbox (404 on `/__scheduled`, treated as a tooling quirk, not
    chased further since `rebuildAll()` was already proven correct through
