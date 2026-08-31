@@ -5,11 +5,18 @@ name: Research fetch
 # blocks everything, and WebSearch only returns fragmentary result
 # snippets, not full page content -- not precise enough to read a stats
 # table off). GitHub Actions runners have ordinary internet access, so
-# this fetches a small list of URLs and prints their content into the job
-# log, which the agent then reads back via the API to do its own sourcing/
-# cross-referencing exactly as it would from a WebFetch result. Never
-# touches app code or data itself -- purely a research aid. Safe to leave
-# in place; only ever runs when someone dispatches it by hand.
+# this fetches a small list of URLs and prints their content (optionally
+# grep-filtered down to just the relevant section) into the job log, which
+# the agent then reads back to do its own sourcing/cross-referencing
+# exactly as it would from a WebFetch result. Never touches app code or
+# data itself -- purely a research aid. Safe to leave in place; only ever
+# runs when someone dispatches it by hand.
+#
+# `urls` is passed through an env var (not interpolated directly into the
+# run script body) specifically so a multi-line value survives intact --
+# direct `${{ inputs.urls }}` interpolation into a heredoc silently
+# mangled multi-line input the first time this was tried (only the last
+# line actually got read), which env-var passthrough doesn't have.
 on:
   workflow_dispatch:
     inputs:
@@ -17,18 +24,31 @@ on:
         description: "Newline-separated URLs to fetch"
         required: true
         type: string
+      grep:
+        description: "Optional case-insensitive extended-regex pattern -- if set, only prints matching lines plus surrounding context instead of the whole page (keeps output small enough to actually read)"
+        required: false
+        type: string
 
 jobs:
   fetch:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    env:
+      URLS: ${{ inputs.urls }}
+      GREP_PATTERN: ${{ inputs.grep }}
     steps:
       - name: Fetch each URL and print its content
         run: |
           while IFS= read -r url; do
             [ -z "$url" ] && continue
             echo "===== FETCH: $url ====="
-            curl -sL --max-time 20 -A "Mozilla/5.0 (research fetch)" "$url" | head -c 60000
+            if [ -n "$GREP_PATTERN" ]; then
+              curl -sL --max-time 20 -A "Mozilla/5.0 (research fetch)" "$url" \
+                | grep -iE -B3 -A50 "$GREP_PATTERN" \
+                | head -c 40000
+            else
+              curl -sL --max-time 20 -A "Mozilla/5.0 (research fetch)" "$url" | head -c 60000
+            fi
             echo ""
             echo "===== END: $url ====="
-          done <<< "${{ inputs.urls }}"
+          done <<< "$URLS"
