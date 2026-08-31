@@ -10,6 +10,7 @@ import type {
 	GuessResponse,
 	Mode,
 	Progress,
+	ResetResponse,
 	RevealAnswer,
 	Streak,
 } from "../types";
@@ -177,6 +178,40 @@ export function PlayScreen({ slug, onBack }: Props) {
 		}
 	}
 
+	// Clears this device's saved progress for the category server-side (see
+	// progressStore.deleteProgress — a completed round is otherwise kept
+	// forever) and resets every piece of local round state back to what a
+	// fresh visit to this category looks like, landing on ModePicker.
+	async function playAgain() {
+		if (submitting) return;
+
+		setSubmitting(true);
+		try {
+			const res = await fetch("/api/reset", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ slug }),
+			});
+			const data = (await res.json()) as ResetResponse | { error: string };
+
+			if (!res.ok || "error" in data) {
+				setFeedback("error" in data ? data.error : "Something went wrong");
+				return;
+			}
+
+			setProgress(null);
+			setFound(new Map());
+			setRevealed(null);
+			setWrongGuesses([]);
+			setFeedback(null);
+			setGuessInput("");
+		} catch {
+			setFeedback("Network error — try again.");
+		} finally {
+			setSubmitting(false);
+		}
+	}
+
 	return (
 		<div className="screen">
 			<button className="back-link" onClick={onBack}>
@@ -254,7 +289,13 @@ export function PlayScreen({ slug, onBack }: Props) {
 							)}
 						</div>
 					) : (
-						<ResultPanel progress={progress} category={category} onBack={onBack} />
+						<ResultPanel
+							progress={progress}
+							category={category}
+							onBack={onBack}
+							onPlayAgain={playAgain}
+							submitting={submitting}
+						/>
 					)}
 
 					{feedback && <p className="feedback">{feedback}</p>}
@@ -294,10 +335,14 @@ function ResultPanel({
 	progress,
 	category,
 	onBack,
+	onPlayAgain,
+	submitting,
 }: {
 	progress: Progress;
 	category: Category;
 	onBack: () => void;
+	onPlayAgain: () => void;
+	submitting: boolean;
 }) {
 	const shareText = useMemo(() => buildShareText(progress, category), [progress, category]);
 	const [copied, setCopied] = useState(false);
@@ -319,6 +364,9 @@ function ResultPanel({
 					}}
 				>
 					{copied ? "Copied!" : "Share result"}
+				</button>
+				<button onClick={onPlayAgain} disabled={submitting}>
+					↻ Play again
 				</button>
 				<button onClick={onBack}>More categories</button>
 			</div>

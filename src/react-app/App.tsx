@@ -132,7 +132,11 @@ function App() {
 								{load.data.lifetime.totalWon} / {load.data.lifetime.totalPlayed} won
 							</span>
 						</div>
-						<CategoryList categories={load.data.categories} onSelect={handleSelect} />
+						<CategoryList
+							categories={load.data.categories}
+							onSelect={handleSelect}
+							onReset={loadCategories}
+						/>
 					</>
 				)}
 			</div>

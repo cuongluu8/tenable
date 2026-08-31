@@ -137,6 +137,9 @@ interface RevealResponse {
 interface GiveUpResponse {
 	progress: ProgressResponse;
 }
+interface ResetResponse {
+	ok: true;
+}
 interface SuggestResponse {
 	suggestions: string[];
 	truncated: boolean;
@@ -194,6 +197,14 @@ class Device {
 
 	postGiveUp(slug: string) {
 		return this.request<GiveUpResponse>("/api/give-up", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ slug }),
+		});
+	}
+
+	postReset(slug: string) {
+		return this.request<ResetResponse>("/api/reset", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ slug }),
@@ -582,6 +593,73 @@ async function main(): Promise<void> {
 		const giveUpList = await deviceC.get<CategoriesListResponse>("/api/categories");
 		const giveUpEntry = (giveUpList.body?.categories ?? []).find((c) => c.slug === giveUpSlug);
 		assertEqual(giveUpEntry?.status, "lost", "[give up] category shows as lost after giving up");
+
+		// Reset: a fresh device/category, same reasoning as give-up above.
+		// Exercises the actual replay path — resetting an untouched category,
+		// then a full completed round, then confirming it can be played to
+		// completion a second time exactly as if it were fresh.
+		console.log("Resetting a category to play it again...");
+		const deviceD = new Device();
+		const resetSlug = categories[3].slug;
+
+		const resetBeforeAnyProgress = await deviceD.postReset(resetSlug);
+		assertEqual(resetBeforeAnyProgress.status, 200, "[reset] resetting a never-played category still succeeds (idempotent)");
+		assertEqual(resetBeforeAnyProgress.body?.ok, true, "[reset] idempotent reset reports ok");
+
+		const resetUnknownSlug = await deviceD.postReset("this-category-does-not-exist");
+		assertEqual(resetUnknownSlug.status, 404, "[reset] resetting an unknown category slug");
+
+		const resetAnswers = queryLocalD1<AnswerRow>(
+			`SELECT ca.entity_id, ca.rank, e.canonical_name FROM category_answers ca JOIN entities e ON e.id = ca.entity_id JOIN categories c ON ca.category_id = c.id WHERE c.slug = '${resetSlug}' ORDER BY ca.rank;`,
+		);
+		const resetAliasRows = queryLocalD1<AliasRow>(
+			`SELECT al.entity_id, al.alias FROM entity_aliases al JOIN category_answers ca ON al.entity_id = ca.entity_id JOIN categories c ON ca.category_id = c.id WHERE c.slug = '${resetSlug}';`,
+		);
+		const resetAliasesByAnswer = new Map<number, string[]>();
+		for (const row of resetAliasRows) {
+			const list = resetAliasesByAnswer.get(row.entity_id) ?? [];
+			list.push(row.alias);
+			resetAliasesByAnswer.set(row.entity_id, list);
+		}
+
+		await playCategoryToWin(deviceD, resetSlug, categories[3].entity_type, resetAnswers, resetAliasesByAnswer, "classic", 1);
+
+		const beforeReset = await deviceD.get<CategoryDetailResponse>(`/api/categories/${resetSlug}`);
+		assertEqual(beforeReset.body?.progress?.completed, true, "[reset] round is completed before resetting");
+
+		const resetAfterCompletion = await deviceD.postReset(resetSlug);
+		assertEqual(resetAfterCompletion.status, 200, "[reset] resetting a completed round succeeds");
+		assertEqual(resetAfterCompletion.body?.ok, true, "[reset] reset after completion reports ok");
+
+		const afterReset = await deviceD.get<CategoryDetailResponse>(`/api/categories/${resetSlug}`);
+		assertEqual(afterReset.body?.progress, null, "[reset] no progress after reset — same as never having played it");
+
+		const resetListEntry = (await deviceD.get<CategoriesListResponse>("/api/categories")).body?.categories.find(
+			(c) => c.slug === resetSlug,
+		);
+		assertEqual(resetListEntry?.status, "new", "[reset] category list shows the reset category as new again");
+
+		// Play it again, all the way through, to prove reset really does
+		// produce a fully-fresh, fully-playable round, not just a cleared
+		// flag — and that lifetime/streak (untouched by reset, unlike
+		// progress) still update normally on this second completion.
+		const lifetimeBefore = (await deviceD.get<{ lifetime: { totalPlayed: number; totalWon: number } }>(
+			"/api/categories",
+		)).body?.lifetime;
+		await playCategoryToWin(deviceD, resetSlug, categories[3].entity_type, resetAnswers, resetAliasesByAnswer, "classic", 1);
+		const lifetimeAfter = (await deviceD.get<{ lifetime: { totalPlayed: number; totalWon: number } }>(
+			"/api/categories",
+		)).body?.lifetime;
+		assertEqual(
+			lifetimeAfter?.totalPlayed,
+			(lifetimeBefore?.totalPlayed ?? 0) + 1,
+			"[reset] replaying after reset counts as another completed round toward lifetime totals",
+		);
+
+		const afterReplay = (await deviceD.get<CategoriesListResponse>("/api/categories")).body?.categories.find(
+			(c) => c.slug === resetSlug,
+		);
+		assertEqual(afterReplay?.status, "won", "[reset] category shows won again after the replayed round");
 	} finally {
 		killProcessTree(child);
 	}

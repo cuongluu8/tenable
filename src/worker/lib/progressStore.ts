@@ -74,6 +74,21 @@ export async function saveProgress(
 	await kv.put(progressKey(deviceId, slug), JSON.stringify(progress));
 }
 
+// The only way back to a clean slate for one category: guess.ts only ever
+// calls startProgress() when no record exists yet, and saveProgress() above
+// keeps a completed round forever, so without this a category once played
+// is locked at that result permanently. Deliberately leaves streak/lifetime
+// untouched — those are a running history of rounds actually played, and
+// resetting is about replaying a category, not un-playing the round that
+// already contributed to them.
+export async function deleteProgress(
+	kv: KVNamespace,
+	deviceId: string,
+	slug: string,
+): Promise<void> {
+	await kv.delete(progressKey(deviceId, slug));
+}
+
 export async function getStreak(
 	kv: KVNamespace,
 	deviceId: string,

@@ -71,6 +71,10 @@ export interface GiveUpResponse {
 	lifetime: Lifetime;
 }
 
+export interface ResetResponse {
+	ok: true;
+}
+
 export interface RevealAnswer {
 	rank: number;
 	name: string;

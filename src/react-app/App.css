@@ -320,22 +320,28 @@
 	display: grid;
 	gap: 0.6rem;
 }
+/* The card itself is a plain list item now, not a button — it holds the
+   select button below plus a sibling reset control, and a <button> can't
+   contain another <button> (see CategoryList.tsx). All the row chrome
+   (background/border/padding) lives here so both children can stay visually
+   transparent and just fill it. */
 .category-card {
 	width: 100%;
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	gap: 1rem;
+	gap: 0.5rem;
 	padding: 0.9rem 1.1rem;
-	text-align: left;
 	/* One step lighter than the section card it sits inside (#1f2937) —
 	   same "elevated surface" convention as .guess-suggestions, so these
 	   read as distinct rows nested in the section rather than blending into
 	   its background. */
 	background: #374151;
 	border: 1px solid #4b5563;
+	border-radius: 8px;
+	transition: border-color 0.2s;
 }
-.category-card:hover {
+.category-card:has(.category-card__select:hover) {
 	border-color: #4ade80;
 }
 /* Multiplayer only (see CategoryList.tsx's selectedSlug prop) — a picked-
@@ -345,6 +351,22 @@
 .category-card--selected {
 	background: #14532d;
 	border-color: #4ade80;
+}
+.category-card__select {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 1rem;
+	text-align: left;
+	background: none;
+	border: none;
+	padding: 0;
+	border-radius: 0;
+}
+.category-card__select:hover {
+	border-color: transparent;
 }
 .category-card__main {
 	display: flex;
@@ -378,8 +400,62 @@
 	color: #facc15;
 }
 
+/* Sibling of .category-card__select, not nested inside it (see the comment
+   on .category-card above) — a quiet, small ghost button so it doesn't
+   compete with the card's main tap target. Blue rather than
+   .give-up-link's red: replaying a category isn't a destructive "throw this
+   away" action the way giving up mid-round is, just a fresh start. */
+.category-card__reset {
+	flex-shrink: 0;
+	background: none;
+	border: 1px solid transparent;
+	padding: 0.2em 0.5em;
+	color: #93c5fd;
+	font-size: 0.75rem;
+	opacity: 0.75;
+}
+.category-card__reset:hover:not(:disabled) {
+	opacity: 1;
+	border-color: transparent;
+}
+/* Confirmation step: clicking .category-card__reset above swaps it for this
+   rather than resetting immediately, same reasoning as .give-up-confirm —
+   one misclick away from a card whose whole point is being tappable. */
+.category-card__reset-confirm {
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	gap: 0.4rem;
+	font-size: 0.75rem;
+	color: #9ca3af;
+	white-space: nowrap;
+}
+.category-card__reset-confirm-yes {
+	padding: 0.25em 0.6em;
+	font-size: 0.75rem;
+	color: #bfdbfe;
+	background: #1e3a5f;
+	border: 1px solid #93c5fd;
+}
+.category-card__reset-confirm-yes:hover:not(:disabled) {
+	color: #fff;
+	border-color: #bfdbfe;
+}
+.category-card__reset-confirm-cancel {
+	padding: 0.25em 0.6em;
+	font-size: 0.75rem;
+	color: #9ca3af;
+	background: none;
+	border: 1px solid #4b5563;
+}
+.category-card__reset-confirm-cancel:hover:not(:disabled) {
+	color: #e5e7eb;
+	border-color: #6b7280;
+}
+
 .result-panel__actions {
 	display: flex;
+	flex-wrap: wrap;
 	gap: 0.75rem;
 	justify-content: center;
 	margin-top: 0.75rem;
