@@ -1,6 +1,6 @@
 # Progress / handoff notes
 
-Written 2026-08-28 so work on Tenable can continue in a fresh session —
+Written 2026-08-31 so work on Tenable can continue in a fresh session —
 possibly under a different Claude account with no memory of this one. This
 file is a snapshot, not a living doc: trust `git log` and the live app over
 anything here if they disagree. For conventions, architecture, deployment,
@@ -8,57 +8,94 @@ and cost guardrails, **read `agents.md` first** — it's the actual source of
 truth and this file doesn't repeat it. This file is just "what happened
 recently and what to know before touching anything."
 
-## Where things stand right now
+## Where things stand right now — READ THIS BEFORE TOUCHING PRODUCTION
 
-- Repo: `cuongluu8/tenable`, default/only-deployed branch is `main`.
-- Latest commit as of writing: `31a9dcf` ("Fix world-alltime-transfers:
-  missing 2026 window deals, stale Dembele fee").
-- Live at https://tenable.cuong-luu.workers.dev — deploys automatically on
-  every push to `main` via Cloudflare Workers Builds (no GitHub Actions
-  deploy step; see agents.md's Deployment section before adding one).
-- CI (`.github/workflows/ci.yml`) and content-check
-  (`.github/workflows/content-check.yml`, only runs when `db/seed.sql`
-  changes) are both green on `31a9dcf`.
-- Production D1 confirmed matching `db/seed.sql` exactly: **42 categories,
-  415 answers, 815 answer_aliases, 19,279 reference_entities** (100 of
-  those `entity_type = 'manager'`).
-- Nothing is mid-flight — every task from this session shipped, verified
-  locally, verified in production, pushed, and confirmed green on CI. A
-  fresh session can just wait for the next user request.
+This session did a from-scratch architectural rewrite: `answers` +
+`reference_entities` (two hand-authored, independently-drifting tables) are
+replaced by a single `entities` identity table plus a derived-content
+pipeline (`entity_stats` → `category_defs` → `category_answers`, rebuilt by
+`src/worker/lib/rebuild.ts`). Full rationale, schema, and the new
+"Checklist: adding a new category" are in `agents.md` — read it, don't
+reconstruct this from git log.
 
-## What this session did (most recent first)
+**This is pushed to a branch, NOT merged to `main`, and NOT deployed:**
 
-1. **`db/seed.sql`**: corrected `world-alltime-transfers` — it had fallen
-   behind `pl-alltime-transfers` (missing Morgan Rogers, Elliot Anderson,
-   and Florian Wirtz's settled fee; Dembele's figure was a stale base fee
-   instead of the fully-settled total). See the commit message and the
-   comment directly above the `world-alltime-transfers` INSERT in
-   `db/seed.sql` for the full reasoning and sourcing.
-2. **Multiplayer**: pass now costs a life (previously a free skip); the
-   result screen fetches and shows the full answer grid via a new
-   `GET /api/multiplayer/reveal/:slug` route (missed answers shown in red,
-   found ones tinted per-player); per-player colors, a prominent
-   color-coded turn banner, a live per-turn timer, and a winner rule
-   (most found, ties broken by quickest cumulative time) with ranked
-   standings on the result screen.
-3. **Reference pool**: added 100 well-known football managers (historic
-   legends through current) to `reference_entities` as
-   `entity_type = 'manager'` — typeahead-only, no stat_value/rank, so no
-   live fact-check applies to these (see agents.md's Content accuracy
-   section for why that check only covers "This Season" categories).
-4. **7 new manager categories**: UCL/European Cup titles, career trophies,
-   PL tenure, and league-title counts (PL/La Liga/Serie A/Bundesliga) by
-   manager, all-time.
-5. **2 new transfer categories**: `world-alltime-transfers`,
-   `pl-alltime-transfers` (the ones corrected in item 1 above).
-6. Earlier in the session (see git log for full detail): built
-   `scripts/verify-content-source.ts`, a real fact-check against
-   football-data.org's live API for "This Season" categories, replacing an
-   earlier rejected approach that only checked for a marker comment rather
-   than actual correctness — that rejection and redesign is worth reading
-   in `agents.md`'s Content accuracy section if a future content bug shows
-   up, since it's the actual reasoning for why that check exists and what
-   it does and doesn't cover.
+- Branch: `claude/single-source-of-truth-r37g3r`, latest commit `dd4f283`.
+  Pushed to `origin`. No PR opened (none was requested).
+- `main` still has the old worker code (reading `answers`/`reference_entities`)
+  and is what's actually live at https://tenable.cuong-luu.workers.dev right
+  now. **The live site is unaffected and fully functional** — nothing about
+  this session's work changed what's deployed.
+- Production D1 (`tenable-content`, `a87ef250-cc94-4765-a821-785acbcd71a4`)
+  now has **both** the old tables (`answers`, `answer_aliases`,
+  `reference_entities`, `reference_entity_aliases` — untouched, still what
+  `main`'s deployed code reads) **and** the new tables (`entities`,
+  `entity_aliases`, `entity_stats`, `category_defs`, `category_answers`,
+  `entity_search` FTS5), fully populated and verified. The new tables are
+  currently inert — nothing reads them until the new worker code deploys.
+- **Before merging this branch to `main`**: the old tables become dead
+  weight once the new code is live and confirmed working, but don't drop
+  them in the same deploy — keep them as a rollback fallback for at least
+  one deploy cycle, then drop in a follow-up.
+- New tables verified in production: 48/48 `categories`, 48/48
+  `category_defs`, 473/473 `entity_stats`, 473/473 `category_answers`, 0
+  orphaned rows (every `category_answers.entity_id` resolves, every
+  `category_answers.category_id` resolves, every `category_defs.category_id`
+  resolves). This is full gameplay parity with production content today.
+- **Known, deliberate gap**: production's `entities`/`entity_aliases` hold
+  only the 1,619 entities / 241 aliases actually referenced by
+  `category_answers` (the "critical set" needed for every category to be
+  playable and every answer guessable by canonical name), not the full
+  19,364 entities / 37,391 aliases that are in `db/seed.sql` and were
+  verified locally. This means:
+  - Every category plays correctly and every answer is guessable by exact
+    name.
+  - Typeahead suggestions in production are currently limited to those
+    1,619 entities, not the full pool — a real, live gap versus what
+    `db/seed.sql` describes.
+  - Most of those 1,619 entities' aliases (the ~189 with `id <= 1500`) are
+    also not loaded, so alias-based guessing (nicknames, alternate
+    spellings) for them won't work in production yet, only exact
+    canonical-name matching.
+  - **Follow-up work**: load the remaining ~17,745 entities and ~37,150
+    aliases from `db/seed.sql` to production D1 (same chunked-INSERT
+    approach used this session — see git history / this file's prior
+    revisions for the exact method) before or shortly after this branch
+    goes live, so `db/seed.sql` and production are actually identical again
+    (agents.md's seed.sql/production parity documentation assumes they are
+    — right now they are not).
+- Full local verification pipeline is green on this branch: `npm run lint`,
+  `npm run build`, `npm run verify:matching` (473 answers, 37391 aliases, 0
+  issues), `npm run verify:category-defs` (473 dated stats, 48 defs, 0
+  inconsistencies), `npm run playtest` (3403 assertions, every category
+  playable end to end) — all run against a local D1 mirror that was proven
+  content-identical to production before the rewrite (48 categories, 473
+  answers matched exactly).
+- `.github/workflows/ci.yml` updated to run `verify:category-defs` instead
+  of the now-deleted `verify:name-sync` (that bug class — answers/
+  reference_entities drift — is structurally impossible now that there's
+  one entities table).
+
+## What a fresh session needs to do next (in order)
+
+1. If the user wants this live: merge `claude/single-source-of-truth-r37g3r`
+   to `main` (or open a PR if they ask for one) and let Workers Builds
+   auto-deploy. Watch the first deploy closely — this is a schema cutover,
+   not an incremental change.
+2. Load the remaining entities/aliases to production D1 (the deliberate gap
+   above) — either before merging (safest, no user-visible gap ever) or
+   right after (typeahead will just be narrower than intended until done).
+3. Confirm the Cron Trigger (`0 3 * * *`, rebuilds `category_answers` from
+   `entity_stats` daily) actually fires in production after deploy —
+   `wrangler dev --test-scheduled` could not be gotten to work locally in
+   this sandbox (404 on `/__scheduled`, treated as a tooling quirk, not
+   chased further since `rebuildAll()` was already proven correct through
+   direct manual testing). Check Cloudflare's dashboard/logs after the
+   first scheduled run in production instead of assuming.
+4. Once `main` is confirmed stable on the new schema for a while, drop the
+   old `answers`/`answer_aliases`/`reference_entities`/
+   `reference_entity_aliases` tables from production D1 and remove any
+   leftover references to them in scripts/docs if any survived the rewrite.
 
 ## Things a fresh session should know before diving in
 
@@ -79,31 +116,25 @@ recently and what to know before touching anything."
   (current-season domestic tables/scorers, a few UEFA/FIFA competitions).
   Everything else — all-time records, transfers, manager stats — has no
   live-API equivalent and is only as good as the WebSearch research behind
-  it. If a user flags one of those as wrong (like the transfers fix in this
-  session), the right move is fresh WebSearch cross-referencing multiple
-  sources, not assuming CI would have caught it.
-- **The `multiplayer` git branch (if it still exists on the remote) is
-  stale** — multiplayer was merged into `main` early in this session's
-  history and has been developed further there since. Don't branch new
-  multiplayer work off the old `multiplayer` branch; work off `main`.
+  it.
 - Several other `claude/*` branches may exist on the remote from earlier,
-  unrelated sessions — not reviewed or cleaned up this session, status
-  unknown. Check before assuming any of them are current or safe to build
-  on.
+  unrelated sessions — not reviewed or cleaned up, status unknown. Check
+  before assuming any of them are current or safe to build on.
 - Standard verification pipeline before any push (see agents.md's Local
   development section for exact commands): `npm run lint`, `npm run
-  build`, `npm run verify:matching`, `npm run verify:name-sync`, `npm run
-  playtest`, then apply any `db/seed.sql` change to production D1 in the
-  same step and verify with a SELECT before pushing. This session pushed
-  directly to `main` throughout (no PRs) — continue that unless the user
-  says otherwise.
-- **Adding a new category specifically** has its own checklist now —
-  agents.md's Content accuracy section, "Checklist: adding a new category"
-  (added 2026-08-28 in response to this exact question coming up, so it
-  doesn't have to be reconstructed from incident writeups again). Read it
-  before adding one; `verify:name-sync` in particular is called out there
-  as required, not optional, every time.
+  build`, `npm run verify:matching`, `npm run verify:category-defs`, `npm
+  run playtest`. Apply any `db/seed.sql`/production D1 change and verify
+  with a SELECT before pushing.
+- **Adding a new category** now means adding rows to `entity_stats` +
+  `category_defs` and running the rebuild, not hand-writing an answer list
+  — see agents.md's rewritten "Checklist: adding a new category".
 - Production D1 (`tenable-content`, id `a87ef250-cc94-4765-a821-785acbcd71a4`)
   and KV (`tenable-progress`) are on a **shared Cloudflare account** with
   other, unrelated projects — see agents.md's Cost section before assuming
   headroom.
+- Bulk D1 writes via the `d1_database_query` MCP tool must be chunked to
+  ~500 rows per multi-row INSERT statement (SQLITE_TOOBIG above that), and
+  Bash output over roughly 20-40KB gets truncated when `cat`-ing a
+  generated SQL file to relay it — chunk generation and reads together if
+  you're doing this again for the remaining entities/aliases in step 2
+  above.
