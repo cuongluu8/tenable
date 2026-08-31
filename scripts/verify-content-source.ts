@@ -118,7 +118,10 @@ async function apiGet(path: string): Promise<unknown> {
 // NAME_ALIASES below rather than a smarter string algorithm; add one if a
 // future run reports a name pair that's obviously the same club/player
 // but doesn't token-match.
-const NAME_ALIASES: [string, string][] = [["bayern munich", "fc bayern munchen"]];
+const NAME_ALIASES: [string, string][] = [
+	["bayern munich", "fc bayern munchen"],
+	["rennes", "stade rennais fc 1901"],
+];
 
 function tokens(name: string): string[] {
 	return normalize(name)
