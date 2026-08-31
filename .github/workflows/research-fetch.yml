@@ -28,6 +28,11 @@ on:
         description: "Optional case-insensitive extended-regex pattern -- if set, only prints matching lines plus surrounding context instead of the whole page (keeps output small enough to actually read)"
         required: false
         type: string
+      context:
+        description: "Lines of context after each grep match (-A). Bump this when a match's table runs past the default (e.g. a 10+ row wikitable) and the tail gets cut off. Ignored without `grep`."
+        required: false
+        type: string
+        default: "50"
 
 jobs:
   fetch:
@@ -36,6 +41,7 @@ jobs:
     env:
       URLS: ${{ inputs.urls }}
       GREP_PATTERN: ${{ inputs.grep }}
+      CONTEXT_LINES: ${{ inputs.context }}
     steps:
       - name: Fetch each URL and print its content
         run: |
@@ -44,8 +50,8 @@ jobs:
             echo "===== FETCH: $url ====="
             if [ -n "$GREP_PATTERN" ]; then
               curl -sL --max-time 20 -A "Mozilla/5.0 (research fetch)" "$url" \
-                | grep -iE -B3 -A50 "$GREP_PATTERN" \
-                | head -c 40000
+                | grep -iE -B3 -A"${CONTEXT_LINES:-50}" "$GREP_PATTERN" \
+                | head -c 60000
             else
               curl -sL --max-time 20 -A "Mozilla/5.0 (research fetch)" "$url" | head -c 60000
             fi
