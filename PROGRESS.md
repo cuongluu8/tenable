@@ -43,28 +43,20 @@ reconstruct this from git log.
   orphaned rows (every `category_answers.entity_id` resolves, every
   `category_answers.category_id` resolves, every `category_defs.category_id`
   resolves). This is full gameplay parity with production content today.
-- **Known, deliberate gap**: production's `entities`/`entity_aliases` hold
-  only the 1,619 entities / 241 aliases actually referenced by
-  `category_answers` (the "critical set" needed for every category to be
-  playable and every answer guessable by canonical name), not the full
-  19,364 entities / 37,391 aliases that are in `db/seed.sql` and were
-  verified locally. This means:
-  - Every category plays correctly and every answer is guessable by exact
-    name.
-  - Typeahead suggestions in production are currently limited to those
-    1,619 entities, not the full pool — a real, live gap versus what
-    `db/seed.sql` describes.
-  - Most of those 1,619 entities' aliases (the ~189 with `id <= 1500`) are
-    also not loaded, so alias-based guessing (nicknames, alternate
-    spellings) for them won't work in production yet, only exact
-    canonical-name matching.
-  - **Follow-up work**: load the remaining ~17,745 entities and ~37,150
-    aliases from `db/seed.sql` to production D1 (same chunked-INSERT
-    approach used this session — see git history / this file's prior
-    revisions for the exact method) before or shortly after this branch
-    goes live, so `db/seed.sql` and production are actually identical again
-    (agents.md's seed.sql/production parity documentation assumes they are
-    — right now they are not).
+- **Gap closed**: a later session backfilled production's `entities`/
+  `entity_aliases` from `db/seed.sql` in full, via 61 chunked-INSERT files
+  (`entities_000`–`entities_035`, `aliases_000`–`aliases_024`, ~500 rows per
+  statement). Production now holds all 19,364 entities and all 37,391
+  aliases — verified directly against production D1 immediately after the
+  load: `SELECT COUNT(*) FROM entities` = 19364, `SELECT COUNT(*) FROM
+  entity_aliases` = 37391 (both exact matches to `db/seed.sql`), and zero
+  orphaned aliases (`entity_aliases.entity_id` values all resolve to a row
+  in `entities`). Typeahead now draws on the full entity pool and
+  alias-based guessing (nicknames, alternate spellings) works for the whole
+  set, not just the ~1,619-entity "critical set" this file previously
+  described as loaded. `db/seed.sql` and production `entities`/
+  `entity_aliases` are genuinely identical again — agents.md's seed.sql/
+  production parity documentation now holds for these two tables.
 - Full local verification pipeline is green on this branch: `npm run lint`,
   `npm run build`, `npm run verify:matching` (473 answers, 37391 aliases, 0
   issues), `npm run verify:category-defs` (473 dated stats, 48 defs, 0
@@ -83,16 +75,14 @@ reconstruct this from git log.
    category end to end to confirm the deploy is genuinely healthy, not
    just "the bundled code looks right" — this session couldn't do that
    itself (egress to the live host is proxy-blocked here).
-2. Load the remaining entities/aliases to production D1 (the deliberate gap
-   below) so typeahead/alias-guessing match `db/seed.sql` again.
-3. Confirm the Cron Trigger (`0 3 * * *`, rebuilds `category_answers` from
+2. Confirm the Cron Trigger (`0 3 * * *`, rebuilds `category_answers` from
    `entity_stats` daily) actually fires in production —
    `wrangler dev --test-scheduled` could not be gotten to work locally in
    this sandbox (404 on `/__scheduled`, treated as a tooling quirk, not
    chased further since `rebuildAll()` was already proven correct through
    direct manual testing). Check Cloudflare's dashboard/logs after the
    first scheduled run in production instead of assuming.
-4. Once `main` is confirmed stable on the new schema for a while, drop the
+3. Once `main` is confirmed stable on the new schema for a while, drop the
    old `answers`/`answer_aliases`/`reference_entities`/
    `reference_entity_aliases` tables from production D1 and remove any
    leftover references to them in scripts/docs if any survived the rewrite.
