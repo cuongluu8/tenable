@@ -69,6 +69,41 @@ reconstruct this from git log.
   reference_entities drift — is structurally impossible now that there's
   one entities table).
 
+## Stats enrichment project — IN PROGRESS, being continued on the user's local machine
+
+The user asked for richer per-entity data: player transfer history (fees
+in EUR/GBP), career goals/appearances/assists/red cards/own goals, club
+titles/relegations/promotions/stadium capacity/founding year, and manager
+career history/titles/retirement status. **Full details — schema, sourcing
+rules, exact current state, and exactly what's left — are in
+`docs/stats-enrichment.md`. Read that file before touching this project
+further; this section is just a pointer + the short version.**
+
+Short version: two new tables (`transfers`, `management_spells`) plus new
+`entity_stats` stat_keys, both live in schema.sql/local D1/production D1.
+A first, objectively-scoped research wave (all 115 managers, 206 clubs
+with 2+ aliases, and players id 530-650) was completed and reviewed; the
+raw SQL is committed at `data/research/*.sql` so nothing from this session
+is stranded. Application to production is **partially done** — clubs and
+the first 18 players are fully applied and match their source files
+exactly; managers are only applied through manager_id 19212 of 115 (the
+rest is real, reviewed SQL sitting in `data/research/managers_spells.sql`
+and `managers_stats.sql`, never yet run against production). **`db/seed.sql`
+needs regenerating** (one `wrangler d1 export` command, documented in
+`docs/stats-enrichment.md`) before any further work — production has
+outgrown what seed.sql currently reflects for `entity_stats`, and
+`transfers`/`management_spells` aren't in seed.sql at all yet.
+
+This was handed to the user's local LLM specifically because this
+sandbox has no bulk football-stats API access (WebSearch only, one query
+at a time) and no direct Cloudflare credentials (production writes had to
+go through an MCP tool one statement at a time) — both are normal on a
+real machine with `wrangler login`, which is exactly why the handoff makes
+sense here. Don't try to redo the "apply via chunked MCP calls" pattern
+from `data/research/`'s file-status notes if picking this up in a sandbox
+like this one again; if you have real `wrangler` credentials, just use
+`wrangler d1 execute --remote --file=...` directly, per `docs/stats-enrichment.md`.
+
 ## What a fresh session needs to do next (in order)
 
 1. Actually load the live site (from outside this sandbox) and play a

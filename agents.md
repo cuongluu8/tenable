@@ -128,6 +128,15 @@ rather than merely checked for, which is worth knowing when you read them.
   the two public read routes — see Serving/caching below. Never part of
   `db/seed.sql` (schema.sql seeds it fresh via `INSERT OR IGNORE` on every
   setup; a freshly-seeded local D1 has no prior rebuild history to version).
+- `transfers` / `management_spells` — added 2026-09-01 for a stats-
+  enrichment project (player transfer history with EUR/GBP fees; manager
+  career history). Each references a **second** entity (the counterpart
+  club, or a country entity for a national-team managerial job) alongside
+  the row's primary entity — the one case `entity_stats`'s single-`entity_id`
+  shape doesn't fit, which is why these are dedicated tables rather than more
+  `entity_stats` rows. Not yet read by any gameplay code (no `category_defs`
+  reference them) — currently pure data, populated incrementally. Full
+  schema, sourcing rules, and current coverage: `docs/stats-enrichment.md`.
 
 ### Generic rule: answers stay bounded, typeahead is broader
 
