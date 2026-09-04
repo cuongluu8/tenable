@@ -37,7 +37,14 @@ echo "Expect 115 distinct manager_id, and a count matching the total rows across
 echo "data/research/managers_stats.sql + all earlier-applied stats files."
 
 echo "== Regenerating db/seed.sql =="
-npx wrangler d1 export "$DB" --remote --output=db/seed.sql
+# Must list tables explicitly: a bare `d1 export` also tries to dump the
+# entity_search FTS5 virtual table (db/schema.sql), which wrangler cannot
+# export ("cannot export databases with Virtual Tables (fts5)").
+npx wrangler d1 export "$DB" --remote --no-schema \
+  --table=categories --table=entities --table=entity_aliases \
+  --table=entity_stats --table=category_defs --table=category_answers \
+  --table=transfers --table=management_spells --table=content_version \
+  --output=db/seed.sql
 
 echo "== Done. Now run the standard local checks and commit: =="
 echo "  npm run lint && npm run build && npm run verify:matching && npm run verify:category-defs && npm run playtest"
