@@ -41,22 +41,26 @@ cost-conscious about it. Two rules, agreed with the user 2026-09-04:
    file for local application over applying bulk data through a
    credential-less sandbox, whenever that's an option.
 
-**On handing work to a local/cheaper tool (e.g. Aider) to save tokens**:
-this was tried once (2026-09-01) for a multi-file, judgment-heavy handoff
-(see `docs/stats-enrichment.md`'s and `PROGRESS.md`'s history around that
-date) and failed — the local run never read the handoff doc, invented an
-unrelated task, and committed code with a syntax error and undefined
-variables, plus silently broke `npm run build` (deleted from package.json
-without updating anything that depended on it) and desynced
-`package-lock.json`, breaking CI. Root cause was almost certainly a
+**On handing work to a local/cheaper model to save tokens**: this was
+tried once (2026-09-01) — Claude Code itself, but pointed at a local model
+backend instead of the usual hosted one — for a multi-file, judgment-heavy
+handoff (see `docs/stats-enrichment.md`'s and `PROGRESS.md`'s history
+around that date) and failed — the local run never read the handoff doc,
+invented an unrelated task, and committed code with a syntax error and
+undefined variables, plus silently broke `npm run build` (deleted from
+package.json without updating anything that depended on it) and desynced
+`package-lock.json`, breaking CI. Root cause was almost certainly the
 smaller/local model given loose autonomy rather than a narrow, explicit
 task — a known failure mode for that class of model on stateful,
-precision-dependent work. **Only hand off small, mechanical, well-specified
+precision-dependent work; it isn't specific to any one tool (Aider was
+also tried briefly and dropped for unrelated reasons, not because it hit
+this failure mode). **Only hand off small, mechanical, well-specified
 tasks locally** (e.g. "apply exactly this file with this command") —
 keep multi-file work or anything requiring judgment calls in a Claude Code
-session. If handing off something bigger anyway, point the local tool at
-the specific doc explicitly as its first instruction, and verify (`npm ci
-&& npm run lint && npm run build`) before trusting anything it pushes.
+session against the normal hosted model. If handing off something bigger
+anyway, point the local setup at the specific doc explicitly as its first
+instruction, and verify (`npm ci && npm run lint && npm run build`) before
+trusting anything it pushes.
 
 ## Stack
 

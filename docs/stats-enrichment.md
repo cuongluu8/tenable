@@ -209,29 +209,31 @@ sandbox) so nothing from this session's work is lost:
 | `candidate_players_batch1.csv` | Players 530-650 (121 candidates, "batch 1" only) |
 | `clubs_remaining.csv` | The 48 clubs from `candidate_clubs.csv` NOT yet researched |
 | `players_batch1_remaining.csv` | The 103 players from batch 1 NOT yet researched |
-| `managers_spells.sql` | **Research for all 115 managers complete.** ⚠️ Only managers **19180-19212 are applied to production** (see above) — the rest (19213 onward) is real, reviewed, ready-to-apply SQL that has never been run against production. **Do not re-apply the 19180-19212 rows** — there's no uniqueness constraint on this table, so re-running the whole file would duplicate them. |
-| `managers_stats.sql` | Same manager coverage as above. ⚠️ Only managers up to **19191 are applied** — apply the rest (19192 onward) the same way, same duplicate-risk warning. |
+| `managers_spells.sql` | **Research for all 115 managers complete.** ⚠️ Only managers **19180-19212 are applied to production** (see above) — the rest (19213 onward) is real, reviewed SQL. Full file kept as the durable record; **don't apply it directly**, use `managers_spells_remaining.sql` instead (see below). |
+| `managers_stats.sql` | Same manager coverage as above. ⚠️ Only managers up to **19191 are applied**. Full file kept as the durable record; use `managers_stats_remaining.sql` instead. |
+| `managers_spells_remaining.sql` | **Ready to apply as-is.** Exact tail of `managers_spells.sql` starting at manager_id 19213 (Luis Aragones) through 19356, cut precisely on a statement boundary (verified: file opens with a fresh `-- <name>` comment + `INSERT INTO` line, no partial statement). This is the file to actually run. |
+| `managers_stats_remaining.sql` | **Ready to apply as-is.** Exact tail of `managers_stats.sql` starting at the `INSERT INTO` statement that opens with manager_id 19192, cut on a statement boundary. This is the file to actually run. |
+| `apply_remaining_managers.sh` | Plain shell script (no LLM needed) that runs both `*_remaining.sql` files against local then production D1 via `wrangler d1 execute --file=...`, verifies row counts, and regenerates `db/seed.sql`. **This is the fastest/cheapest way to finish the managers backfill** — run it from a machine with `wrangler login` credentials: `bash data/research/apply_remaining_managers.sh`. |
 | `clubs_stats.sql` | **Fully applied to production already** — matches production exactly (verified: 205 clubs). Kept here as a durable, reviewable record only. **Do not re-run this file.** |
 | `players_batch1_transfers.sql` / `players_batch1_stats.sql` | **Fully applied to production already** (18 players, ids 530-547) — matches production exactly. **Do not re-run these files.** |
 
 ## What's left, in priority order
 
-1. **Regenerate `db/seed.sql`** (the export command above) — do this
-   before anything else so the repo and production agree again.
-2. **Finish applying the already-researched-but-unapplied managers**:
-   in `managers_spells.sql`, apply everything from manager_id 19213
-   onward; in `managers_stats.sql`, apply everything from manager_id
-   19192 onward. Both files have the manager's name and entity_id in a
-   comment above each block, so it's easy to find the right starting
-   point (search for `-- ` followed by the next manager after Vicente
-   del Bosque / entity_id 19212 in each file).
-3. **Research the 48 remaining clubs** in `clubs_remaining.csv` — same
+1. **Finish applying the already-researched-but-unapplied managers** —
+   run `data/research/apply_remaining_managers.sh` (a plain script, zero
+   LLM tokens needed). It applies `managers_spells_remaining.sql` and
+   `managers_stats_remaining.sql` to local then production D1 and
+   regenerates `db/seed.sql` as its last step, so this single script also
+   covers the "seed.sql is stale" issue above — no separate export step
+   needed once it's run. If you'd rather do it by hand, the export command
+   above still works after applying both `*_remaining.sql` files.
+2. **Research the 48 remaining clubs** in `clubs_remaining.csv` — same
    process, same output format, append to a new file (don't touch
    `clubs_stats.sql`, it's already fully applied and matches production).
-4. **Research the 103 remaining batch-1 players** in
+3. **Research the 103 remaining batch-1 players** in
    `players_batch1_remaining.csv` — same process, new output files
    (don't touch the existing `players_batch1_*.sql`, already applied).
-5. **Extend player coverage past batch 1** — the "notable tier" scope
+4. **Extend player coverage past batch 1** — the "notable tier" scope
    (id 530-1500ish) has ~850 players beyond batch 1 that have never had a
    candidate list generated. Generate one the same way this session did:
    ```sql
@@ -243,7 +245,7 @@ sandbox) so nothing from this session's work is lost:
    ids first to find a sensible real cutoff for a given batch, the same
    way this session sampled ids 900-1500 before settling on batch 1's
    530-650 range).
-6. After each new batch is applied to production, **repeat the
+5. After each new batch is applied to production, **repeat the
    `db/seed.sql` regeneration** so it never drifts from production again
    (same one-line export command).
 
