@@ -86,15 +86,14 @@ Short version: two new tables (`transfers`, `management_spells`) plus new
 A first, objectively-scoped research wave (all 115 managers, 206 clubs
 with 2+ aliases, and players id 530-650) was completed and reviewed; the
 raw SQL is committed at `data/research/*.sql` so nothing from this session
-is stranded. Application to production is **partially done** — clubs and
-the first 18 players are fully applied and match their source files
-exactly; managers are only applied through manager_id 19212 of 115 (the
-rest is real, reviewed SQL sitting in `data/research/managers_spells.sql`
-and `managers_stats.sql`, never yet run against production). **`db/seed.sql`
-needs regenerating** (one `wrangler d1 export` command, documented in
-`docs/stats-enrichment.md`) before any further work — production has
-outgrown what seed.sql currently reflects for `entity_stats`, and
-`transfers`/`management_spells` aren't in seed.sql at all yet.
+is stranded. **Update, 2026-09-04**: managers (all 115) and clubs (all
+206 candidates) are now **fully applied to production** — only the player
+tier is still partial (18 of 121 batch-1 players; batch 1 is itself only a
+first slice of the ~850-player "notable tier"). `db/seed.sql` is kept in
+sync with production via `wrangler d1 export` (documented in
+`docs/stats-enrichment.md`, including a 2026-09-04 fix for a
+`content_version` fresh-reset crash) — regenerate it again after the next
+production content change.
 
 This was handed to the user's local LLM specifically because this
 sandbox has no bulk football-stats API access (WebSearch only, one query
@@ -119,10 +118,10 @@ like this one again; if you have real `wrangler` credentials, just use
    chased further since `rebuildAll()` was already proven correct through
    direct manual testing). Check Cloudflare's dashboard/logs after the
    first scheduled run in production instead of assuming.
-3. Once `main` is confirmed stable on the new schema for a while, drop the
+3. ~~Once `main` is confirmed stable on the new schema for a while, drop the
    old `answers`/`answer_aliases`/`reference_entities`/
-   `reference_entity_aliases` tables from production D1 and remove any
-   leftover references to them in scripts/docs if any survived the rewrite.
+   `reference_entity_aliases` tables from production D1~~ — **done
+   2026-09-04**, see the note in "Where things stand right now" above.
 
 ## Things a fresh session should know before diving in
 

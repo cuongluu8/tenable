@@ -164,27 +164,33 @@ statements grouped by entity with a `-- <name> (entity_id N)` comment
 above each group — see any file in `data/research/` for the exact style.
 Batch a few hundred rows per statement, not one INSERT per row.
 
-## Where things stand right now (2026-09-01)
+## Where things stand right now (2026-09-04)
 
 **Production D1** (`tenable-content`, `a87ef250-cc94-4765-a821-785acbcd71a4`)
 currently has, verified directly by query with 0 orphaned foreign keys:
 
-- `management_spells`: **228 rows, managers 19180–19212** (33 of 115 managers)
-- `entity_stats` (`manager-status`/`career-titles-count`): managers 19180,
-  19181, 19183, 19184, 19188, 19189, 19191 only (7 of 115)
+- `management_spells`: **1,017 rows, all 115 of 115 managers** — the
+  managers backfill (`apply_remaining_managers.sh`) has been fully applied.
+  `entity_stats` manager coverage (`manager-status`/`career-titles-count`)
+  is **not** the same count as `management_spells` coverage — that stat_key
+  pair is only written "when a source states a clean countable total" per
+  its row in the vocabulary table above, so expect it to stay below 115.
 - `transfers`: **85 rows, 18 of 121 players** (Lionel Messi id 530 through
   Samuel Eto'o id 547 — the first 18 rows of `candidate_players_batch1.csv`)
-- `entity_stats` (`career-goals` etc.): same 18 players
+  — **unchanged**, still the next priority item below.
+- `entity_stats` (`career-goals` etc.): same 18 players as `transfers`.
 - `entity_stats` (`founded-year`/`stadium-capacity`/`league-titles-count`/
-  `times-relegated`): **all 205 researched clubs** (206 candidates minus 1
-  skipped — Cajamarca, ambiguous match, see `clubs_stats.sql`'s comment)
+  `times-relegated`): **all 206 of 206 club candidates** — the 48 remaining
+  clubs in `clubs_remaining.csv` were researched and applied 2026-09-04
+  (`clubs_remaining_stats.sql`), including Cajamarca (id 146), which the
+  prior session skipped as ambiguous — resolved this time via
+  `entity_aliases` ("fc cajamarca"); only its `stadium-capacity` was left
+  out (sources disagreed sharply, see that file's comment). **Club
+  candidate coverage is now fully complete** — nothing left in this tier.
 
-**`db/seed.sql` is now stale** for `entity_stats` (production has grown
-past the 473 rows seed.sql was last exported at) and doesn't have
-`transfers`/`management_spells` sections at all yet (both were empty when
-seed.sql was last generated). **Fix this first**, before anything else —
-it's one command, now that you have real `wrangler` credentials this
-sandbox never had:
+`db/seed.sql` is kept in sync with production as of 2026-09-04 (regenerated
+after the above). To regenerate again after any future production content
+change, same command as always:
 
 ```
 wrangler d1 export tenable-content --remote --no-schema \
@@ -194,14 +200,16 @@ wrangler d1 export tenable-content --remote --no-schema \
   --output=db/seed.sql
 ```
 
-(Same command as `db/seed.sql`'s own header documents, with `--table=transfers
---table=management_spells` added — those two are new since that header was written.
-**Deliberately no `--table=content_version`** — that table is runtime state
-schema.sql already seeds correctly on its own; including it in the export
-crashes a fresh local reset with `UNIQUE constraint failed:
-content_version.id`, hit and fixed 2026-09-04. Re-paste seed.sql's header
-comment back in after any raw `wrangler d1 export` — the tool doesn't
-preserve it.)
+(Same command as `db/seed.sql`'s own header documents. **Deliberately no
+`--table=content_version`** — that table is runtime state schema.sql
+already seeds correctly on its own; including it in the export crashes a
+fresh local reset with `UNIQUE constraint failed: content_version.id`, hit
+and fixed 2026-09-04. Re-paste seed.sql's header comment back in after any
+raw `wrangler d1 export` — the tool doesn't preserve it. Verified again
+2026-09-04: a full local reset — `rm -rf .wrangler/state/v3/d1` then
+re-running `schema.sql` then the regenerated `seed.sql` — comes up clean,
+plus `npm run verify:matching`, `npm run verify:category-defs`, and
+`npm run build` all pass against it.)
 
 ### `data/research/` — the raw research, committed for durability
 
@@ -213,33 +221,18 @@ sandbox) so nothing from this session's work is lost:
 | `managers_list.csv` | All 115 manager candidates (entity_id\|name\|nationality) |
 | `candidate_clubs.csv` | All 206 club candidates (2+ alias clubs) |
 | `candidate_players_batch1.csv` | Players 530-650 (121 candidates, "batch 1" only) |
-| `clubs_remaining.csv` | The 48 clubs from `candidate_clubs.csv` NOT yet researched |
 | `players_batch1_remaining.csv` | The 103 players from batch 1 NOT yet researched |
-| `managers_spells.sql` | **Research for all 115 managers complete.** ⚠️ Only managers **19180-19212 are applied to production** (see above) — the rest (19213 onward) is real, reviewed SQL. Full file kept as the durable record; **don't apply it directly**, use `managers_spells_remaining.sql` instead (see below). |
-| `managers_stats.sql` | Same manager coverage as above. ⚠️ Only managers up to **19191 are applied**. Full file kept as the durable record; use `managers_stats_remaining.sql` instead. |
-| `managers_spells_remaining.sql` | **Ready to apply as-is.** Exact tail of `managers_spells.sql` starting at manager_id 19213 (Luis Aragones) through 19356, cut precisely on a statement boundary (verified: file opens with a fresh `-- <name>` comment + `INSERT INTO` line, no partial statement). This is the file to actually run. |
-| `managers_stats_remaining.sql` | **Ready to apply as-is.** Exact tail of `managers_stats.sql` starting at the `INSERT INTO` statement that opens with manager_id 19192, cut on a statement boundary. This is the file to actually run. |
-| `apply_remaining_managers.sh` | Plain shell script (no LLM needed) that runs both `*_remaining.sql` files against local then production D1 via `wrangler d1 execute --file=...`, verifies row counts, and regenerates `db/seed.sql`. **This is the fastest/cheapest way to finish the managers backfill** — run it from a machine with `wrangler login` credentials: `bash data/research/apply_remaining_managers.sh`. |
-| `clubs_stats.sql` | **Fully applied to production already** — matches production exactly (verified: 205 clubs). Kept here as a durable, reviewable record only. **Do not re-run this file.** |
+| `managers_spells.sql` / `managers_stats.sql` | **Fully applied to production already** (all 115 managers). Kept as a durable, reviewable record only. **Do not re-run these files** — `managers_spells_remaining.sql`/`managers_stats_remaining.sql`/`apply_remaining_managers.sh` all did their job and have no more work left to do. |
+| `clubs_stats.sql` | **Fully applied to production already** — matches production exactly (205 clubs). Kept here as a durable, reviewable record only. **Do not re-run this file.** |
+| `clubs_remaining.csv` / `clubs_remaining_stats.sql` | **Fully applied to production already** (2026-09-04) — the 48 remaining club candidates, matches production exactly (206/206 club candidates now have stats). Kept as a durable, reviewable record only. **Do not re-run this file.** Club candidate research is now fully complete — nothing left in this tier. |
 | `players_batch1_transfers.sql` / `players_batch1_stats.sql` | **Fully applied to production already** (18 players, ids 530-547) — matches production exactly. **Do not re-run these files.** |
 
 ## What's left, in priority order
 
-1. **Finish applying the already-researched-but-unapplied managers** —
-   run `data/research/apply_remaining_managers.sh` (a plain script, zero
-   LLM tokens needed). It applies `managers_spells_remaining.sql` and
-   `managers_stats_remaining.sql` to local then production D1 and
-   regenerates `db/seed.sql` as its last step, so this single script also
-   covers the "seed.sql is stale" issue above — no separate export step
-   needed once it's run. If you'd rather do it by hand, the export command
-   above still works after applying both `*_remaining.sql` files.
-2. **Research the 48 remaining clubs** in `clubs_remaining.csv` — same
-   process, same output format, append to a new file (don't touch
-   `clubs_stats.sql`, it's already fully applied and matches production).
-3. **Research the 103 remaining batch-1 players** in
+1. **Research the 103 remaining batch-1 players** in
    `players_batch1_remaining.csv` — same process, new output files
    (don't touch the existing `players_batch1_*.sql`, already applied).
-4. **Extend player coverage past batch 1** — the "notable tier" scope
+2. **Extend player coverage past batch 1** — the "notable tier" scope
    (id 530-1500ish) has ~850 players beyond batch 1 that have never had a
    candidate list generated. Generate one the same way this session did:
    ```sql
@@ -251,9 +244,9 @@ sandbox) so nothing from this session's work is lost:
    ids first to find a sensible real cutoff for a given batch, the same
    way this session sampled ids 900-1500 before settling on batch 1's
    530-650 range).
-5. After each new batch is applied to production, **repeat the
+3. After each new batch is applied to production, **repeat the
    `db/seed.sql` regeneration** so it never drifts from production again
-   (same one-line export command).
+   (same one-line export command above).
 
 ## A note on how this session applied data (don't repeat this)
 
