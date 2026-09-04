@@ -157,6 +157,41 @@ CREATE TABLE IF NOT EXISTS management_spells (
 CREATE INDEX IF NOT EXISTS idx_management_spells_manager ON management_spells(manager_id);
 CREATE INDEX IF NOT EXISTS idx_management_spells_club ON management_spells(club_id);
 
+-- A player's per-team career stint — one row per club spell OR per national
+-- team level (competition_type distinguishes them). Same "this needs two
+-- entity references, not one" reasoning as transfers/management_spells above
+-- is why this isn't folded into entity_stats. Added 2026-09-04 to replace a
+-- single aggregated career-goals/career-appearances entity_stats row per
+-- player: a lump total, sourced only from a single aggregate figure, gave no
+-- way to cross-check itself and was the root cause of a real batch of wrong
+-- data (see agents.md/docs/stats-enrichment.md's incident notes around this
+-- date) — a per-team breakdown is independently sourced per row (each row is
+-- a literal figure from the source, e.g. a Wikipedia infobox's own numbered
+-- club-history row) and a player's career total for competition_type='club'
+-- is a SUM query over these rows, not a separately-stored, separately-wrong
+-- number. This also unlocks team-level categories a lump total never could
+-- (e.g. "Top scorer for Club X"), not just the player's own career total.
+CREATE TABLE IF NOT EXISTS player_career_stats (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	player_id INTEGER NOT NULL REFERENCES entities(id),
+	team_id INTEGER REFERENCES entities(id),  -- the club, or a country entity for competition_type='international'
+		-- (e.g. a youth level like "England U17"); NULL if the team isn't in
+		-- the local entity pool or the name couldn't be confidently resolved
+	team_name_raw TEXT NOT NULL,      -- literal team name as sourced, kept even when team_id resolves —
+		-- same "don't discard the original name once matched to an id" reasoning as elsewhere
+	competition_type TEXT NOT NULL CHECK (competition_type IN ('club', 'international')),
+	years_display TEXT,               -- e.g. "2004-2017", free text as sourced (formats vary too much to normalize)
+	appearances INTEGER,               -- NULL if genuinely not stated
+	goals INTEGER,                     -- NULL if genuinely not stated
+	scope_note TEXT,                   -- e.g. 'domestic league only' when the source itself flags this
+		-- (Wikipedia infobox editors sometimes mark a club's row as league-only via an inline
+		-- wikitext comment invisible on the rendered page); NULL when presumed all-competitions
+	source TEXT NOT NULL,
+	verified_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_player_career_stats_player ON player_career_stats(player_id);
+CREATE INDEX IF NOT EXISTS idx_player_career_stats_team ON player_career_stats(team_id);
+
 -- The query a category's Top N is computed from. One row per category
 -- (1:1). See src/worker/lib/rebuild.ts for what actually runs this.
 CREATE TABLE IF NOT EXISTS category_defs (

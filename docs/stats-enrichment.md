@@ -95,10 +95,33 @@ All rows use `as_of_date`/`verified_at` = the date the research was done
 (not the historical date something became true — these are "current as of
 X" facts).
 
+**2026-09-04 change: `career-goals`/`career-appearances` are no longer written
+as a single aggregated `entity_stats` row per player.** A lump total sourced
+from one aggregate figure gave no way to cross-check itself and was the root
+cause of a real batch of confidently-wrong data (see the incident notes
+below). Instead, use the new `player_career_stats` table (see
+`db/schema.sql`): one row per club spell or national-team level, each an
+independently-sourced literal figure. A player's career total for club
+competitions is a `SUM(appearances)`/`SUM(goals)` query over
+`player_career_stats WHERE player_id = ? AND competition_type = 'club'`, not
+a separately-stored number. `career-assists`/`career-red-cards`/
+`career-own-goals` are unaffected — they stay as `entity_stats` rows below,
+since those are rarely available at all and don't have the same
+"aggregate-of-an-aggregate" failure mode (there's no per-club breakdown to
+reconcile them against in the first place).
+
+`scripts/research_player_stats.py` automates populating
+`player_career_stats` mechanically (Wikipedia infobox extraction, no LLM
+involved) — see that script's own docstring for the full method and usage.
+It never cross-checks against the infobox's own separately-maintained
+totalcaps/totalgoals field (that field isn't stored at all) — the per-club/
+international breakdown is the fact, and an individual appearances/goals
+value is left `NULL` rather than guessed whenever the source itself doesn't
+state it. `transfers` still needs an LLM/human pass (reading prose for fee
+disputes is a judgment task, not a mechanical one).
+
 | stat_key | scope | Who | Meaning |
 |---|---|---|---|
-| `career-goals` | `career` | player | Career total, club competitions unless noted otherwise in `display_value` |
-| `career-appearances` | `career` | player | Career total |
 | `career-assists` | `career` | player | Career total (often unavailable for older careers — skip freely) |
 | `career-red-cards` | `career` | player | Career total (often unavailable — skip freely) |
 | `career-own-goals` | `career` | player | Career total (often unavailable — skip freely) |
@@ -164,6 +187,33 @@ statements grouped by entity with a `-- <name> (entity_id N)` comment
 above each group — see any file in `data/research/` for the exact style.
 Batch a few hundred rows per statement, not one INSERT per row.
 
+## Incident, 2026-09-04: a batch of confidently-wrong career totals
+
+A batch of LLM research agents tasked with getting career-goals/appearances
+for ~103 players via WebSearch produced numbers that were confidently wrong
+by 20-45% for several players (Wayne Rooney: 237 goals claimed vs. real 366;
+Gerd Müller: 487 vs. real ~606; Casemiro: 49 vs. real 55, plus a fabricated
+club). Root cause: WebSearch snippets don't carry reliable scope metadata
+(league-only vs all-competitions, stale vs current, sometimes even inventing
+a club), and hand-summing across mismatched snippets silently produces a
+wrong-but-plausible-looking total with false confidence. The batch was
+caught by spot-checking a handful of results against primary sources — not
+by anything in the agents' own self-validation — and discarded entirely
+before anything touched a database.
+
+The fix wasn't "be more careful," it was structural: **stop storing a
+single aggregate total sourced from a synthesis step, and store the
+per-team breakdown instead** (see `player_career_stats` above) — each row
+is one literal figure straight from the source, no separately-maintained
+"Total" field to disagree with it (that field isn't even read). An
+individual appearances/goals value the source itself doesn't state is left
+`NULL`, never guessed or derived — a career total is a `SUM()` over
+whatever's known, which will honestly undercount a player with unresolved
+early-career data rather than force a wrong-but-complete-looking number.
+`scripts/research_player_stats.py` does this extraction mechanically (no
+LLM per player at all), which also removes the token cost this kind of
+research was running up.
+
 ## Where things stand right now (2026-09-04)
 
 **Production D1** (`tenable-content`, `a87ef250-cc94-4765-a821-785acbcd71a4`)
@@ -196,7 +246,7 @@ change, same command as always:
 wrangler d1 export tenable-content --remote --no-schema \
   --table=categories --table=entities --table=entity_aliases \
   --table=entity_stats --table=category_defs --table=category_answers \
-  --table=transfers --table=management_spells \
+  --table=transfers --table=management_spells --table=player_career_stats \
   --output=db/seed.sql
 ```
 
