@@ -39,12 +39,19 @@ echo "data/research/managers_stats.sql + all earlier-applied stats files."
 echo "== Regenerating db/seed.sql =="
 # Must list tables explicitly: a bare `d1 export` also tries to dump the
 # entity_search FTS5 virtual table (db/schema.sql), which wrangler cannot
-# export ("cannot export databases with Virtual Tables (fts5)").
+# export ("cannot export databases with Virtual Tables (fts5)"). Also
+# deliberately excludes content_version: that table is runtime state
+# schema.sql already seeds correctly on its own (INSERT OR IGNORE), and
+# exporting a real row for it collides with that on a fresh local reset
+# ("UNIQUE constraint failed: content_version.id" -- hit and fixed 2026-09-04).
 npx wrangler d1 export "$DB" --remote --no-schema \
   --table=categories --table=entities --table=entity_aliases \
   --table=entity_stats --table=category_defs --table=category_answers \
-  --table=transfers --table=management_spells --table=content_version \
+  --table=transfers --table=management_spells \
   --output=db/seed.sql
+echo "NOTE: this overwrites db/seed.sql's leading header comment (wrangler"
+echo "doesn't preserve it). Re-add it by hand before committing -- see the"
+echo "top of docs/stats-enrichment.md's regenerate section for the text."
 
 echo "== Done. Now run the standard local checks and commit: =="
 echo "  npm run lint && npm run build && npm run verify:matching && npm run verify:category-defs && npm run playtest"

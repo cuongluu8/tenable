@@ -1,3 +1,38 @@
+-- Content for local/dev testing, and the reference this repo carries for
+-- what production D1 should contain.
+--
+-- Generated, not hand-authored (as of 2026-08-31's entities/entity_stats/
+-- category_defs rebuild — see db/schema.sql and agents.md's Data model
+-- section for the model this populates). This file is an export of
+-- production D1's content tables — dumped via `wrangler d1 export
+-- tenable-content --no-schema`, table-by-table, one INSERT per row — never
+-- edited by hand. That's a deliberate change from before: the previous
+-- schema had this file and production silently diverge more than once
+-- (batches applied to production but never mirrored back here — see git
+-- history around 2026-08-26/27) because keeping two hand-maintained copies
+-- in sync depended on nobody forgetting a step. Treating this file as
+-- generated closes that off structurally instead of relying on discipline
+-- a second time: production is the one authoring surface, this is its
+-- export.
+--
+-- To regenerate after a production content change:
+--   wrangler d1 export tenable-content --remote --no-schema \
+--     --table=categories --table=entities --table=entity_aliases \
+--     --table=entity_stats --table=category_defs --table=category_answers \
+--     --table=transfers --table=management_spells \
+--     --output=db/seed.sql
+--
+-- Deliberately NOT --table=content_version: that table is runtime state
+-- (a cache-busting counter bumped by src/worker/lib/rebuild.ts), not seed
+-- content. db/schema.sql already seeds it with `INSERT OR IGNORE ... (1, 1,
+-- ...)`; exporting a real row for it here collides with that on a fresh
+-- local reset (`UNIQUE constraint failed: content_version.id` — hit this
+-- exact crash 2026-09-04, fixed by dropping the table from the export).
+--
+-- After editing this header by hand, the next real `wrangler d1 export`
+-- will overwrite it (wrangler doesn't preserve arbitrary leading comments)
+-- — re-paste this same header back in as part of that regenerate step.
+
 PRAGMA defer_foreign_keys=TRUE;
 INSERT INTO "categories" ("id","slug","title","subtitle","stat_label","scheduled_date","entity_type","group_label","group_order","reference_scope") VALUES(1,'ucl-titles-by-club','Top 10 UEFA Champions League / European Cup winners','By club, through the 2025-26 final. Ties broken by most recent title.','titles','2026-08-25','club','All-Time Records',3,NULL);
 INSERT INTO "categories" ("id","slug","title","subtitle","stat_label","scheduled_date","entity_type","group_label","group_order","reference_scope") VALUES(2,'ballon-dor-most-wins','Top 10 most Ballon d''Or wins','By individual player, all-time','wins','2026-08-26','player','All-Time Records',3,NULL);
@@ -58434,7 +58469,6 @@ INSERT INTO "category_answers" ("id","category_id","rank","entity_id","value_num
 INSERT INTO "category_answers" ("id","category_id","rank","entity_id","value_numeric","display_value","as_of_date","computed_at") VALUES(2363,48,8,19129,6,'6','2026-08-27','2026-09-04T03:00:26.793Z');
 INSERT INTO "category_answers" ("id","category_id","rank","entity_id","value_numeric","display_value","as_of_date","computed_at") VALUES(2364,48,9,265,4,'4','2026-08-27','2026-09-04T03:00:26.793Z');
 INSERT INTO "category_answers" ("id","category_id","rank","entity_id","value_numeric","display_value","as_of_date","computed_at") VALUES(2365,48,10,266,4,'4','2026-08-27','2026-09-04T03:00:26.793Z');
-INSERT INTO "content_version" ("id","version","updated_at") VALUES(1,5,'2026-09-04T03:00:27.065Z');
 INSERT INTO "transfers" ("id","player_id","from_club_id","to_club_id","transfer_date","transfer_type","fee_eur_value","fee_gbp_value","display_value","source","verified_at") VALUES(1,530,206,261,'2021-08-10','free',NULL,NULL,'Free transfer','Wikipedia/ESPN','2026-08-31');
 INSERT INTO "transfers" ("id","player_id","from_club_id","to_club_id","transfer_date","transfer_type","fee_eur_value","fee_gbp_value","display_value","source","verified_at") VALUES(2,530,261,331,'2023-07-15','free',NULL,NULL,'Free transfer (MLS)','Wikipedia/ESPN','2026-08-31');
 INSERT INTO "transfers" ("id","player_id","from_club_id","to_club_id","transfer_date","transfer_type","fee_eur_value","fee_gbp_value","display_value","source","verified_at") VALUES(3,531,281,196,'2003-08-12','permanent',19000000,12000000,'€19m (£12m)','Goal.com','2026-08-31');

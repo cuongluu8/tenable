@@ -190,12 +190,18 @@ sandbox never had:
 wrangler d1 export tenable-content --remote --no-schema \
   --table=categories --table=entities --table=entity_aliases \
   --table=entity_stats --table=category_defs --table=category_answers \
-  --table=transfers --table=management_spells --table=content_version \
+  --table=transfers --table=management_spells \
   --output=db/seed.sql
 ```
 
 (Same command as `db/seed.sql`'s own header documents, with `--table=transfers
---table=management_spells` added — those two are new since that header was written.)
+--table=management_spells` added — those two are new since that header was written.
+**Deliberately no `--table=content_version`** — that table is runtime state
+schema.sql already seeds correctly on its own; including it in the export
+crashes a fresh local reset with `UNIQUE constraint failed:
+content_version.id`, hit and fixed 2026-09-04. Re-paste seed.sql's header
+comment back in after any raw `wrangler d1 export` — the tool doesn't
+preserve it.)
 
 ### `data/research/` — the raw research, committed for durability
 
