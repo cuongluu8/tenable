@@ -32,12 +32,14 @@ reconstruct this from git log.
   host is proxy-blocked here, same known sandbox limitation as
   football-data.org) — if something looks off on the live site, that's the
   first thing to actually load in a real browser/from outside this sandbox.
-- Production D1 (`tenable-content`, `a87ef250-cc94-4765-a821-785acbcd71a4`)
-  still has the **old** tables (`answers`, `answer_aliases`,
-  `reference_entities`, `reference_entity_aliases`) sitting alongside the
-  new ones — deliberately left in place as a rollback fallback, not yet
-  read by anything. **Follow-up**: once the new code has been live and
-  confirmed stable for a while, drop those four old tables.
+- **Done (2026-09-04)**: the old `answers`/`answer_aliases`/
+  `reference_entities`/`reference_entity_aliases` tables (473/919/19314/37168
+  rows) were confirmed still unread by any code, then dropped from
+  production D1 via `wrangler d1 execute tenable-content --remote`. Verified
+  post-drop: `entities` (19,364) and `category_answers` (473) untouched, DB
+  size down from ~8.4MB to ~5.15MB, local D1 already had none of these four
+  tables. Local `db/schema.sql` never defined them post-rewrite, so no
+  schema-file change was needed.
 - New tables verified in production: 48/48 `categories`, 48/48
   `category_defs`, 473/473 `entity_stats`, 473/473 `category_answers`, 0
   orphaned rows (every `category_answers.entity_id` resolves, every
