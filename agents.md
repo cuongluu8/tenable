@@ -17,6 +17,47 @@ guesses) or Tension (5 lives) mode.
 - **Live**: https://tenable.cuong-luu.workers.dev
 - **Repo**: cuongluu8/tenable, default branch `main`
 
+## Working with Claude on this repo — token cost awareness
+
+The user develops this project largely through Claude Code sessions and is
+cost-conscious about it. Two rules, agreed with the user 2026-09-04:
+
+1. **Flag expensive work before doing it, then wait.** "Expensive" means:
+   a bulk data read/write (many rows, or relaying a file over ~20KB through
+   a tool that can't take a file path directly), spawning more than one
+   background research/work agent, or any task likely to need >15 tool
+   calls. State what the operation is, a rough scope/cost estimate, and any
+   cheaper alternative — then **stop and wait for a go-ahead** rather than
+   proceeding. Don't apply this to routine single-file edits, builds,
+   lints, or a handful of targeted reads — the point is to catch the
+   genuinely large operations, not to add friction to everything.
+2. **The single biggest lever for reducing cost on this repo**: a cloud/
+   sandboxed Claude session has no direct Cloudflare credentials, so any
+   bulk production D1 write has to be relayed through an MCP tool one SQL
+   statement at a time — the data gets paid for twice (read into context,
+   then re-emitted as a tool argument). The exact same operation from a
+   machine with real `wrangler login` credentials is a single
+   `wrangler d1 execute --remote --file=...` command. Prefer preparing a
+   file for local application over applying bulk data through a
+   credential-less sandbox, whenever that's an option.
+
+**On handing work to a local/cheaper tool (e.g. Aider) to save tokens**:
+this was tried once (2026-09-01) for a multi-file, judgment-heavy handoff
+(see `docs/stats-enrichment.md`'s and `PROGRESS.md`'s history around that
+date) and failed — the local run never read the handoff doc, invented an
+unrelated task, and committed code with a syntax error and undefined
+variables, plus silently broke `npm run build` (deleted from package.json
+without updating anything that depended on it) and desynced
+`package-lock.json`, breaking CI. Root cause was almost certainly a
+smaller/local model given loose autonomy rather than a narrow, explicit
+task — a known failure mode for that class of model on stateful,
+precision-dependent work. **Only hand off small, mechanical, well-specified
+tasks locally** (e.g. "apply exactly this file with this command") —
+keep multi-file work or anything requiring judgment calls in a Claude Code
+session. If handing off something bigger anyway, point the local tool at
+the specific doc explicitly as its first instruction, and verify (`npm ci
+&& npm run lint && npm run build`) before trusting anything it pushes.
+
 ## Stack
 
 - **Frontend**: React 19 + Vite, in `src/react-app/`
