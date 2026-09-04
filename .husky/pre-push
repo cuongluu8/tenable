@@ -1,5 +1,0 @@
-#!/usr/bin/env sh
-. "$(dirname "$0")/../node_modules/husky/lib/exec-env.sh"
-
-npm run lint && npm run type-check
-

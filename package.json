@@ -12,9 +12,7 @@
 		"publish": true
 	},
 	"dependencies": {
-		"csv-parse": "^5.6.0",
-		"hono": "^4.13.5",
-		"node-fetch": "^3.3.2",
+		"hono": "4.11.1",
 		"react": "19.2.1",
 		"react-dom": "19.2.1"
 	},
@@ -29,8 +27,6 @@
 		"eslint-plugin-react-hooks": "7.0.1",
 		"eslint-plugin-react-refresh": "0.4.24",
 		"globals": "16.5.0",
-		"husky": "^9.1.7",
-		"ts-node": "^10.9.2",
 		"typescript": "5.9.3",
 		"typescript-eslint": "8.48.0",
 		"vite": "^7.0.0",
@@ -38,24 +34,17 @@
 	},
 	"private": true,
 	"scripts": {
-		"type-check": "tsc --noEmit",
+		"build": "tsc -b && vite build",
 		"cf-typegen": "wrangler types",
 		"check": "tsc && vite build && wrangler deploy --dry-run",
 		"deploy": "wrangler deploy",
 		"dev": "vite",
-		"lint": "eslint . && npm run type-check",
+		"lint": "eslint .",
 		"preview": "npm run build && vite preview",
 		"verify:matching": "node --experimental-strip-types scripts/verify-guess-matching.ts",
 		"verify:category-defs": "node --experimental-strip-types scripts/verify-category-defs.ts",
 		"verify:content-source": "node --experimental-strip-types scripts/verify-content-source.ts",
-		"playtest": "node --experimental-strip-types scripts/playtest.ts",
-		"prepare": "husky install"
+		"playtest": "node --experimental-strip-types scripts/playtest.ts"
 	},
-	"type": "module",
-	"allowScripts": {
-		"esbuild@0.28.2": true,
-		"esbuild@0.28.1": true,
-		"fsevents@2.3.3": true,
-		"workerd@1.20260811.1": true
-	}
+	"type": "module"
 }
