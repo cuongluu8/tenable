@@ -39,5 +39,11 @@
 			"binding": "PROGRESS",
 			"id": "f04cfb81bc8e4ba783cd3157d59e2734"
 		}
+	],
+	"r2_buckets": [
+		{
+			"binding": "MEDIA",
+			"bucket_name": "tenable-media"
+		}
 	]
 }

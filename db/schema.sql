@@ -55,8 +55,13 @@ CREATE TABLE IF NOT EXISTS entities (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	canonical_name TEXT NOT NULL,
 	entity_type TEXT NOT NULL DEFAULT 'club',   -- same vocabulary as categories.entity_type
-	scope TEXT       -- loose grouping (e.g. a country/confederation), not a FK —
+	scope TEXT,      -- loose grouping (e.g. a country/confederation), not a FK —
 		-- same role the old reference_entities.category played.
+	image_key TEXT   -- R2 object key in the tenable-media bucket (e.g.
+		-- 'clubs/217.png', 'countries/76.svg'), NULL until a badge/flag has
+		-- been sourced for this entity. Not a URL: the Worker resolves it
+		-- against the MEDIA binding so the bucket itself can stay private.
+		-- See data/research/upload_media.sh for how these get populated.
 	-- Duplicate canonical_name across rows is expected and allowed at this
 	-- scale (two different real people/clubs can share a name) — identity is
 	-- always the id, never the name string. Typeahead disambiguates same-name
