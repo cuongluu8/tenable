@@ -300,6 +300,22 @@ def extract_series(infobox, prefix_years, prefix_team, prefix_caps, prefix_goals
 
 # ------------------------------------------------------------- name lookup
 
+LOAN_MARKER_RE = re.compile(r"^→\s*(.+?)\s*\(loan\)$")
+
+
+def strip_loan_marker(s: str) -> str:
+    """Wikipedia infoboxes prefix/suffix a loan spell's team name with
+    "→ ... (loan)" (e.g. "→ Chelsea (loan)"). Left in place, normalize_name()
+    folds "(loan)" into the match key too ("chelsealoan") and every loan
+    spell silently fails to resolve -- found 2026-09-05 when it turned out
+    to be hiding 47 real, often very recognizable, club matches (Chelsea, AC
+    Milan, Sao Paulo, Corinthians, Flamengo...) across the existing
+    player_career_stats data. Only strips the marker for matching purposes;
+    team_name_raw itself is kept as scraped."""
+    m = LOAN_MARKER_RE.match(s)
+    return m.group(1) if m else s
+
+
 def normalize_name(s: str) -> str:
     s = unicodedata.normalize("NFKD", s)
     s = "".join(c for c in s if not unicodedata.combining(c))
@@ -337,7 +353,7 @@ class EntityResolver:
             conn.close()
 
     def resolve(self, name: str) -> int | None:
-        return self.by_name.get(normalize_name(name))
+        return self.by_name.get(normalize_name(strip_loan_marker(name)))
 
 
 def find_local_d1_path() -> str | None:
