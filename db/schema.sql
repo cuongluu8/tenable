@@ -197,6 +197,29 @@ CREATE TABLE IF NOT EXISTS player_career_stats (
 CREATE INDEX IF NOT EXISTS idx_player_career_stats_player ON player_career_stats(player_id);
 CREATE INDEX IF NOT EXISTS idx_player_career_stats_team ON player_career_stats(team_id);
 
+-- "Guess the player from the clubs they played for" quiz question pool.
+-- One row per player, not per category_defs/category_answers pattern above:
+-- a round of this game is 10 RANDOM questions drawn from this whole pool at
+-- play time (no daily-locked "today's 10" the way categories work), and
+-- which clubs count as part of a player's displayed sequence is itself a
+-- curation decision (skip unresolved/unrecognizable early clubs) rather
+-- than something mechanically derivable the way category_answers is from
+-- entity_stats — closer to the old hand-authored `answers` table than to
+-- the rebuild pipeline. Derived (not hand-typed) from transfers/
+-- player_career_stats by data/research/build_club_badge_questions.py,
+-- committed as reviewable SQL like the rest of data/research/.
+CREATE TABLE IF NOT EXISTS club_badge_questions (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	player_id INTEGER NOT NULL REFERENCES entities(id),
+	club_sequence TEXT NOT NULL,
+		-- JSON array of club entity ids, chronological (earliest first),
+		-- de-duplicated (a player re-joining a club later in their career
+		-- shows that club's badge once, not twice) e.g. '[206,261,331]'
+	source TEXT NOT NULL CHECK (source IN ('transfers', 'player_career_stats'))
+		-- which table this sequence was derived from, for traceability
+);
+CREATE INDEX IF NOT EXISTS idx_club_badge_questions_player ON club_badge_questions(player_id);
+
 -- The query a category's Top N is computed from. One row per category
 -- (1:1). See src/worker/lib/rebuild.ts for what actually runs this.
 CREATE TABLE IF NOT EXISTS category_defs (
