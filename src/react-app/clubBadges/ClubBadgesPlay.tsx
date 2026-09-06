@@ -378,8 +378,20 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 			    since-retired one may have played on past the last club shown
 			    here without ever being recorded. Without this, the sequence
 			    could read as a claim that the last badge is where they ended up,
-			    which isn't guaranteed. */}
-			<p className="cb-disclaimer">This may not show their full career — there could be more clubs after the last one shown.</p>
+			    which isn't guaranteed.
+			    club_sequence is also de-duplicated at the source (see
+			    db/schema.sql's own comment on it) -- a club a player returned to
+			    only shows its badge once, at its first appearance, not again at
+			    the point they actually rejoined. A loan spell is the case this
+			    bites players the most: Courtois reads as Chelsea -> Atletico
+			    Madrid -> Real Madrid here, silently skipping the mandatory
+			    return to Chelsea before Real Madrid actually happened, which a
+			    knowledgeable player could reasonably expect to see and take as
+			    the puzzle being wrong rather than simplified. */}
+			<p className="cb-disclaimer">
+				This may not show their full career, and a club may repeat later on even though it's only shown once
+				here (e.g. after a loan).
+			</p>
 
 			{revealedHints.has("nationality") && (
 				<p className="cb-hint-text">Nationality: {question.nationality}</p>
@@ -436,7 +448,11 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 				<div className="cb-reveal">
 					<p className={state.lastResult.outcome === "correct" ? "cb-reveal__correct" : "cb-reveal__wrong"}>
 						{state.lastResult.outcome === "correct"
-							? "✅ Correct!"
+							? // Confirms the canonical name, not just that the guess counted --
+								// a guess can match via an alias or loose/typo-tolerant matching
+								// (normalize.ts), so "Correct!" alone wouldn't actually confirm
+								// who the player thinks they just named.
+								`✅ Correct! It was ${state.lastResult.correctName}`
 							: state.lastResult.gaveUp
 								? `It was ${state.lastResult.correctName}`
 								: `❌ Not quite — it was ${state.lastResult.correctName}`}
