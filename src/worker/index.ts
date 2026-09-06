@@ -32,9 +32,15 @@ app.route("/api/stats", stats);
 app.route("/api/suggest", suggest);
 
 // Unlisted admin page, no link to it anywhere in the app nav — see
-// mediaAudit.ts. Deliberately outside /api/* (no circuit breaker needed for
-// an occasional manual page load).
-app.route("/admin/media-audit", mediaAudit);
+// mediaAudit.ts. Mounted under /api/* (not e.g. /admin/media-audit)
+// specifically because it has to be — this project's static-assets config
+// (wrangler.json's `not_found_handling: "single-page-application"`) serves
+// the client SPA's index.html for any unmatched path OUTSIDE /api/*, so a
+// route mounted elsewhere never actually reaches this Worker at all (found
+// the hard way: it deployed fine, existed in the bundle, and still 404'd
+// into the homepage). enforceCircuitBreaker applying here too is harmless
+// for an occasional manual page load.
+app.route("/api/admin/media-audit", mediaAudit);
 
 export default {
 	fetch: app.fetch,

@@ -10,9 +10,9 @@ const mediaAudit = new Hono<{ Bindings: Env }>();
 // data/research/audit_media.sh for that check) from "this is the RIGHT
 // image", only a person looking at it can.
 //
-// GET /admin/media-audit           -- clubs, missing-first
-// GET /admin/media-audit?type=country
-// GET /admin/media-audit?type=club&missing=1   -- only entities with no image_key
+// GET /api/admin/media-audit           -- clubs, missing-first
+// GET /api/admin/media-audit?type=country
+// GET /api/admin/media-audit?type=club&missing=1   -- only entities with no image_key
 mediaAudit.get("/", async (c) => {
 	const type = c.req.query("type") === "country" ? "country" : "club";
 	const missingOnly = c.req.query("missing") === "1";
