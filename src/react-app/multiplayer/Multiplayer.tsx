@@ -1,10 +1,12 @@
 import { useEffect, useReducer, useState } from "react";
 import "./multiplayer.css";
 import { MultiplayerPlayers } from "./MultiplayerPlayers";
+import { MultiplayerGameTypePick, type MpGameType } from "./MultiplayerGameTypePick";
 import { MultiplayerCategoryPick } from "./MultiplayerCategoryPick";
 import { MultiplayerPlay } from "./MultiplayerPlay";
 import { MultiplayerResult } from "./MultiplayerResult";
 import { multiplayerReducer, initialMpState, type MpCategory } from "./state";
+import { GuessThePlayer } from "../clubBadges/GuessThePlayer";
 import type { RevealAnswer } from "../types";
 
 interface CheckGuessResponse {
@@ -31,12 +33,17 @@ export function Multiplayer({ onBack }: Props) {
 	// resolves (or if it fails); the result screen just shows found answers
 	// only in that case, same as it did before this existed.
 	const [revealed, setRevealed] = useState<RevealAnswer[] | null>(null);
-	// Two-step setup wizard, ahead of the reducer's own "setup" phase: null
+	// Three-step setup wizard, ahead of the reducer's own "setup" phase: null
 	// means still on the roster step (MultiplayerPlayers.tsx); once a roster
-	// is confirmed, this holds it and the category step (MultiplayerCategoryPick.tsx)
-	// takes over. Kept here rather than in either child so a "Back" from the
-	// category step can return to the roster step with names still filled in.
+	// is confirmed, gameType is chosen next (MultiplayerGameTypePick.tsx);
+	// only once that's "categories" does the category step
+	// (MultiplayerCategoryPick.tsx) take over -- "club-badges" instead skips
+	// straight to GuessThePlayer, which has no further picking of its own (a
+	// round is always a random draw). Kept here rather than in any child so
+	// a "Back" from a later step can return to an earlier one with its
+	// choices still filled in.
 	const [rosterNames, setRosterNames] = useState<string[] | null>(null);
+	const [gameType, setGameType] = useState<MpGameType | null>(null);
 
 	function startGame(category: MpCategory) {
 		if (!rosterNames) return; // can't happen — the category step never renders without one
@@ -102,16 +109,22 @@ export function Multiplayer({ onBack }: Props) {
 		// real phase transition into "finished".
 	}, [state.phase, state.category]);
 
-	// Shared by both "quit mid-round" and "play again" — either way, the next
-	// round's reveal (if it gets that far) needs to start from a clean slate,
-	// not the previous round's answer list, and setup goes back to the roster
-	// step (not straight to category picking) even though localStorage will
-	// have it pre-filled — same "start of the wizard" reasoning as never
-	// pre-selecting a category on that step either.
+	// Shared by both "quit mid-round" and "play again", for either game type
+	// -- either way, the next round's reveal (if it gets that far) needs to
+	// start from a clean slate, not the previous round's answer list, and
+	// setup goes back to the roster step (not straight to picking again)
+	// even though localStorage will have it pre-filled — same "start of the
+	// wizard" reasoning as never pre-selecting a category on that step
+	// either.
 	function resetGame() {
 		setRevealed(null);
 		setRosterNames(null);
+		setGameType(null);
 		dispatch({ type: "reset" });
+	}
+
+	if (gameType === "club-badges" && rosterNames) {
+		return <GuessThePlayer playerNames={rosterNames} onExit={resetGame} />;
 	}
 
 	return (
@@ -119,8 +132,10 @@ export function Multiplayer({ onBack }: Props) {
 			{state.phase === "setup" &&
 				(rosterNames === null ? (
 					<MultiplayerPlayers onNext={setRosterNames} onBack={onBack} />
+				) : gameType === null ? (
+					<MultiplayerGameTypePick onStart={setGameType} onBack={() => setRosterNames(null)} />
 				) : (
-					<MultiplayerCategoryPick onStart={startGame} onBack={() => setRosterNames(null)} />
+					<MultiplayerCategoryPick onStart={startGame} onBack={() => setGameType(null)} />
 				))}
 			{state.phase === "playing" && (
 				<MultiplayerPlay state={state} onGuess={submitGuess} onPass={passTurn} submitting={submitting} onQuit={resetGame} />

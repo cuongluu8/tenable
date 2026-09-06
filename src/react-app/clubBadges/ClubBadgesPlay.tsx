@@ -23,6 +23,10 @@ export function ClubBadgesPlay({ state, onGuess, onNext, submitting, onQuit }: P
 	const turnIndex = currentTurnIndex(state);
 	const current = state.players[turnIndex];
 	const isLastQuestion = state.questionIndex + 1 >= state.questions.length;
+	// Solo Single Player has exactly one "player" (see App.tsx) -- no one to
+	// pass the device to and no roster worth listing, so that chrome only
+	// makes sense once there's a real multiplayer roster.
+	const solo = state.players.length === 1;
 
 	function pick(name: string) {
 		setGuessInput(name);
@@ -45,25 +49,29 @@ export function ClubBadgesPlay({ state, onGuess, onNext, submitting, onQuit }: P
 				Question {state.questionIndex + 1} of {state.questions.length}
 			</p>
 
-			<ul className="mp-players">
-				{state.players.map((player, i) => (
-					<li
-						key={i}
-						className={i === turnIndex ? "mp-players__item--active" : undefined}
-						style={{ "--player-color": player.color } as React.CSSProperties}
-					>
-						<span className="mp-players__name">{player.name}</span>
-						<span className="cb-players__correct">{player.correct} correct</span>
-					</li>
-				))}
-			</ul>
+			{!solo && (
+				<ul className="mp-players">
+					{state.players.map((player, i) => (
+						<li
+							key={i}
+							className={i === turnIndex ? "mp-players__item--active" : undefined}
+							style={{ "--player-color": player.color } as React.CSSProperties}
+						>
+							<span className="mp-players__name">{player.name}</span>
+							<span className="cb-players__correct">{player.correct} correct</span>
+						</li>
+					))}
+				</ul>
+			)}
 
 			<p className="cb-turn-banner" style={{ "--player-color": current.color } as React.CSSProperties}>
-				{state.lastResult
-					? isLastQuestion
-						? "Last question — see how everyone did"
-						: `Pass the device to ${state.players[(turnIndex + 1) % state.players.length].name}`
-					: `${current.name}'s turn — who is this?`}
+				{solo
+					? "Who is this?"
+					: state.lastResult
+						? isLastQuestion
+							? "Last question — see how everyone did"
+							: `Pass the device to ${state.players[(turnIndex + 1) % state.players.length].name}`
+						: `${current.name}'s turn — who is this?`}
 			</p>
 
 			<div className="cb-badges">

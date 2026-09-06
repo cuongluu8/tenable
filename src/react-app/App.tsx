@@ -3,7 +3,7 @@ import "./App.css";
 import { CategoryList } from "./components/CategoryList";
 import { Logo } from "./components/Logo";
 import { PlayScreen } from "./components/PlayScreen";
-import { ClubBadges } from "./clubBadges/ClubBadges";
+import { GuessThePlayer } from "./clubBadges/GuessThePlayer";
 import { Multiplayer } from "./multiplayer/Multiplayer";
 import type { CategoriesResponse, Category } from "./types";
 
@@ -20,11 +20,10 @@ function slugFromPath(): string | null {
 	return /^\/play\/([^/]+)$/.exec(window.location.pathname)?.[1] ?? null;
 }
 
-// The single-player category list itself, one level up from a specific
-// round — /play with no slug. Kept as its own path (not folded into "/")
-// so the same back/forward/refresh reasoning above applies to it too: the
-// home screen is just the single-player/multiplayer mode choice, and
-// landing on /play directly should show the list, not bounce to home.
+// The single-player category list itself, one level under the single-player
+// mode picker (see isSinglePlayerHomePath below) — /play with no slug. Kept
+// as its own path (not folded into the picker) so the same back/forward/
+// refresh reasoning above applies to it too.
 function isCategoryListPath(): boolean {
 	return window.location.pathname === "/play";
 }
@@ -36,10 +35,23 @@ function isMultiplayerPath(): boolean {
 	return window.location.pathname === "/multiplayer";
 }
 
-// Same reasoning again — club-badges also has no per-session slug (a round
-// is always a fresh random draw, never a specific one you'd link back to).
-function isClubBadgesPath(): boolean {
-	return window.location.pathname === "/club-badges";
+// Single player's own mode picker (Daily Categories vs Guess the Player,
+// solo) — sits between home and either of those two, the same role
+// Multiplayer's internal game-type picker plays for the multiplayer side
+// (see Multiplayer.tsx) but as its own route here since single-player's two
+// modes are otherwise-unrelated top-level screens (PlayScreen vs
+// GuessThePlayer), not steps of one shared flow the way multiplayer's
+// roster is.
+function isSinglePlayerHomePath(): boolean {
+	return window.location.pathname === "/single-player";
+}
+
+// Solo "guess the player" -- one level under the single-player picker, no
+// slug of its own for the same reason multiplayer never had one for its
+// game (a round is always a fresh random draw, never a specific one you'd
+// link back to).
+function isSoloClubBadgesPath(): boolean {
+	return window.location.pathname === "/single-player/club-badges";
 }
 
 function App() {
@@ -47,7 +59,8 @@ function App() {
 	const [activeSlug, setActiveSlug] = useState<string | null>(() => slugFromPath());
 	const [categoryListActive, setCategoryListActive] = useState<boolean>(() => isCategoryListPath());
 	const [multiplayerActive, setMultiplayerActive] = useState<boolean>(() => isMultiplayerPath());
-	const [clubBadgesActive, setClubBadgesActive] = useState<boolean>(() => isClubBadgesPath());
+	const [singlePlayerHomeActive, setSinglePlayerHomeActive] = useState<boolean>(() => isSinglePlayerHomePath());
+	const [soloClubBadgesActive, setSoloClubBadgesActive] = useState<boolean>(() => isSoloClubBadgesPath());
 
 	const loadCategories = useCallback(() => {
 		fetch("/api/categories")
@@ -79,15 +92,16 @@ function App() {
 			setActiveSlug(slugFromPath());
 			setCategoryListActive(isCategoryListPath());
 			setMultiplayerActive(isMultiplayerPath());
-			setClubBadgesActive(isClubBadgesPath());
+			setSinglePlayerHomeActive(isSinglePlayerHomePath());
+			setSoloClubBadgesActive(isSoloClubBadgesPath());
 		}
 		window.addEventListener("popstate", handlePopState);
 		return () => window.removeEventListener("popstate", handlePopState);
 	}, []);
 
 	function handleSinglePlayerSelect() {
-		window.history.pushState(null, "", "/play");
-		setCategoryListActive(true);
+		window.history.pushState(null, "", "/single-player");
+		setSinglePlayerHomeActive(true);
 	}
 
 	function handleMultiplayerSelect() {
@@ -95,9 +109,16 @@ function App() {
 		setMultiplayerActive(true);
 	}
 
-	function handleClubBadgesSelect() {
-		window.history.pushState(null, "", "/club-badges");
-		setClubBadgesActive(true);
+	function handleDailyCategoriesSelect() {
+		window.history.pushState(null, "", "/play");
+		setSinglePlayerHomeActive(false);
+		setCategoryListActive(true);
+	}
+
+	function handleSoloClubBadgesSelect() {
+		window.history.pushState(null, "", "/single-player/club-badges");
+		setSinglePlayerHomeActive(false);
+		setSoloClubBadgesActive(true);
 	}
 
 	function handleSelect(cat: Category) {
@@ -111,12 +132,23 @@ function App() {
 		loadCategories(); // refresh statuses/streak after playing
 	}
 
+	// One level up from either single-player mode (Daily Categories or Guess
+	// the Player) back to the picker between them — not all the way home,
+	// same "back goes up one step" reasoning as handleBackToCategoryList.
+	function handleBackToSinglePlayerHome() {
+		window.history.pushState(null, "", "/single-player");
+		setCategoryListActive(false);
+		setSoloClubBadgesActive(false);
+		setSinglePlayerHomeActive(true);
+	}
+
 	function handleBackToHome() {
 		window.history.pushState(null, "", "/");
 		setActiveSlug(null);
 		setCategoryListActive(false);
 		setMultiplayerActive(false);
-		setClubBadgesActive(false);
+		setSinglePlayerHomeActive(false);
+		setSoloClubBadgesActive(false);
 	}
 
 	if (activeSlug) {
@@ -127,17 +159,17 @@ function App() {
 		return <Multiplayer onBack={handleBackToHome} />;
 	}
 
-	if (clubBadgesActive) {
-		return <ClubBadges onBack={handleBackToHome} />;
+	if (soloClubBadgesActive) {
+		return <GuessThePlayer playerNames={["You"]} onExit={handleBackToSinglePlayerHome} />;
 	}
 
 	if (categoryListActive) {
 		return (
 			<div className="screen">
-				<button type="button" className="back-link" onClick={handleBackToHome}>
+				<button type="button" className="back-link" onClick={handleBackToSinglePlayerHome}>
 					← Back
 				</button>
-				<h2>Single player</h2>
+				<h2>Daily categories</h2>
 
 				{load.status === "loading" && <p>Loading categories…</p>}
 				{load.status === "error" && <p>{load.message}</p>}
@@ -162,6 +194,28 @@ function App() {
 		);
 	}
 
+	if (singlePlayerHomeActive) {
+		return (
+			<div className="screen">
+				<button type="button" className="back-link" onClick={handleBackToHome}>
+					← Back
+				</button>
+				<h2>Single player</h2>
+
+				<div className="mode-picker">
+					<button type="button" className="mode-button" onClick={handleDailyCategoriesSelect}>
+						<strong>🏆 Daily categories</strong>
+						<span>Play the Top 10 solo, at your own pace</span>
+					</button>
+					<button type="button" className="mode-button" onClick={handleSoloClubBadgesSelect}>
+						<strong>🛡️ Guess the player</strong>
+						<span>Name them from the clubs they've played for</span>
+					</button>
+				</div>
+			</div>
+		);
+	}
+
 	return (
 		<div className="screen">
 			<header className="header">
@@ -173,15 +227,11 @@ function App() {
 			<div className="mode-picker">
 				<button type="button" className="mode-button" onClick={handleSinglePlayerSelect}>
 					<strong>🏆 Single player</strong>
-					<span>Play the Top 10 solo, at your own pace</span>
+					<span>Play solo, at your own pace</span>
 				</button>
 				<button type="button" className="mode-button" onClick={handleMultiplayerSelect}>
 					<strong>🎮 Multiplayer</strong>
 					<span>Pass the device around and take turns</span>
-				</button>
-				<button type="button" className="mode-button" onClick={handleClubBadgesSelect}>
-					<strong>🛡️ Guess the player</strong>
-					<span>Name them from the clubs they've played for</span>
 				</button>
 			</div>
 		</div>
