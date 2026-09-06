@@ -402,6 +402,16 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 					);
 				})()}
 
+			{/* Solo wrong guess that didn't end the question (a life remained --
+			    see state.ts's "wrongAttempt") -- the guess box stays up so they
+			    can just try again, this is the only sign anything happened.
+			    Gone as soon as they do (the next dispatch is either another one
+			    of these, replacing it, or a "guessResult" that clears it for
+			    the reveal instead). */}
+			{state.lastWrongAttempt !== null && !state.lastResult && (
+				<p className="cb-wrong-attempt">❌ Not quite — try again</p>
+			)}
+
 			{!state.lastResult ? (
 				<>
 					<GuessInput

@@ -103,9 +103,20 @@ export interface CbState {
 	// compare it against MAX_WRONG_LIVES themselves wherever the round could
 	// end early because of it.
 	wrongCount: number;
-	// Set the instant a guess comes back from the server; cleared by "next".
-	// Its presence is what the Play screen uses to decide whether it's
-	// showing the guess box or the reveal -- see ClubBadgesPlay.tsx.
+	// The guess just tried and rejected, when it *didn't* end the question
+	// -- solo only (see the "wrongAttempt" action below): with a life still
+	// left, a wrong (non-give-up) guess doesn't reveal the answer or move
+	// on, it just costs a life and lets the same question be tried again.
+	// Distinct from lastResult, which always means "this question is over"
+	// -- both being non-null at once never happens (see the reducer cases).
+	// Cleared by the next guess attempt of any kind, or by "next"/"reset".
+	lastWrongAttempt: string | null;
+	// Set the instant a guess comes back from the server *and ends the
+	// question* (correct, a give-up, or a wrong guess that was also the
+	// last life) -- cleared by "next". Its presence is what the Play screen
+	// uses to decide whether it's showing the guess box (possibly with a
+	// lastWrongAttempt message alongside it) or the reveal -- see
+	// ClubBadgesPlay.tsx.
 	lastResult: CbResult | null;
 }
 
@@ -115,6 +126,7 @@ export const initialCbState: CbState = {
 	questions: [],
 	questionIndex: 0,
 	wrongCount: 0,
+	lastWrongAttempt: null,
 	lastResult: null,
 };
 
@@ -125,6 +137,12 @@ export function currentTurnIndex(state: CbState): number {
 
 export type CbAction =
 	| { type: "start"; playerNames: string[]; questions: CbQuestion[] }
+	// A solo wrong (non-give-up) guess with a life still left after it --
+	// see GuessThePlayer.tsx's checkQuestion for how it decides between
+	// this and "guessResult" for a wrong outcome. Never dispatched for
+	// multiplayer (no lives, no retrying -- every wrong guess there is a
+	// "guessResult").
+	| { type: "wrongAttempt"; guess: string }
 	| {
 			type: "guessResult";
 			guess: string;
@@ -145,6 +163,10 @@ export function clubBadgesReducer(state: CbState, action: CbAction): CbState {
 				players: action.playerNames.map((name, i) => ({ name, color: colorForPlayerIndex(i), correct: 0 })),
 			};
 
+		case "wrongAttempt":
+			if (state.phase !== "playing") return state;
+			return { ...state, wrongCount: state.wrongCount + 1, lastWrongAttempt: action.guess };
+
 		case "guessResult": {
 			if (state.phase !== "playing") return state;
 			const turnIndex = currentTurnIndex(state);
@@ -158,8 +180,12 @@ export function clubBadgesReducer(state: CbState, action: CbAction): CbState {
 				// A give-up is always outcome "wrong" (see CbResult's doc), so it
 				// costs a life the same as an actual wrong guess would -- not
 				// knowing the answer is not knowing the answer, whichever way this
-				// question ended.
+				// question ended. A wrong guess that used up the last life also
+				// arrives here (not as "wrongAttempt") for the same reason --
+				// either way, this life wasn't already counted by a previous
+				// "wrongAttempt" dispatch for this same guess.
 				wrongCount: action.outcome === "wrong" ? state.wrongCount + 1 : state.wrongCount,
+				lastWrongAttempt: null,
 				lastResult: {
 					playerName: state.players[turnIndex].name,
 					guess: action.guess,
