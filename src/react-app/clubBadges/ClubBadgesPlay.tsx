@@ -1,7 +1,8 @@
 import { Fragment, useCallback, useLayoutEffect, useRef, useState } from "react";
 import { GuessInput } from "../components/GuessInput";
+import { LivesIndicator } from "../components/LivesIndicator";
 import { BadgeTile } from "./BadgeTile";
-import { currentTurnIndex, HINT_KEYS, type CbBadge, type CbState, type HintKey } from "./state";
+import { currentTurnIndex, HINT_KEYS, MAX_WRONG_LIVES, type CbBadge, type CbState, type HintKey } from "./state";
 
 interface BadgeRowItem {
 	badge: CbBadge;
@@ -208,11 +209,16 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 	});
 	const turnIndex = currentTurnIndex(state);
 	const current = state.players[turnIndex];
-	const isLastQuestion = state.questionIndex + 1 >= state.questions.length;
 	// Solo Single Player has exactly one "player" (see App.tsx) -- no one to
 	// pass the device to and no roster worth listing, so that chrome only
 	// makes sense once there's a real multiplayer roster.
 	const solo = state.players.length === 1;
+	// Lives (solo only -- see state.ts's MAX_WRONG_LIVES) can end the round
+	// on this question even though more are technically left in the deck,
+	// same "no Next question after this one" reveal ClubBadgesPlay already
+	// shows once questionIndex reaches the real end.
+	const outOfLives = solo && state.wrongCount >= MAX_WRONG_LIVES;
+	const isLastQuestion = state.questionIndex + 1 >= state.questions.length || outOfLives;
 
 	function pick(name: string) {
 		setGuessInput(name);
@@ -239,6 +245,15 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 			<p className="cb-progress">
 				Question {state.questionIndex + 1} of {state.questions.length}
 			</p>
+
+			{/* Solo only, same as the daily categories game's tension mode
+			    (PlayScreen.tsx) this mirrors -- 5 lives, one wrong guess (or
+			    give-up, see state.ts's guessResult case) too many and the round
+			    ends right there rather than continuing to a question that
+			    doesn't matter anymore. Multiplayer has no such cap (see
+			    state.ts's "next" case), so there's nothing meaningful to show
+			    here for a real roster. */}
+			{solo && <LivesIndicator total={MAX_WRONG_LIVES} remaining={MAX_WRONG_LIVES - state.wrongCount} />}
 
 			{!solo && (
 				<ul className="mp-players">
@@ -426,7 +441,6 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 								? `It was ${state.lastResult.correctName}`
 								: `❌ Not quite — it was ${state.lastResult.correctName}`}
 					</p>
-					<p className="cb-reveal__clubs">{state.lastResult.clubNames.join(" → ")}</p>
 					<button type="button" className="cb-next-button" onClick={next}>
 						{isLastQuestion ? "See results" : "Next question"}
 					</button>

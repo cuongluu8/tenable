@@ -12,7 +12,6 @@ interface RoundResponse {
 interface CheckGuessResponse {
 	result: "correct" | "wrong";
 	name: string;
-	clubNames: string[];
 }
 
 interface Props {
@@ -91,7 +90,6 @@ export function GuessThePlayer({ playerNames, onExit }: Props) {
 				outcome: data.result,
 				gaveUp: !("guess" in body),
 				correctName: data.name,
-				clubNames: data.clubNames,
 			});
 		} catch {
 			// Network error mid-question: nothing to apply, player just tries again.

@@ -75,19 +75,34 @@ export interface CbResult {
 	outcome: "correct" | "wrong";
 	gaveUp: boolean;
 	correctName: string;
-	clubNames: string[];
 }
+
+// Solo lives, matching the single-player categories game's tension mode
+// (src/worker/lib/types.ts's TENSION_LIVES) -- same number, same "one wrong
+// guess too many and it's over" rule, just counted across this round's
+// otherwise-independent questions instead of one shared Top-10 board.
+// Multiplayer has no lives at all (see currentTurnIndex/isLastQuestion
+// call sites): a shared or per-player life count doesn't map onto
+// pass-and-play the way it does for one person playing alone.
+export const MAX_WRONG_LIVES = 5;
 
 export interface CbState {
 	phase: CbPhase;
 	players: CbPlayer[];
 	questions: CbQuestion[];
 	// Which question is currently up. Whose turn it is is always derived
-	// (questionIndex % players.length), never stored separately -- with no
-	// lives/eliminations to skip over (every player just answers their
-	// question and passes on), a round-robin index needs no extra state the
-	// way multiplayer's nextTurnIndex() does.
+	// (questionIndex % players.length), never stored separately -- lives
+	// (wrongCount below) can end the round early, but never eliminate one
+	// player while the others keep going, so there's no one to skip over
+	// the way multiplayer's nextTurnIndex() has to account for.
 	questionIndex: number;
+	// Wrong answers (including give-ups -- see the guessResult case below)
+	// so far this round, solo only in practice (see MAX_WRONG_LIVES). Never
+	// reset mid-round, only by "start"/"reset" -- unlike questionIndex this
+	// has no natural cap of its own, so ClubBadgesPlay.tsx/ClubBadgesResult.tsx
+	// compare it against MAX_WRONG_LIVES themselves wherever the round could
+	// end early because of it.
+	wrongCount: number;
 	// Set the instant a guess comes back from the server; cleared by "next".
 	// Its presence is what the Play screen uses to decide whether it's
 	// showing the guess box or the reveal -- see ClubBadgesPlay.tsx.
@@ -99,6 +114,7 @@ export const initialCbState: CbState = {
 	players: [],
 	questions: [],
 	questionIndex: 0,
+	wrongCount: 0,
 	lastResult: null,
 };
 
@@ -115,7 +131,6 @@ export type CbAction =
 			outcome: "correct" | "wrong";
 			gaveUp: boolean;
 			correctName: string;
-			clubNames: string[];
 	  }
 	| { type: "next" }
 	| { type: "reset" };
@@ -140,13 +155,17 @@ export function clubBadgesReducer(state: CbState, action: CbAction): CbState {
 			return {
 				...state,
 				players,
+				// A give-up is always outcome "wrong" (see CbResult's doc), so it
+				// costs a life the same as an actual wrong guess would -- not
+				// knowing the answer is not knowing the answer, whichever way this
+				// question ended.
+				wrongCount: action.outcome === "wrong" ? state.wrongCount + 1 : state.wrongCount,
 				lastResult: {
 					playerName: state.players[turnIndex].name,
 					guess: action.guess,
 					outcome: action.outcome,
 					gaveUp: action.gaveUp,
 					correctName: action.correctName,
-					clubNames: action.clubNames,
 				},
 			};
 		}
@@ -154,7 +173,12 @@ export function clubBadgesReducer(state: CbState, action: CbAction): CbState {
 		case "next": {
 			if (state.phase !== "playing" || !state.lastResult) return state;
 			const nextIndex = state.questionIndex + 1;
-			if (nextIndex >= state.questions.length) {
+			// Lives only apply solo (see MAX_WRONG_LIVES) -- a shared or
+			// per-player count doesn't map onto multiplayer's pass-and-play, so
+			// a roster of more than one never ends early here regardless of how
+			// many turns have gone wrong.
+			const outOfLives = state.players.length === 1 && state.wrongCount >= MAX_WRONG_LIVES;
+			if (outOfLives || nextIndex >= state.questions.length) {
 				return { ...state, phase: "finished", lastResult: null };
 			}
 			return { ...state, questionIndex: nextIndex, lastResult: null };

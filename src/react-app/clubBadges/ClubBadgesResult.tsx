@@ -1,4 +1,4 @@
-import { rankCbPlayers, type CbState } from "./state";
+import { MAX_WRONG_LIVES, rankCbPlayers, type CbState } from "./state";
 
 interface Props {
 	state: CbState;
@@ -9,6 +9,12 @@ interface Props {
 export function ClubBadgesResult({ state, onPlayAgain, onExit }: Props) {
 	const solo = state.players.length === 1;
 	const standings = rankCbPlayers(state.players);
+	// Lives can end a solo round before all 10 questions -- state.questionIndex
+	// is preserved as-is through the "finished" transition (state.ts), so
+	// +1 is exactly how many were actually played, same number whether the
+	// round ran its full length or got cut short.
+	const questionsPlayed = state.questionIndex + 1;
+	const outOfLives = solo && state.wrongCount >= MAX_WRONG_LIVES;
 
 	return (
 		<div className="result-panel">
@@ -17,9 +23,12 @@ export function ClubBadgesResult({ state, onPlayAgain, onExit }: Props) {
 			{solo ? (
 				// No standings list for one player -- just the score. Ranking
 				// language ("winner", "#1") would be meaningless against yourself.
-				<p className="cb-solo-score">
-					{state.players[0].correct} / {state.questions.length} correct
-				</p>
+				<>
+					<p className="cb-solo-score">
+						{state.players[0].correct} / {questionsPlayed} correct
+					</p>
+					{outOfLives && <p className="cb-solo-lives-note">Out of lives — that's the round.</p>}
+				</>
 			) : (
 				<>
 					<p>{state.questions.length} questions played</p>

@@ -338,12 +338,17 @@
 	margin: 0;
 }
 
-.cb-reveal__clubs {
-	color: #9ca3af;
-	font-size: 0.95rem;
-	margin: 0;
-}
-
 .cb-next-button {
 	margin-top: 0.5rem;
+}
+
+/* Explains a shorter-than-10 round on the result screen (see
+   ClubBadgesResult.tsx's outOfLives) -- muted, same treatment as
+   .cb-disclaimer, since it's a footnote about why the score looks the way
+   it does, not the headline result itself. */
+.cb-solo-lives-note {
+	margin: 0;
+	text-align: center;
+	color: #9ca3af;
+	font-size: 0.85rem;
 }
