@@ -140,7 +140,12 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 						: `${current.name}'s turn — who is this?`}
 			</p>
 
-			<div className="cb-badges">
+			{/* --cb-cols feeds clubBadges.css's width calc on .cb-badges -- see
+			    that file's comment on why the box's width is computed rather
+			    than left to the browser to shrink-wrap. Keeping ROW_SIZE as the
+			    one source for both the row-chunking above and this means the
+			    two can't drift out of sync with each other. */}
+			<div className="cb-badges" style={{ "--cb-cols": ROW_SIZE } as React.CSSProperties}>
 				{badgeRows.map((row, rowIndex) => {
 					const reversed = rowIndex % 2 === 1;
 					// A row that fills all ROW_SIZE slots space-between's its steps

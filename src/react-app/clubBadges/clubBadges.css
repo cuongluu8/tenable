@@ -57,32 +57,49 @@
 .cb-badges {
 	display: flex;
 	flex-direction: column;
-	/* Same 0.4rem as .cb-badges__row/.cb-badge-step's item-to-item gap below --
-	   row-to-row and item-to-item used to be two different values (0.5rem vs
-	   0.4rem), which reads as inconsistent spacing once a question actually
-	   wraps to a second row (e.g. 6 clubs -> a full 4-item row plus a
-	   right-aligned 2-item row) and the mismatch has something to compare
-	   against. */
-	gap: 0.4rem;
+	/* --cb-cols is set inline from ROW_SIZE (ClubBadgesPlay.tsx) -- the one
+	   place all the width math below and the JS row-chunking share the same
+	   number, instead of a second hardcoded "4" here silently going stale if
+	   ROW_SIZE ever changes. --cb-tile/--cb-gap/--cb-arrow are the actual
+	   fixed sizes a tile, a gap and an arrow render at (see .cb-badge,
+	   .cb-badges__row/.cb-badge-step, and .cb-arrow below, all of which
+	   reference these same variables rather than repeating the literals) --
+	   defined once here since every element that needs them is a descendant
+	   of this box and custom properties inherit. */
+	--cb-tile: 64px;
+	--cb-gap: 0.4rem;
+	--cb-arrow: 1rem;
+	gap: var(--cb-gap);
 	padding: 1rem;
 	background: #1f2937;
 	border: 1px solid #374151;
 	border-radius: 10px;
 	/* .cb-play is a column flex container, so this box stretches to its full
 	   cross-axis (horizontal) width by default -- almost always wider than a
-	   single row actually needs, since rows hold fixed 64px tiles and never
-	   more than ROW_SIZE of them. That extra width is exactly what made a
-	   packed row's far-edge gap inconsistent with its near-edge padding (see
-	   .cb-badges__row--full below, kept as a belt-and-suspenders fallback).
-	   Shrink-wrapping to content removes the extra width in the first place --
-	   every row's own edges then line up with the box's, so its padding is
-	   symmetric without needing a row to be "full" at all. max-width keeps
-	   this from overflowing on a narrow viewport where even one full row is
-	   wider than the screen (falls back to the previous full-bleed sizing,
-	   where --full still does its job); auto margins re-center the box
-	   whenever it ends up narrower than its column siblings (the turn banner,
-	   guess box, etc.), which still span the full width themselves. */
-	width: fit-content;
+	   single row actually needs, since rows hold fixed-size tiles and never
+	   more than ROW_SIZE of them. That extra width is what made a packed
+	   row's far-edge gap inconsistent with its near-edge padding.
+	   `width: fit-content` (i.e. shrink-wrap the box to its widest row) is
+	   the obvious way to remove that extra width, but real-world testing
+	   turned up a browser (mobile Safari) where a flex column's fit-content
+	   sizing doesn't shrink-wrap a stretched child correctly, so the extra
+	   width -- and the uneven padding -- came right back. This computes the
+	   same target width directly instead of asking the browser to infer it:
+	   exactly what a full ROW_SIZE-tile row measures (cols*tile, plus an
+	   arrow+its two gaps for every tile after the first, see
+	   .cb-badge-step/.cb-badges__row below for where each of those gaps
+	   comes from) plus this box's own padding and border. Ties the box's
+	   width to actual layout constants instead of a browser inferring it,
+	   so it can't disagree with what a full row actually renders as. A short
+	   trailing row (fewer than ROW_SIZE tiles) is still narrower than this,
+	   which is intentional -- see .cb-badges__row--reversed's comment. */
+	width: calc(
+		var(--cb-cols) * var(--cb-tile) + (var(--cb-cols) - 1) * (var(--cb-arrow) + 2 * var(--cb-gap)) + 2rem + 2px
+	);
+	/* Falls back to the old full-bleed sizing on a viewport too narrow to
+	   fit the width above (where --full below still keeps a full row's
+	   edges flush); auto margins re-center the box against the full-width
+	   siblings around it (turn banner, guess box) whenever it's narrower. */
 	max-width: 100%;
 	margin: 0 auto;
 }
@@ -91,24 +108,26 @@
 	display: flex;
 	align-items: center;
 	justify-content: flex-start;
-	gap: 0.4rem;
+	gap: var(--cb-gap);
 }
 
 /* Odd rows (2nd, 4th, ...) are right-aligned instead of left -- so a row
    that reads right-to-left visually picks up from directly under wherever
    the row above it ended, the way a snake path actually turns, rather than
-   floating unconnected in the middle of the row. */
+   floating unconnected in the middle of the row. A short trailing row (fewer
+   than ROW_SIZE tiles) is narrower than the box on purpose -- it was never
+   meant to reach the far edge, that gap is the snake's turn, not a bug. */
 .cb-badges__row--reversed {
 	justify-content: flex-end;
 }
 
-/* A row with all ROW_SIZE tiles (see ClubBadgesPlay.tsx) -- flush against
-   both of the row's own edges instead of packed to one side, so the visible
-   gap to the box's left/right padding matches on both sides regardless of
-   viewport width. Defined after --reversed so it wins the tie when a full
-   row is also a reversed one (same specificity, source order decides) --
-   a full row's items are always spread edge-to-edge either way, direction
-   only changes which physical tile is first/last in the row. */
+/* A row with all ROW_SIZE tiles matches the box's own width exactly (see
+   .cb-badges's width calc above), so flex-start/flex-end would already land
+   flush on both edges with zero slack to redistribute -- this only matters
+   as a fallback for the narrow-viewport case where the box's width above
+   hit its max-width: 100% ceiling and is actually wider than a full row.
+   Defined after --reversed so it wins the tie when a full row is also a
+   reversed one (same specificity, source order decides). */
 .cb-badges__row--full {
 	justify-content: space-between;
 }
@@ -119,10 +138,18 @@
 .cb-badge-step {
 	display: flex;
 	align-items: center;
-	gap: 0.4rem;
+	gap: var(--cb-gap);
 }
 
+/* Pinned to a fixed width (rather than left to the glyph's own natural
+   width) so .cb-badges's width calc above -- which has to assume some
+   arrow width up front -- always matches what actually renders, regardless
+   of font/glyph metrics in any given browser. */
 .cb-arrow {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: var(--cb-arrow);
 	color: #6b7280;
 	font-size: 1.1rem;
 	font-weight: 700;
@@ -138,14 +165,14 @@
    width ceiling regardless of what's inside. */
 .cb-badge-wrap {
 	position: relative;
-	width: 64px;
+	width: var(--cb-tile);
 	overflow: hidden;
 	border-radius: 8px;
 }
 
 .cb-badge {
-	width: 64px;
-	height: 64px;
+	width: var(--cb-tile);
+	height: var(--cb-tile);
 	object-fit: contain;
 	background: #ffffff;
 	border-radius: 8px;
@@ -215,8 +242,8 @@
    images vs placeholders. Dark surface instead of white (which .cb-badge
    only uses because crest SVGs assume a light background to sit on). */
 .cb-badge--placeholder {
-	width: 64px;
-	height: 64px;
+	width: var(--cb-tile);
+	height: var(--cb-tile);
 	display: flex;
 	align-items: center;
 	justify-content: center;
