@@ -3,10 +3,16 @@ import { GuessInput } from "../components/GuessInput";
 import { BadgeTile } from "./BadgeTile";
 import { currentTurnIndex, HINT_KEYS, type CbBadge, type CbState, type HintKey } from "./state";
 
-// Tiles are a fixed 64x64 (see clubBadges.css's .cb-badge) so a row's width
-// is predictable regardless of viewport -- 4 fits comfortably even on a
-// narrow phone screen without needing to measure the actual container.
-const ROW_SIZE = 4;
+// Tiles are a fixed 64x64 (see clubBadges.css's .cb-badge). 3 per row, not 4
+// -- measured directly (see clubBadges.css's .cb-badges width calc and the
+// Playwright check this was verified with): a full row of 4 64px tiles plus
+// their arrows needs ~376px, which overflows every standard iPhone's
+// available width (as little as ~335px on an iPhone SE, ~350px on a 12-15)
+// and only actually fits the largest models (~430px, e.g. Pro Max) -- the
+// previous "4 fits comfortably" claim here was never actually checked
+// against a real viewport. 3 tiles needs ~284px, comfortably inside every
+// shipping phone's available width.
+const ROW_SIZE = 3;
 
 interface BadgeRowItem {
 	badge: CbBadge;
