@@ -20,18 +20,24 @@ const mediaAudit = new Hono<{ Bindings: Env }>();
 // looking at the grid can catch that; the point of this page is to make
 // that fast, not to replace it.
 //
-// GET /api/admin/media-audit                       -- clubs, missing-first
-// GET /api/admin/media-audit?type=country
+// GET /api/admin/media-audit                       -- clubs, grouped by country
+// GET /api/admin/media-audit?type=country          -- countries, grouped by confederation
 // GET /api/admin/media-audit?type=club&missing=1   -- only entities with no image_key
+// GET /api/admin/media-audit?type=club&flat=1      -- ungrouped, missing-first (the old default)
+// There's no dedicated "league" column in the schema -- entities.scope (a
+// club's country / a country's confederation) is the closest real grouping
+// the data actually has, so that's what "grouped by" means here.
 mediaAudit.get("/", async (c) => {
 	const type = c.req.query("type") === "country" ? "country" : "club";
 	const missingOnly = c.req.query("missing") === "1";
+	const flat = c.req.query("flat") === "1";
+	const groupLabel = type === "club" ? "Country" : "Confederation";
 
 	const { results } = await c.env.DB.prepare(
 		`SELECT id, canonical_name, scope, image_key FROM entities
 		 WHERE entity_type = ?
 		 ${missingOnly ? "AND image_key IS NULL" : ""}
-		 ORDER BY (image_key IS NULL) DESC, canonical_name`,
+		 ORDER BY ${flat ? "(image_key IS NULL) DESC, canonical_name" : "scope IS NULL, scope, canonical_name"}`,
 	)
 		.bind(type)
 		.all<{ id: number; canonical_name: string; scope: string | null; image_key: string | null }>();
@@ -39,19 +45,48 @@ mediaAudit.get("/", async (c) => {
 	const total = results.length;
 	const missingCount = results.filter((r) => !r.image_key).length;
 
-	const tiles = results
-		.map((r) => {
-			const body = r.image_key
-				? `<img src="/api/media/${r.image_key}" alt="${escapeHtml(r.canonical_name)}" loading="lazy" onerror="this.parentElement.classList.add('tile--broken');this.replaceWith(Object.assign(document.createElement('div'),{className:'broken',textContent:'BROKEN'}))">`
-				: `<div class="missing">MISSING</div>`;
-			return `
-				<div class="tile ${r.image_key ? "" : "tile--missing"}">
-					${body}
-					<div class="label">${escapeHtml(r.canonical_name)}</div>
-					<div class="meta">#${r.id}${r.scope ? " · " + escapeHtml(r.scope) : ""}</div>
-				</div>`;
-		})
-		.join("");
+	function tile(r: (typeof results)[number]): string {
+		const body = r.image_key
+			? `<img src="/api/media/${r.image_key}" alt="${escapeHtml(r.canonical_name)}" loading="lazy" onerror="this.parentElement.classList.add('tile--broken');this.replaceWith(Object.assign(document.createElement('div'),{className:'broken',textContent:'BROKEN'}))">`
+			: `<div class="missing">MISSING</div>`;
+		return `
+			<div class="tile ${r.image_key ? "" : "tile--missing"}">
+				${body}
+				<div class="label">${escapeHtml(r.canonical_name)}</div>
+				<div class="meta">#${r.id}${r.scope ? " · " + escapeHtml(r.scope) : ""}</div>
+			</div>`;
+	}
+
+	let tiles: string;
+	if (flat) {
+		tiles = `<div class="grid">${results.map(tile).join("")}</div>`;
+	} else {
+		// Group by scope (a club's country / a country's confederation) --
+		// there's no dedicated "league" column in the schema, so this is the
+		// closest real grouping the data actually has. Groups sorted
+		// alphabetically (NULL scope last, as its own "Unknown" group);
+		// within a group, missing-first same as the old flat sort.
+		const groups = new Map<string, (typeof results)[number][]>();
+		for (const r of results) {
+			const key = r.scope ?? "￿"; // sort last
+			if (!groups.has(key)) groups.set(key, []);
+			groups.get(key)!.push(r);
+		}
+		const sortedKeys = [...groups.keys()].sort();
+		tiles = sortedKeys
+			.map((key) => {
+				const rows = groups.get(key)!;
+				rows.sort((a, b) => Number(!!a.image_key) - Number(!!b.image_key) || a.canonical_name.localeCompare(b.canonical_name));
+				const label = key === "￿" ? "Unknown" : key;
+				const groupMissing = rows.filter((r) => !r.image_key).length;
+				return `
+					<div class="group">
+						<div class="group-header">${escapeHtml(label)} <span>${rows.length - groupMissing}/${rows.length}</span></div>
+						<div class="grid">${rows.map(tile).join("")}</div>
+					</div>`;
+			})
+			.join("");
+	}
 
 	function pill(href: string, label: string, active: boolean): string {
 		return `<a href="${href}" class="pill${active ? " pill--active" : ""}">${label}</a>`;
@@ -74,6 +109,9 @@ mediaAudit.get("/", async (c) => {
 	.legend { display: flex; gap: 14px; font-size: 12px; color: #999; margin-bottom: 16px; }
 	.legend span { display: inline-flex; align-items: center; gap: 5px; }
 	.legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+	.group { margin-bottom: 22px; }
+	.group-header { font-size: 13px; font-weight: 600; color: #ccc; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #2a2a2a; }
+	.group-header span { color: #777; font-weight: 400; font-size: 11px; margin-left: 6px; }
 	.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
 	.tile { background: #1c1c1c; border: 1px solid #333; border-radius: 8px; padding: 10px; text-align: center; }
 	.tile--missing { border-color: #a33; background: #2a1414; }
@@ -88,16 +126,20 @@ mediaAudit.get("/", async (c) => {
 </style>
 </head>
 <body>
-	<h1>Media audit — ${type === "club" ? "Clubs" : "Countries"}</h1>
+	<h1>Media audit — ${type === "club" ? "Clubs" : "Countries"}${flat ? "" : ` (grouped by ${groupLabel.toLowerCase()})`}</h1>
 	<div class="summary">${total} total, ${missingCount} missing image_key</div>
 	<div class="filters">
 		<div class="filter-group">
-			${pill(`?type=club${missingOnly ? "&missing=1" : ""}`, "Clubs", type === "club")}
-			${pill(`?type=country${missingOnly ? "&missing=1" : ""}`, "Countries", type === "country")}
+			${pill(`?type=club${missingOnly ? "&missing=1" : ""}${flat ? "&flat=1" : ""}`, "Clubs", type === "club")}
+			${pill(`?type=country${missingOnly ? "&missing=1" : ""}${flat ? "&flat=1" : ""}`, "Countries", type === "country")}
 		</div>
 		<div class="filter-group">
-			${pill(`?type=${type}`, "All", !missingOnly)}
-			${pill(`?type=${type}&missing=1`, "Missing only", missingOnly)}
+			${pill(`?type=${type}${flat ? "&flat=1" : ""}`, "All", !missingOnly)}
+			${pill(`?type=${type}&missing=1${flat ? "&flat=1" : ""}`, "Missing only", missingOnly)}
+		</div>
+		<div class="filter-group">
+			${pill(`?type=${type}${missingOnly ? "&missing=1" : ""}`, `By ${groupLabel.toLowerCase()}`, !flat)}
+			${pill(`?type=${type}${missingOnly ? "&missing=1" : ""}&flat=1`, "Flat list", flat)}
 		</div>
 	</div>
 	<div class="legend">
@@ -105,7 +147,7 @@ mediaAudit.get("/", async (c) => {
 		<span><i style="background:#b56b1f"></i> Broken — image_key set, but the image failed to load</span>
 		<span><i style="background:#fff"></i> A real image loaded</span>
 	</div>
-	<div class="grid">${tiles}</div>
+	${tiles}
 </body>
 </html>`;
 
