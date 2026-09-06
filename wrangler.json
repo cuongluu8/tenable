@@ -25,7 +25,19 @@
 	},
 	"assets": {
 		"directory": "./dist/client",
-		"not_found_handling": "single-page-application"
+		"not_found_handling": "single-page-application",
+		// Without this, Cloudflare's asset routing uses automatic
+		// Sec-Fetch-Mode:navigate detection: ANY real browser navigation
+		// (address bar, a link, a hard refresh) gets served the SPA's
+		// index.html regardless of path -- including /api/* -- since a
+		// browser navigating to a URL sends that header and curl/fetch/XHR
+		// don't. This silently broke /api/admin/media-audit (a route meant
+		// to be visited directly) in both local dev and production; curl
+		// "confirming" it worked was a false positive precisely because
+		// curl never sends that header. run_worker_first forces matching
+		// paths to always hit the Worker, navigation or not. Needs Wrangler
+		// 4.20.0+ / Cloudflare Vite plugin 1.7.0+ (both satisfied here).
+		"run_worker_first": ["/api/*"]
 	},
 	"d1_databases": [
 		{
