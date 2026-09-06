@@ -104,14 +104,24 @@
 }
 
 /* A full row (see ClubBadgesPlay.tsx's useResponsiveCols/buildBadgeRows) was
-   sized to fit the box's width, but the column count is a floor -- there's
-   almost always a leftover sliver less than one tile wide. space-between
-   splits that sliver evenly across both edges instead of dumping it all on
-   one side the way flex-start/flex-end would. Defined after --reversed so
-   it wins the tie when a full row is also a reversed one (same specificity,
-   source order decides). */
+   sized to fit the box's width, but the column count is a floor, so there's
+   almost always a leftover sliver of unused width. `center` puts that
+   sliver split evenly on both outer edges rather than dumping it on one
+   side the way flex-start/flex-end would -- fixing the same left/right
+   padding this class was written for.
+   This used to be space-between, which also flushes both edges but does it
+   by inserting the sliver's worth of extra space *between* each pair of
+   .cb-badge-step children -- and since an arrow is glued to the badge it
+   points at (their shared 0.4rem gap lives inside the same .cb-badge-step,
+   not between steps), that inserted space always lands on the arrow's other
+   side, dragging every arrow off-center from the two tiles it's meant to
+   sit between the more slack there is to distribute. `center` only adds
+   margin around the row as a whole, so it fixes the edges without ever
+   touching the fixed internal spacing between an arrow and its tiles.
+   Defined after --reversed so it wins the tie when a full row is also a
+   reversed one (same specificity, source order decides). */
 .cb-badges__row--full {
-	justify-content: space-between;
+	justify-content: center;
 }
 
 /* Groups an arrow with the badge it points to, so a flex-wrap line break
