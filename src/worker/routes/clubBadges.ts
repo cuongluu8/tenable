@@ -72,6 +72,11 @@ clubBadges.get("/round", async (c) => {
 interface CheckGuessBody {
 	questionId?: number;
 	guess?: string;
+	// Give-up: skips the guess requirement/matching below entirely and
+	// always grades as wrong -- still returns the real answer, same as any
+	// other wrong guess (see the shared response comment below), just
+	// without needing a guess string to compare against nothing.
+	giveUp?: boolean;
 }
 
 clubBadges.post("/check-guess", async (c) => {
@@ -81,8 +86,9 @@ clubBadges.post("/check-guess", async (c) => {
 	if (!Number.isInteger(questionId)) {
 		return c.json({ error: "Missing question id" }, 400);
 	}
+	const givingUp = body.giveUp === true;
 	const rawGuess = (body.guess ?? "").trim();
-	if (!rawGuess) {
+	if (!givingUp && !rawGuess) {
 		return c.json({ error: "Missing guess" }, 400);
 	}
 
@@ -115,7 +121,7 @@ clubBadges.post("/check-guess", async (c) => {
 
 	const collapsedGuess = collapseToAlnum(normalize(rawGuess));
 	const matchStrings = [player.canonical_name, ...(aliasRows.results ?? []).map((r) => r.alias)];
-	const isCorrect = matchStrings.some((s) => collapseToAlnum(s) === collapsedGuess);
+	const isCorrect = !givingUp && matchStrings.some((s) => collapseToAlnum(s) === collapsedGuess);
 
 	const namesById = new Map((clubRows.results ?? []).map((r) => [r.id, r.canonical_name]));
 	const clubNames = clubIds.map((id) => namesById.get(id) ?? "Unknown");

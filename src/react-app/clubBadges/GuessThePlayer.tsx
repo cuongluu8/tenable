@@ -67,7 +67,11 @@ export function GuessThePlayer({ playerNames, onExit }: Props) {
 		startRound();
 	}, [startRound]);
 
-	async function submitGuess(guess: string) {
+	// Shared by submitGuess and giveUp below -- the server call and the
+	// resulting dispatch are identical either way (giveUp just skips the
+	// matching entirely and always grades wrong -- see clubBadges.ts), only
+	// what gets recorded as the "guess" in state differs.
+	async function checkQuestion(body: { guess: string } | { giveUp: true }) {
 		const question = state.questions[state.questionIndex];
 		if (!question || submitting) return;
 
@@ -76,17 +80,32 @@ export function GuessThePlayer({ playerNames, onExit }: Props) {
 			const res = await fetch("/api/club-badges/check-guess", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ questionId: question.id, guess }),
+				body: JSON.stringify({ questionId: question.id, ...body }),
 			});
 			const data = (await res.json()) as CheckGuessResponse | { error: string };
 			if (!res.ok || "error" in data) return;
 
-			dispatch({ type: "guessResult", guess, outcome: data.result, correctName: data.name, clubNames: data.clubNames });
+			dispatch({
+				type: "guessResult",
+				guess: "guess" in body ? body.guess : "(gave up)",
+				outcome: data.result,
+				gaveUp: !("guess" in body),
+				correctName: data.name,
+				clubNames: data.clubNames,
+			});
 		} catch {
 			// Network error mid-question: nothing to apply, player just tries again.
 		} finally {
 			setSubmitting(false);
 		}
+	}
+
+	function submitGuess(guess: string) {
+		return checkQuestion({ guess });
+	}
+
+	function giveUp() {
+		return checkQuestion({ giveUp: true });
 	}
 
 	function nextQuestion() {
@@ -115,7 +134,14 @@ export function GuessThePlayer({ playerNames, onExit }: Props) {
 					<p>Loading a round…</p>
 				))}
 			{state.phase === "playing" && (
-				<ClubBadgesPlay state={state} onGuess={submitGuess} onNext={nextQuestion} submitting={submitting} onQuit={onExit} />
+				<ClubBadgesPlay
+					state={state}
+					onGuess={submitGuess}
+					onGiveUp={giveUp}
+					onNext={nextQuestion}
+					submitting={submitting}
+					onQuit={onExit}
+				/>
 			)}
 			{state.phase === "finished" && <ClubBadgesResult state={state} onPlayAgain={playAgain} onExit={onExit} />}
 		</div>

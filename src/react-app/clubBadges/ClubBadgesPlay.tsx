@@ -6,6 +6,7 @@ import { currentTurnIndex, type CbState } from "./state";
 interface Props {
 	state: CbState;
 	onGuess: (guess: string) => void;
+	onGiveUp: () => void;
 	onNext: () => void;
 	submitting: boolean;
 	onQuit: () => void;
@@ -15,8 +16,13 @@ interface Props {
 // guess box (nothing answered yet this question) or the reveal (answered,
 // waiting for "Next" to hand the device to the next player) -- see
 // state.ts's doc on why that's what lastResult's presence means.
-export function ClubBadgesPlay({ state, onGuess, onNext, submitting, onQuit }: Props) {
+export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, onQuit }: Props) {
 	const [guessInput, setGuessInput] = useState("");
+	// Same "confirm before it costs you" pattern as single-player's give-up
+	// (PlayScreen.tsx) -- a stray tap here loses a point on this question
+	// just as surely as give-up loses the round there, so it gets the same
+	// two-step guard rather than acting immediately.
+	const [confirmingGiveUp, setConfirmingGiveUp] = useState(false);
 
 	const question = state.questions[state.questionIndex];
 	if (!question) return null;
@@ -37,6 +43,11 @@ export function ClubBadgesPlay({ state, onGuess, onNext, submitting, onQuit }: P
 	function next() {
 		setGuessInput("");
 		onNext();
+	}
+
+	function confirmGiveUp() {
+		setConfirmingGiveUp(false);
+		onGiveUp();
 	}
 
 	return (
@@ -88,17 +99,43 @@ export function ClubBadgesPlay({ state, onGuess, onNext, submitting, onQuit }: P
 			</div>
 
 			{!state.lastResult ? (
-				<GuessInput
-					value={guessInput}
-					onChange={setGuessInput}
-					onPick={pick}
-					disabled={submitting}
-					suggestUrl="/api/club-badges/suggest"
-				/>
+				<>
+					<GuessInput
+						value={guessInput}
+						onChange={setGuessInput}
+						onPick={pick}
+						disabled={submitting}
+						suggestUrl="/api/club-badges/suggest"
+					/>
+					{confirmingGiveUp ? (
+						<div className="give-up-confirm">
+							<span>Give up on this one?</span>
+							<button type="button" className="give-up-confirm__yes" onClick={confirmGiveUp} disabled={submitting}>
+								Yes, give up
+							</button>
+							<button
+								type="button"
+								className="give-up-confirm__cancel"
+								onClick={() => setConfirmingGiveUp(false)}
+								disabled={submitting}
+							>
+								Cancel
+							</button>
+						</div>
+					) : (
+						<button type="button" className="give-up-link" onClick={() => setConfirmingGiveUp(true)} disabled={submitting}>
+							Give up
+						</button>
+					)}
+				</>
 			) : (
 				<div className="cb-reveal">
 					<p className={state.lastResult.outcome === "correct" ? "cb-reveal__correct" : "cb-reveal__wrong"}>
-						{state.lastResult.outcome === "correct" ? "✅ Correct!" : `❌ Not quite — it was ${state.lastResult.correctName}`}
+						{state.lastResult.outcome === "correct"
+							? "✅ Correct!"
+							: state.lastResult.gaveUp
+								? `It was ${state.lastResult.correctName}`
+								: `❌ Not quite — it was ${state.lastResult.correctName}`}
 					</p>
 					<p className="cb-reveal__clubs">{state.lastResult.clubNames.join(" → ")}</p>
 					<button type="button" className="cb-next-button" onClick={next}>

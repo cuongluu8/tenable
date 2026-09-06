@@ -42,7 +42,11 @@ export interface CbQuestion {
 export interface CbResult {
 	playerName: string;
 	guess: string;
+	// Always "wrong" for a give-up (see GuessThePlayer.tsx's giveUp()) --
+	// this is what tells the reveal to say "you gave up" instead of
+	// "not quite" for that case, same outcome, different framing.
 	outcome: "correct" | "wrong";
+	gaveUp: boolean;
 	correctName: string;
 	clubNames: string[];
 }
@@ -78,7 +82,14 @@ export function currentTurnIndex(state: CbState): number {
 
 export type CbAction =
 	| { type: "start"; playerNames: string[]; questions: CbQuestion[] }
-	| { type: "guessResult"; guess: string; outcome: "correct" | "wrong"; correctName: string; clubNames: string[] }
+	| {
+			type: "guessResult";
+			guess: string;
+			outcome: "correct" | "wrong";
+			gaveUp: boolean;
+			correctName: string;
+			clubNames: string[];
+	  }
 	| { type: "next" }
 	| { type: "reset" };
 
@@ -106,6 +117,7 @@ export function clubBadgesReducer(state: CbState, action: CbAction): CbState {
 					playerName: state.players[turnIndex].name,
 					guess: action.guess,
 					outcome: action.outcome,
+					gaveUp: action.gaveUp,
 					correctName: action.correctName,
 					clubNames: action.clubNames,
 				},
