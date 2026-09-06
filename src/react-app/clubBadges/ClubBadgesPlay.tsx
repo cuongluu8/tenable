@@ -254,19 +254,45 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 					// leaving blank space on the other within the shared frame --
 					// that's the snake's "picks up where the last row ended" look.
 					const rowClassName = ["cb-badges__row", reversed && "cb-badges__row--reversed"].filter(Boolean).join(" ");
+					// A row wrap is still a step in the same sequence, so it gets an
+					// arrow too -- just pointing down instead of sideways, sitting
+					// between this row and the next one. It has to land under
+					// whichever tile the sequence actually continues from: this
+					// row's last tile if it's *not* reversed (which is at the
+					// frame's right edge -- see .cb-badges__row--reversed's comment
+					// on why full rows fill the frame edge to edge), or the frame's
+					// left edge if it is. That's exactly the side the *next* row's
+					// own reversed flag reads from, so reusing it here keeps the two
+					// in sync automatically instead of duplicating the logic.
+					const nextRowReversed = (rowIndex + 1) % 2 === 1;
+					const isLastRow = rowIndex === badgeRows.length - 1;
 					return (
-						<div className={rowClassName} key={rowIndex} style={{ width: rowWidth }}>
-							{row.map(({ badge, originalIndex }, posInRow) => (
-								<Fragment key={originalIndex}>
-									{posInRow > 0 && (
-										<span className="cb-arrow" aria-hidden="true">
-											{reversed ? "←" : "→"}
-										</span>
-									)}
-									<BadgeTile badge={badge} showCountryHint={revealedHints.has("country")} />
-								</Fragment>
-							))}
-						</div>
+						<Fragment key={rowIndex}>
+							<div className={rowClassName} style={{ width: rowWidth }}>
+								{row.map(({ badge, originalIndex }, posInRow) => (
+									<Fragment key={originalIndex}>
+										{posInRow > 0 && (
+											<span className="cb-arrow" aria-hidden="true">
+												{reversed ? "←" : "→"}
+											</span>
+										)}
+										<BadgeTile badge={badge} showCountryHint={revealedHints.has("country")} />
+									</Fragment>
+								))}
+							</div>
+							{!isLastRow && (
+								<div
+									className={["cb-badges__connector", nextRowReversed && "cb-badges__connector--right"]
+										.filter(Boolean)
+										.join(" ")}
+									style={{ width: rowWidth }}
+								>
+									<span className="cb-arrow cb-arrow--down" aria-hidden="true">
+										↓
+									</span>
+								</div>
+							)}
+						</Fragment>
 					);
 				})}
 			</div>

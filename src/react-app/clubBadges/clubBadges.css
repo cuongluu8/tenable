@@ -132,6 +132,27 @@
 	font-weight: 700;
 }
 
+/* A row wrap between two badge rows -- own line, own arrow (ClubBadgesPlay.tsx
+   renders one of these between every pair of rows), pointing down instead of
+   sideways. Sized to the same shared rowWidth frame as the rows themselves
+   so flex-start/--right land it under the correct edge of that frame -- see
+   ClubBadgesPlay.tsx's comment on which edge that is. */
+.cb-badges__connector {
+	display: flex;
+}
+.cb-badges__connector--right {
+	justify-content: flex-end;
+}
+
+/* Widened to a full tile's width (rather than .cb-arrow's normal narrow
+   --cb-arrow) so centering it lands the glyph under the middle of the tile
+   it's pointing away from/into, not hugging the frame's raw edge -- a tile
+   is --cb-tile wide, the connector's own flex-start/flex-end only positions
+   this box, not the glyph within it. */
+.cb-arrow--down {
+	width: var(--cb-tile);
+}
+
 /* Positioning context for the country-ribbon hint overlay (see
    .cb-badge-ribbon below). Explicitly fixed at 64px here too (not just
    left to shrink-wrap around its child) and clipped -- a long unbroken
