@@ -57,15 +57,16 @@
 .cb-badges {
 	display: flex;
 	flex-direction: column;
-	/* --cb-cols is set inline from ROW_SIZE (ClubBadgesPlay.tsx) -- the one
-	   place all the width math below and the JS row-chunking share the same
-	   number, instead of a second hardcoded "4" here silently going stale if
-	   ROW_SIZE ever changes. --cb-tile/--cb-gap/--cb-arrow are the actual
-	   fixed sizes a tile, a gap and an arrow render at (see .cb-badge,
-	   .cb-badges__row/.cb-badge-step, and .cb-arrow below, all of which
-	   reference these same variables rather than repeating the literals) --
-	   defined once here since every element that needs them is a descendant
-	   of this box and custom properties inherit. */
+	/* --cb-tile/--cb-gap/--cb-arrow are the actual fixed sizes a tile, a gap
+	   and an arrow render at (see .cb-badge, .cb-badges__row/.cb-badge-step,
+	   and .cb-arrow below, all of which reference these same variables
+	   rather than repeating the literals) -- defined once here since every
+	   element that needs them is a descendant of this box and custom
+	   properties inherit. ClubBadgesPlay.tsx's useResponsiveCols reads these
+	   same three back (via getComputedStyle) to work out how many tiles
+	   actually fit across this box's live width, so there's exactly one
+	   place each value is written, not a second copy in JS that could
+	   quietly drift from what's actually rendered. */
 	--cb-tile: 64px;
 	--cb-gap: 0.4rem;
 	--cb-arrow: 1rem;
@@ -74,34 +75,14 @@
 	background: #1f2937;
 	border: 1px solid #374151;
 	border-radius: 10px;
-	/* .cb-play is a column flex container, so this box stretches to its full
-	   cross-axis (horizontal) width by default -- almost always wider than a
-	   single row actually needs, since rows hold fixed-size tiles and never
-	   more than ROW_SIZE of them. That extra width is what made a packed
-	   row's far-edge gap inconsistent with its near-edge padding.
-	   `width: fit-content` (i.e. shrink-wrap the box to its widest row) is
-	   the obvious way to remove that extra width, but real-world testing
-	   turned up a browser (mobile Safari) where a flex column's fit-content
-	   sizing doesn't shrink-wrap a stretched child correctly, so the extra
-	   width -- and the uneven padding -- came right back. This computes the
-	   same target width directly instead of asking the browser to infer it:
-	   exactly what a full ROW_SIZE-tile row measures (cols*tile, plus an
-	   arrow+its two gaps for every tile after the first, see
-	   .cb-badge-step/.cb-badges__row below for where each of those gaps
-	   comes from) plus this box's own padding and border. Ties the box's
-	   width to actual layout constants instead of a browser inferring it,
-	   so it can't disagree with what a full row actually renders as. A short
-	   trailing row (fewer than ROW_SIZE tiles) is still narrower than this,
-	   which is intentional -- see .cb-badges__row--reversed's comment. */
-	width: calc(
-		var(--cb-cols) * var(--cb-tile) + (var(--cb-cols) - 1) * (var(--cb-arrow) + 2 * var(--cb-gap)) + 2rem + 2px
-	);
-	/* Falls back to the old full-bleed sizing on a viewport too narrow to
-	   fit the width above (where --full below still keeps a full row's
-	   edges flush); auto margins re-center the box against the full-width
-	   siblings around it (turn banner, guess box) whenever it's narrower. */
-	max-width: 100%;
-	margin: 0 auto;
+	/* No explicit width here -- .cb-play is a column flex container, so this
+	   box naturally stretches to fill the space its siblings (turn banner,
+	   guess box) already span. That's exactly the width useResponsiveCols
+	   measures via ResizeObserver to decide how many tiles fit per row, so
+	   there's nothing to fight: whatever this box's real width ends up being
+	   on any given device, viewport, zoom level or window size, the tile
+	   count adapts to it live instead of assuming a fixed number was checked
+	   against enough devices to be safe. */
 }
 
 .cb-badges__row {
@@ -114,20 +95,21 @@
 /* Odd rows (2nd, 4th, ...) are right-aligned instead of left -- so a row
    that reads right-to-left visually picks up from directly under wherever
    the row above it ended, the way a snake path actually turns, rather than
-   floating unconnected in the middle of the row. A short trailing row (fewer
-   than ROW_SIZE tiles) is narrower than the box on purpose -- it was never
-   meant to reach the far edge, that gap is the snake's turn, not a bug. */
+   floating unconnected in the middle of the row. A short trailing row
+   (fewer tiles than a full row) is narrower than the box on purpose -- it
+   was never meant to reach the far edge, that gap is the snake's turn, not
+   a bug. */
 .cb-badges__row--reversed {
 	justify-content: flex-end;
 }
 
-/* A row with all ROW_SIZE tiles matches the box's own width exactly (see
-   .cb-badges's width calc above), so flex-start/flex-end would already land
-   flush on both edges with zero slack to redistribute -- this only matters
-   as a fallback for the narrow-viewport case where the box's width above
-   hit its max-width: 100% ceiling and is actually wider than a full row.
-   Defined after --reversed so it wins the tie when a full row is also a
-   reversed one (same specificity, source order decides). */
+/* A full row (see ClubBadgesPlay.tsx's useResponsiveCols/buildBadgeRows) was
+   sized to fit the box's width, but the column count is a floor -- there's
+   almost always a leftover sliver less than one tile wide. space-between
+   splits that sliver evenly across both edges instead of dumping it all on
+   one side the way flex-start/flex-end would. Defined after --reversed so
+   it wins the tie when a full row is also a reversed one (same specificity,
+   source order decides). */
 .cb-badges__row--full {
 	justify-content: space-between;
 }

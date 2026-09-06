@@ -1,18 +1,7 @@
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { GuessInput } from "../components/GuessInput";
 import { BadgeTile } from "./BadgeTile";
 import { currentTurnIndex, HINT_KEYS, type CbBadge, type CbState, type HintKey } from "./state";
-
-// Tiles are a fixed 64x64 (see clubBadges.css's .cb-badge). 3 per row, not 4
-// -- measured directly (see clubBadges.css's .cb-badges width calc and the
-// Playwright check this was verified with): a full row of 4 64px tiles plus
-// their arrows needs ~376px, which overflows every standard iPhone's
-// available width (as little as ~335px on an iPhone SE, ~350px on a 12-15)
-// and only actually fits the largest models (~430px, e.g. Pro Max) -- the
-// previous "4 fits comfortably" claim here was never actually checked
-// against a real viewport. 3 tiles needs ~284px, comfortably inside every
-// shipping phone's available width.
-const ROW_SIZE = 3;
 
 interface BadgeRowItem {
 	badge: CbBadge;
@@ -25,15 +14,81 @@ interface BadgeRowItem {
 // left-to-right again -- continuing visually from wherever the previous row
 // ended, instead of every wrapped row restarting at the left the way plain
 // flex-wrap would. See the render below for how the arrow direction and
-// row alignment flip to match.
-function buildBadgeRows(badges: CbBadge[]): BadgeRowItem[][] {
+// row alignment flip to match. `cols` is however many tiles actually fit
+// across the real container -- see useResponsiveCols below -- not a fixed
+// number: an earlier version hardcoded this (first 4, then 3 after 4 turned
+// out to overflow every standard iPhone) by checking it against a handful of
+// phone widths, which is exactly the kind of thing that breaks the next time
+// someone opens this on a tablet, a resized browser window, or a phone that
+// wasn't in the list.
+function buildBadgeRows(badges: CbBadge[], cols: number): BadgeRowItem[][] {
 	const rows: BadgeRowItem[][] = [];
-	for (let i = 0; i < badges.length; i += ROW_SIZE) {
-		const row = badges.slice(i, i + ROW_SIZE).map((badge, j) => ({ badge, originalIndex: i + j }));
-		const rowNumber = i / ROW_SIZE;
+	for (let i = 0; i < badges.length; i += cols) {
+		const row = badges.slice(i, i + cols).map((badge, j) => ({ badge, originalIndex: i + j }));
+		const rowNumber = i / cols;
 		rows.push(rowNumber % 2 === 1 ? row.reverse() : row);
 	}
 	return rows;
+}
+
+// Resolves a CSS length (e.g. "0.4rem", "64px") to actual on-screen pixels by
+// briefly rendering it and measuring the result -- robust to whatever the
+// current root font-size actually is (browser zoom, an accessibility text
+// -size setting) rather than assuming a fixed px-per-rem conversion, which
+// would just be a different flavor of the same "hardcoded number that only
+// matches what was tested" problem this hook exists to avoid.
+function resolveCssLength(value: string): number {
+	const probe = document.createElement("div");
+	probe.style.cssText = `position:absolute;visibility:hidden;height:0;width:${value}`;
+	document.body.appendChild(probe);
+	const px = probe.getBoundingClientRect().width;
+	probe.remove();
+	return px;
+}
+
+// How many tiles actually fit across .cb-badges's own (live) width, kept up
+// to date via ResizeObserver -- a real measurement of the real container, so
+// it's correct on a phone, a tablet, a resized desktop window, after a
+// rotation, after a browser zoom change, or on any device this was never
+// specifically checked against. --cb-tile/--cb-gap/--cb-arrow (clubBadges.css)
+// are read back from the element's own computed style rather than a second
+// hardcoded copy here, so this can't quietly disagree with what the CSS
+// actually renders at (exactly the bug that made the previous, formula-only
+// version of this fix wrong -- see clubBadges.css's .cb-badges history).
+function useResponsiveCols(): [(node: HTMLDivElement | null) => void, number] {
+	const [cols, setCols] = useState(3); // a reasonable guess for the instant before the first measurement
+	const observerRef = useRef<ResizeObserver | null>(null);
+
+	const setNode = useCallback((node: HTMLDivElement | null) => {
+		observerRef.current?.disconnect();
+		observerRef.current = null;
+		if (!node) return;
+
+		function recompute(containerWidth: number) {
+			const style = getComputedStyle(node!);
+			const tile = resolveCssLength(style.getPropertyValue("--cb-tile") || "64px");
+			const gap = resolveCssLength(style.getPropertyValue("--cb-gap") || "0.4rem");
+			const arrow = resolveCssLength(style.getPropertyValue("--cb-arrow") || "1rem");
+			// Every tile after the first also costs an arrow plus its two gaps
+			// (one between the arrow and its badge, one between this step and
+			// the previous one -- see .cb-badge-step/.cb-badges__row in
+			// clubBadges.css); solving "how many tiles fit" for that per-tile
+			// cost gives this floor.
+			const stepExtra = arrow + 2 * gap;
+			setCols(Math.max(1, Math.floor((containerWidth + stepExtra) / (tile + stepExtra))));
+		}
+
+		// contentRect excludes padding/border regardless of box-sizing -- the
+		// same "space actually available for tiles" this formula needs.
+		const observer = new ResizeObserver((entries) => {
+			const width = entries[0]?.contentRect.width;
+			if (width) recompute(width);
+		});
+		observer.observe(node);
+		observerRef.current = observer;
+	}, []);
+
+	return [setNode, cols];
 }
 
 interface Props {
@@ -50,6 +105,7 @@ interface Props {
 // waiting for "Next" to hand the device to the next player) -- see
 // state.ts's doc on why that's what lastResult's presence means.
 export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, onQuit }: Props) {
+	const [badgesRef, cols] = useResponsiveCols();
 	const [guessInput, setGuessInput] = useState("");
 	// Same "confirm before it costs you" pattern as single-player's give-up
 	// (PlayScreen.tsx) -- a stray tap here loses a point on this question
@@ -79,7 +135,7 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 
 	const question = state.questions[state.questionIndex];
 	if (!question) return null;
-	const badgeRows = buildBadgeRows(question.badges);
+	const badgeRows = buildBadgeRows(question.badges, cols);
 	// A hint key existing (HINT_KEYS) doesn't guarantee it's offered for
 	// THIS question -- nationality is skipped outright when the server sent
 	// null for it (see state.ts's CbQuestion doc), rather than showing a
@@ -146,29 +202,24 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 						: `${current.name}'s turn — who is this?`}
 			</p>
 
-			{/* --cb-cols feeds clubBadges.css's width calc on .cb-badges -- see
-			    that file's comment on why the box's width is computed rather
-			    than left to the browser to shrink-wrap. Keeping ROW_SIZE as the
-			    one source for both the row-chunking above and this means the
-			    two can't drift out of sync with each other. */}
-			<div className="cb-badges" style={{ "--cb-cols": ROW_SIZE } as React.CSSProperties}>
+			{/* ref hands the live element to useResponsiveCols so it can measure
+			    the real available width and observe it for resizes -- see that
+			    hook above for why this replaced a fixed column count. */}
+			<div className="cb-badges" ref={badgesRef}>
 				{badgeRows.map((row, rowIndex) => {
 					const reversed = rowIndex % 2 === 1;
-					// A row that fills all ROW_SIZE slots space-between's its steps
-					// instead of packing them to one side -- flex-start/flex-end left
-					// its far edge wherever the fixed-width tiles happened to end,
-					// which (depending on viewport width) could land well short of
-					// the box's own padding on that side, reading as uneven left/right
-					// spacing. space-between flushes the first and last step against
-					// the row's own edges, so both sides land on exactly the box's
-					// padding regardless of viewport -- a short trailing row (fewer
-					// than ROW_SIZE) keeps flex-start/flex-end since it was never
-					// meant to reach the far edge in the first place (that's the
-					// snake's "picks up where the last row ended" look).
+					// A row that fills all `cols` slots space-between's its steps
+					// instead of packing them to one side -- cols was computed to
+					// (approximately) fill the container already, so this just
+					// flushes whatever sub-tile rounding remainder is left evenly to
+					// both edges instead of dumping it all on one side. A short
+					// trailing row (fewer than `cols`) keeps flex-start/flex-end since
+					// it was never meant to reach the far edge in the first place
+					// (that's the snake's "picks up where the last row ended" look).
 					const rowClassName = [
 						"cb-badges__row",
 						reversed && "cb-badges__row--reversed",
-						row.length === ROW_SIZE && "cb-badges__row--full",
+						row.length === cols && "cb-badges__row--full",
 					]
 						.filter(Boolean)
 						.join(" ");
