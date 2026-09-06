@@ -327,33 +327,54 @@ def normalize_name(s: str) -> str:
 class EntityResolver:
     """Exact (post-normalization) name -> entities.id lookup, read-only
     against the local D1 SQLite file. No fuzzy matching — a miss just means
-    team_id stays NULL, never a guess."""
+    team_id stays NULL, never a guess.
+
+    Keeps every (entity_id, entity_type) candidate per normalized name, not
+    just the first one seen: a bare country name can collide with a club's
+    alias for the same word (found 2026-09-06 -- "Monaco" the country and
+    "AS Monaco" the club both normalize/alias to "monaco", and a single
+    first-wins dict silently sent every one of AS Monaco's club spells to
+    the country entity instead, corrupting real player histories). resolve()
+    takes the caller's own competition_type as `prefer_type` so a club spell
+    prefers a club candidate and an international cap prefers a country one,
+    rather than either being at the mercy of dict insertion order."""
 
     def __init__(self, db_path: str | None):
-        self.by_name: dict[str, int] = {}
+        self.by_name: dict[str, list[tuple[int, str]]] = {}
         if not db_path:
             return
         conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
         try:
             cur = conn.execute(
-                "SELECT id, canonical_name FROM entities WHERE entity_type IN ('club','country')"
+                "SELECT id, canonical_name, entity_type FROM entities WHERE entity_type IN ('club','country')"
             )
-            for entity_id, canonical_name in cur.fetchall():
+            for entity_id, canonical_name, entity_type in cur.fetchall():
                 key = normalize_name(canonical_name)
-                self.by_name.setdefault(key, entity_id)
+                self.by_name.setdefault(key, []).append((entity_id, entity_type))
             cur = conn.execute(
-                "SELECT entity_id, alias FROM entity_aliases ea "
+                "SELECT entity_id, alias, e.entity_type FROM entity_aliases ea "
                 "JOIN entities e ON e.id = ea.entity_id "
                 "WHERE e.entity_type IN ('club','country')"
             )
-            for entity_id, alias in cur.fetchall():
+            for entity_id, alias, entity_type in cur.fetchall():
                 key = normalize_name(alias)
-                self.by_name.setdefault(key, entity_id)
+                candidates = self.by_name.setdefault(key, [])
+                if not any(eid == entity_id for eid, _ in candidates):
+                    candidates.append((entity_id, entity_type))
         finally:
             conn.close()
 
-    def resolve(self, name: str) -> int | None:
-        return self.by_name.get(normalize_name(strip_loan_marker(name)))
+    def resolve(self, name: str, prefer_type: str) -> int | None:
+        candidates = self.by_name.get(normalize_name(strip_loan_marker(name)))
+        if not candidates:
+            return None
+        for entity_id, entity_type in candidates:
+            if entity_type == prefer_type:
+                return entity_id
+        # No candidate of the preferred type -- fall back to whatever
+        # matched (canonical-name matches before alias matches, same
+        # priority order as before this fix), rather than a miss.
+        return candidates[0][0]
 
 
 def find_local_d1_path() -> str | None:
@@ -560,8 +581,14 @@ def main():
     for i, (entity_id, name, country) in enumerate(players, start=1):
         print(f"[{i}/{len(players)}] {name} (entity_id {entity_id}) ...", file=sys.stderr)
         r = research_player(entity_id, name, country, args.sleep)
-        for stint in r.club_stints + r.intl_stints:
-            stint.team_id = resolver.resolve(stint.team_name_raw)
+        # Separate loops (not one merged list) so each stint's own kind
+        # tells resolve() which entity_type to prefer on a name collision --
+        # see EntityResolver's doc for why this matters (e.g. "Monaco" the
+        # country vs. "AS Monaco" the club).
+        for stint in r.club_stints:
+            stint.team_id = resolver.resolve(stint.team_name_raw, prefer_type="club")
+        for stint in r.intl_stints:
+            stint.team_id = resolver.resolve(stint.team_name_raw, prefer_type="country")
         results.append(r)
         if r.fatal_review_reason:
             print(f"    -> FATAL: {r.fatal_review_reason}", file=sys.stderr)
