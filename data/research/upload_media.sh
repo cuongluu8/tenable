@@ -6,7 +6,12 @@
 # Zero LLM tokens needed to run this — it's a mechanical curl + wrangler
 # loop. Run from the repo root with a `wrangler login`-authenticated shell:
 #
-#   bash data/research/upload_media.sh path/to/manifest.csv
+#   bash data/research/upload_media.sh path/to/manifest.csv [sleep_seconds]
+#
+# sleep_seconds (default 1) is a delay between rows -- be polite to
+# Wikimedia's servers. A too-fast run has genuinely tripped their rate
+# limiter before (a real HTTP-200 response containing an HTML error page,
+# not a curl failure -- see the content-validation step below).
 #
 # Manifest CSV format (no header row), one entity per line:
 #
@@ -42,7 +47,12 @@
 set -uo pipefail
 cd "$(dirname "$0")/../.."   # repo root
 
-MANIFEST="${1:?Usage: bash data/research/upload_media.sh path/to/manifest.csv}"
+MANIFEST="${1:?Usage: bash data/research/upload_media.sh path/to/manifest.csv [sleep_seconds]}"
+SLEEP_S="${2:-1}"   # be polite to Wikimedia -- a fast back-to-back run over
+	# many rows is exactly what tripped their rate limiter once already
+	# (see the Aston Villa/Inter Miami incident, 2026-09-06); a real 429
+	# response comes back as an HTTP-200 HTML error page, not a curl
+	# failure, so nothing before this fix even noticed.
 DB=tenable-content
 BUCKET=tenable-media
 TMPDIR=$(mktemp -d)
@@ -81,9 +91,29 @@ ext_from_url() {
 	fi
 }
 
+mime_from_ext() {
+	# The uploaded temp file has no extension (named just "$entity_id"), so
+	# `wrangler r2 object put` has nothing to infer a Content-Type from on
+	# its own -- confirmed this was landing as either no Content-Type at all
+	# or a wrong sniffed one (e.g. "application/xml" for an SVG), which is
+	# why badges silently failed to render as <img> sources in the browser
+	# despite the object itself downloading fine. Always pass this
+	# explicitly instead of relying on inference.
+	case "$1" in
+	svg) echo "image/svg+xml" ;;
+	png) echo "image/png" ;;
+	jpg | jpeg) echo "image/jpeg" ;;
+	webp) echo "image/webp" ;;
+	gif) echo "image/gif" ;;
+	*) echo "application/octet-stream" ;;
+	esac
+}
+
 while IFS=',' read -r entity_id entity_type image_url; do
 	# skip blank lines
 	[ -z "${entity_id// /}" ] && continue
+
+	sleep "$SLEEP_S"
 
 	tmpfile="$TMPDIR/$entity_id"
 	content_type=$(curl -sL -o "$tmpfile" -w '%{content_type}' "$image_url")
@@ -93,6 +123,25 @@ while IFS=',' read -r entity_id entity_type image_url; do
 		fail=$((fail + 1))
 		continue
 	fi
+	# A non-empty file isn't necessarily a real image -- Wikimedia serves
+	# genuine HTML (a rate-limit page, a broken-redirect page) with HTTP 200
+	# on both a 429 and a stale/renamed Special:FilePath URL, and either one
+	# would otherwise sail through as "success" and get uploaded as if it
+	# were a badge. Reject anything the server itself didn't call an image,
+	# and independently confirm the bytes don't start with an HTML doctype
+	# (an SVG's content-type is sometimes reported as generic XML/text, so
+	# content-type alone isn't a reliable enough gate on its own).
+	case "$content_type" in
+	*image*) : ;;
+	*)
+		if head -c 512 "$tmpfile" | grep -qi '<!DOCTYPE html\|<html'; then
+			echo "FAIL  entity $entity_id: server returned an HTML page, not an image (content-type '$content_type', $image_url)"
+			echo "$entity_id,$entity_type,$image_url" >>"$FAILED_LOG"
+			fail=$((fail + 1))
+			continue
+		fi
+		;;
+	esac
 
 	ext=$(ext_from_content_type "$content_type")
 	if [ -z "$ext" ]; then
@@ -106,8 +155,9 @@ while IFS=',' read -r entity_id entity_type image_url; do
 	fi
 
 	key="${entity_type}s/${entity_id}.${ext}"
+	mime=$(mime_from_ext "$ext")
 
-	put_output=$(npx wrangler r2 object put "$BUCKET/$key" --file="$tmpfile" --remote 2>&1)
+	put_output=$(npx wrangler r2 object put "$BUCKET/$key" --file="$tmpfile" --content-type="$mime" --remote 2>&1)
 	if [ $? -ne 0 ]; then
 		echo "FAIL  entity $entity_id: r2 upload failed (key $key)"
 		echo "  $put_output" | tail -3

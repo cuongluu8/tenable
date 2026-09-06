@@ -7,6 +7,7 @@ import clubBadges from "./routes/clubBadges";
 import giveUp from "./routes/giveUp";
 import guess from "./routes/guess";
 import media from "./routes/media";
+import mediaAudit from "./routes/mediaAudit";
 import multiplayer from "./routes/multiplayer";
 import reset from "./routes/reset";
 import reveal from "./routes/reveal";
@@ -29,6 +30,11 @@ app.route("/api/reset", reset);
 app.route("/api/reveal", reveal);
 app.route("/api/stats", stats);
 app.route("/api/suggest", suggest);
+
+// Unlisted admin page, no link to it anywhere in the app nav — see
+// mediaAudit.ts. Deliberately outside /api/* (no circuit breaker needed for
+// an occasional manual page load).
+app.route("/admin/media-audit", mediaAudit);
 
 export default {
 	fetch: app.fetch,
