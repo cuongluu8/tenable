@@ -153,6 +153,17 @@
 	width: var(--cb-tile);
 }
 
+/* Understated on purpose -- a caveat about the data, not something worth
+   competing with the badges or the hint/guess UI for attention. Same
+   treatment as .cb-progress above it. */
+.cb-disclaimer {
+	margin: 0;
+	text-align: center;
+	color: #6b7280;
+	font-size: 0.8rem;
+	font-style: italic;
+}
+
 /* Positioning context for the country-ribbon hint overlay (see
    .cb-badge-ribbon below). Explicitly fixed at 64px here too (not just
    left to shrink-wrap around its child) and clipped -- a long unbroken

@@ -297,6 +297,15 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 				})}
 			</div>
 
+			{/* The sequence shown is whatever club_badge_questions curated, not
+			    necessarily the player's full career -- a current player may have
+			    joined more clubs since the question was written, and a
+			    since-retired one may have played on past the last club shown
+			    here without ever being recorded. Without this, the sequence
+			    could read as a claim that the last badge is where they ended up,
+			    which isn't guaranteed. */}
+			<p className="cb-disclaimer">This may not show their full career — there could be more clubs after the last one shown.</p>
+
 			{revealedHints.has("nationality") && (
 				<p className="cb-hint-text">Nationality: {question.nationality}</p>
 			)}
