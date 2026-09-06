@@ -68,6 +68,23 @@
 	background: #1f2937;
 	border: 1px solid #374151;
 	border-radius: 10px;
+	/* .cb-play is a column flex container, so this box stretches to its full
+	   cross-axis (horizontal) width by default -- almost always wider than a
+	   single row actually needs, since rows hold fixed 64px tiles and never
+	   more than ROW_SIZE of them. That extra width is exactly what made a
+	   packed row's far-edge gap inconsistent with its near-edge padding (see
+	   .cb-badges__row--full below, kept as a belt-and-suspenders fallback).
+	   Shrink-wrapping to content removes the extra width in the first place --
+	   every row's own edges then line up with the box's, so its padding is
+	   symmetric without needing a row to be "full" at all. max-width keeps
+	   this from overflowing on a narrow viewport where even one full row is
+	   wider than the screen (falls back to the previous full-bleed sizing,
+	   where --full still does its job); auto margins re-center the box
+	   whenever it ends up narrower than its column siblings (the turn banner,
+	   guess box, etc.), which still span the full width themselves. */
+	width: fit-content;
+	max-width: 100%;
+	margin: 0 auto;
 }
 
 .cb-badges__row {
