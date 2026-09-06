@@ -95,12 +95,18 @@
 }
 
 /* Positioning context for the country-ribbon hint overlay (see
-   .cb-badge-ribbon below) -- shrink-wraps to whichever child it holds
-   (.cb-badge or .cb-badge--placeholder), whatever that one's own width
-   happens to be. */
+   .cb-badge-ribbon below). Explicitly fixed at 64px here too (not just
+   left to shrink-wrap around its child) and clipped -- a long unbroken
+   club name inside the placeholder's text was growing this wrapper past
+   64px otherwise (its child's own explicit width doesn't reliably stop an
+   inline-block ancestor's shrink-to-fit sizing from being influenced by
+   that child's flex content in every browser), so this is now a hard
+   width ceiling regardless of what's inside. */
 .cb-badge-wrap {
 	position: relative;
-	display: inline-block;
+	width: 64px;
+	overflow: hidden;
+	border-radius: 8px;
 }
 
 .cb-badge {
@@ -190,17 +196,16 @@
 }
 
 .cb-badge--placeholder span {
-	font-size: 0.6rem;
+	/* Small enough that a two/three-word name ("Manchester United", "Preston
+	   North End") wraps to fit the fixed 64px width instead of pushing the
+	   tile wider (see .cb-badge-wrap's own width/overflow backstop above)
+	   -- plain wrapping, not a line-clamp, so the full name stays readable
+	   rather than getting cut off with an ellipsis. */
+	font-size: 0.5rem;
 	line-height: 1.1;
 	color: #d1d5db;
-	overflow-wrap: break-word;
+	overflow-wrap: anywhere;
 	hyphens: auto;
-	/* A long name ("İstanbul Başakşehir") in a fixed 64px box can only fit
-	   so much -- clip rather than overflow into neighboring tiles. */
-	display: -webkit-box;
-	-webkit-line-clamp: 4;
-	-webkit-box-orient: vertical;
-	overflow: hidden;
 }
 
 .cb-reveal {
