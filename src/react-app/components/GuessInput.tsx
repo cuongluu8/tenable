@@ -148,6 +148,22 @@ export function GuessInput({ value, onChange, onPick, disabled, suggestUrl, extr
 	// a plain window scroll — including the one useKeepInSafeZone itself
 	// triggers, and possibly the browser's own native scroll-into-view on
 	// top of that, so this needs to react to it regardless of source.
+	//
+	// Depends on visibleSuggestions.length, not visibleSuggestions itself --
+	// the dropdown's rendered height (what actually needs repositioning for)
+	// only depends on the row *count*, but the array reference is a brand
+	// new one on every render regardless of whether the count changed (a
+	// useMemo recomputing because its own excludeNames/suggestions inputs
+	// are themselves fresh references every render at every current caller
+	// -- PlayScreen.tsx's Array.from(...), MultiplayerPlay.tsx's .map(...),
+	// and ClubBadgesPlay.tsx's unpassed-prop default all produce one).
+	// Depending on that reference here means this effect reruns on every
+	// render while the dropdown is open, calling reposition() ->
+	// setDropdownRect -> another render -> reruns again: a genuine infinite
+	// loop (confirmed live -- typing three characters into the club-badges
+	// guess box reliably crashed the whole page with React's "Maximum
+	// update depth exceeded"). The dependency array only needs a primitive
+	// that actually reflects "did the count change", which .length is.
 	useLayoutEffect(() => {
 		if (!visible) return;
 		reposition();
@@ -162,7 +178,7 @@ export function GuessInput({ value, onChange, onPick, disabled, suggestUrl, extr
 			window.removeEventListener("resize", reposition);
 			window.removeEventListener("scroll", reposition, true);
 		};
-	}, [visible, visibleSuggestions, reposition]);
+	}, [visible, visibleSuggestions.length, reposition]);
 
 	useEffect(() => {
 		if (justPickedRef.current) {
