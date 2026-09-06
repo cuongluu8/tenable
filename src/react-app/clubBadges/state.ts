@@ -22,11 +22,21 @@ export interface CbPlayer {
 
 export type CbPhase = "setup" | "playing" | "finished";
 
+// One club within a question's sequence. `url` is null when that club has
+// no sourced badge yet -- ClubBadgesPlay.tsx renders `name` as a text
+// placeholder in that case (and also falls back to it if a present url
+// 404s at render time). Showing the name isn't a spoiler: the club isn't
+// the answer, the player is.
+export interface CbBadge {
+	name: string;
+	url: string | null;
+}
+
 // One question as handed out by GET /api/club-badges/round -- deliberately
 // no player id/name in here, that's the answer.
 export interface CbQuestion {
 	id: number;
-	badgeUrls: string[];
+	badges: CbBadge[];
 }
 
 export interface CbResult {

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { GuessInput } from "../components/GuessInput";
+import { BadgeTile } from "./BadgeTile";
 import { currentTurnIndex, type CbState } from "./state";
 
 interface Props {
@@ -66,8 +67,8 @@ export function ClubBadgesPlay({ state, onGuess, onNext, submitting, onQuit }: P
 			</p>
 
 			<div className="cb-badges">
-				{question.badgeUrls.map((url, i) => (
-					<img key={i} src={url} alt="" className="cb-badge" />
+				{question.badges.map((badge, i) => (
+					<BadgeTile key={i} badge={badge} />
 				))}
 			</div>
 

@@ -22,51 +22,49 @@ interface QuestionRow {
 // pool sampled at play time rather than a daily-locked "today's 10" the way
 // categories work.
 clubBadges.get("/round", async (c) => {
-	// Only questions whose every club currently has a sourced badge are
-	// eligible -- a question with even one missing image would either show
-	// a broken image or give the answer away by omission (fewer badges than
-	// the player actually has clubs for makes the sequence look wrong).
-	// Filtered in JS rather than SQL: club_sequence is a JSON array, and at
-	// ~107 rows total this is nowhere near worth a json_each query.
-	const [{ results: questions }, { results: clubs }] = await Promise.all([
-		c.env.DB.prepare("SELECT id, player_id, club_sequence FROM club_badge_questions").all<QuestionRow>(),
-		c.env.DB
-			.prepare("SELECT id FROM entities WHERE entity_type = 'club' AND image_key IS NOT NULL")
-			.all<{ id: number }>(),
-	]);
+	const { results: questions } = await c.env.DB
+		.prepare("SELECT id, player_id, club_sequence FROM club_badge_questions")
+		.all<QuestionRow>();
 
-	const clubsWithBadges = new Set((clubs ?? []).map((r) => r.id));
-	const eligible = (questions ?? []).filter((q) => {
-		const clubIds: number[] = JSON.parse(q.club_sequence);
-		return clubIds.length > 0 && clubIds.every((id) => clubsWithBadges.has(id));
-	});
-
-	// Fisher-Yates, take the first N -- fine at this scale (well under
-	// a couple hundred rows) and avoids ORDER BY RANDOM() needing to
-	// shuffle the JSON-filtered subset back in SQL.
-	for (let i = eligible.length - 1; i > 0; i--) {
+	// Fisher-Yates, take the first N -- fine at this scale (~107 rows) and
+	// avoids ORDER BY RANDOM() in SQL.
+	const shuffled = [...(questions ?? [])];
+	for (let i = shuffled.length - 1; i > 0; i--) {
 		const j = Math.floor(Math.random() * (i + 1));
-		[eligible[i], eligible[j]] = [eligible[j], eligible[i]];
+		[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
 	}
-	const picked = eligible.slice(0, QUESTIONS_PER_ROUND);
+	const picked = shuffled.slice(0, QUESTIONS_PER_ROUND);
 
 	if (picked.length === 0) {
 		return c.json({ questions: [] });
 	}
 
+	// Every question is eligible regardless of badge coverage -- a club with
+	// no image_key (not sourced yet, or a stale URL that 404s at render
+	// time) degrades to a text placeholder client-side (see
+	// ClubBadgesPlay.tsx) rather than the question being excluded outright.
+	// club names are sent alongside each badge on purpose: they're not the
+	// answer (the player is), so showing one as text when its image is
+	// missing gives away nothing a working badge wouldn't have anyway.
 	const allClubIds = [...new Set(picked.flatMap((q): number[] => JSON.parse(q.club_sequence)))];
 	const placeholders = allClubIds.map(() => "?").join(",");
 	const { results: clubRows } = await c.env.DB
-		.prepare(`SELECT id, image_key FROM entities WHERE id IN (${placeholders})`)
+		.prepare(`SELECT id, canonical_name, image_key FROM entities WHERE id IN (${placeholders})`)
 		.bind(...allClubIds)
-		.all<{ id: number; image_key: string }>();
-	const imageKeyById = new Map((clubRows ?? []).map((r) => [r.id, r.image_key]));
+		.all<{ id: number; canonical_name: string; image_key: string | null }>();
+	const clubById = new Map((clubRows ?? []).map((r) => [r.id, r]));
 
 	return c.json({
 		questions: picked.map((q) => ({
 			id: q.id,
 			// Deliberately no player_id/name here -- that's the answer.
-			badgeUrls: (JSON.parse(q.club_sequence) as number[]).map((clubId) => `/api/media/${imageKeyById.get(clubId)}`),
+			badges: (JSON.parse(q.club_sequence) as number[]).map((clubId) => {
+				const club = clubById.get(clubId);
+				return {
+					name: club?.canonical_name ?? "Unknown club",
+					url: club?.image_key ? `/api/media/${club.image_key}` : null,
+				};
+			}),
 		})),
 	});
 });
