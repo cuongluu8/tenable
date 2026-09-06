@@ -906,6 +906,33 @@ correct and still silently read orders of magnitude more than it returns.
 `wrangler d1 insights <db> --sort-by=reads` is the tool to catch this after
 the fact in production; reach for it if usage ever looks anomalous again.
 
+**Same day, second cause found the same way: `entity_search`'s own
+triggers.** `wrangler d1 insights` also showed a single-row `UPDATE
+entities SET image_key = ... WHERE id = <primary key>` reading ~19,364
+rows — the entire `entities` table — for what should be a one-row write.
+Cause: `entity_search_au`'s `DELETE FROM entity_search WHERE entity_id =
+OLD.id` filters on `entity_id`, declared `UNINDEXED` in that FTS5 virtual
+table — FTS5 builds no B-tree on an `UNINDEXED` column, so that `WHERE` is
+always a full scan, confirmed via `EXPLAIN QUERY PLAN`. Every `UPDATE`/
+`DELETE` on `entities` paid this as a side effect, including every badge/
+flag `image_key` write this project has ever done — at the same 2026-09-06
+incident's scale (~200 image uploads that day), this is almost certainly
+larger than the `suggestNames()` cause above, not smaller. Fixed by giving
+every `entity_search` row a `rowid` equal to its `entities.id` (set
+explicitly in all three triggers' `INSERT`s) and deleting/replacing by
+`rowid` instead — FTS5 rowid lookups are indexed by construction, unlike an
+arbitrary `UNINDEXED` column. See `data/research/
+migration_fix_entity_search_rowid.sql` for the one-off fix applied to a
+database that predates this (a fresh `db/schema.sql` install already gets
+the fixed version).
+
+**Broader rule this confirms:** it's not just *queries* that need an
+`EXPLAIN QUERY PLAN` check — a **trigger** fires invisibly on every write to
+its table, so an expensive trigger is an expensive cost hiding behind a
+completely innocuous-looking one-row `UPDATE`/`DELETE` at the call site.
+Any trigger touching an FTS5 virtual table specifically should filter on
+`rowid`, never a column declared `UNINDEXED`.
+
 ## Workers Builds cost
 
 No GitHub Actions minutes are involved (see Deployment above). Workers
