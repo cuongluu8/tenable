@@ -47,12 +47,21 @@ clubBadges.get("/round", async (c) => {
 	// answer (the player is), so showing one as text when its image is
 	// missing gives away nothing a working badge wouldn't have anyway.
 	const allClubIds = [...new Set(picked.flatMap((q): number[] => JSON.parse(q.club_sequence)))];
-	const placeholders = allClubIds.map(() => "?").join(",");
-	const { results: clubRows } = await c.env.DB
-		.prepare(`SELECT id, canonical_name, image_key, scope FROM entities WHERE id IN (${placeholders})`)
-		.bind(...allClubIds)
-		.all<{ id: number; canonical_name: string; image_key: string | null; scope: string | null }>();
+	const clubPlaceholders = allClubIds.map(() => "?").join(",");
+	const playerIds = [...new Set(picked.map((q) => q.player_id))];
+	const playerPlaceholders = playerIds.map(() => "?").join(",");
+	const [{ results: clubRows }, { results: playerRows }] = await Promise.all([
+		c.env.DB
+			.prepare(`SELECT id, canonical_name, image_key, scope FROM entities WHERE id IN (${clubPlaceholders})`)
+			.bind(...allClubIds)
+			.all<{ id: number; canonical_name: string; image_key: string | null; scope: string | null }>(),
+		c.env.DB
+			.prepare(`SELECT id, scope FROM entities WHERE id IN (${playerPlaceholders})`)
+			.bind(...playerIds)
+			.all<{ id: number; scope: string | null }>(),
+	]);
 	const clubById = new Map((clubRows ?? []).map((r) => [r.id, r]));
+	const playerScopeById = new Map((playerRows ?? []).map((r) => [r.id, r.scope]));
 
 	return c.json({
 		questions: picked.map((q) => ({
@@ -70,6 +79,18 @@ clubBadges.get("/round", async (c) => {
 					country: club?.scope ?? null,
 				};
 			}),
+			// Second hint: the player's nationality. entities.scope for a
+			// player entity holds the country they represent internationally
+			// (confirmed against real dual-nationality cases -- e.g. Diego
+			// Costa, born Brazil, scope is "Spain", who he actually plays for
+			// -- not birthplace), which is exactly the first choice the user
+			// asked for. There's no separate birth-country field anywhere in
+			// the schema to fall back to yet (every player in the actual game
+			// pool already has scope set, so this fallback has never actually
+			// been needed) -- null here is the "skip the hint" case once a
+			// second data source exists and still comes up empty, not
+			// currently a real path.
+			nationality: playerScopeById.get(q.player_id) ?? null,
 		})),
 	});
 });

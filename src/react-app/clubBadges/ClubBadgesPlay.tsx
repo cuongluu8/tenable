@@ -1,7 +1,12 @@
 import { useState } from "react";
 import { GuessInput } from "../components/GuessInput";
 import { BadgeTile } from "./BadgeTile";
-import { currentTurnIndex, type CbState } from "./state";
+import { currentTurnIndex, HINT_KEYS, type CbState, type HintKey } from "./state";
+
+const HINT_LABELS: Record<HintKey, string> = {
+	country: "💡 Hint: show country",
+	nationality: "🌍 Hint: show nationality",
+};
 
 interface Props {
 	state: CbState;
@@ -23,8 +28,7 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 	// just as surely as give-up loses the round there, so it gets the same
 	// two-step guard rather than acting immediately.
 	const [confirmingGiveUp, setConfirmingGiveUp] = useState(false);
-	// First of what's meant to grow into a small set of hints (see
-	// BadgeTile.tsx) -- just the country-ribbon reveal for now. Per-question:
+	// Which of HINT_KEYS this question has revealed so far. Per-question:
 	// reset whenever the question changes rather than staying revealed into
 	// the next one, same "starts fresh each question" reasoning as
 	// guessInput/confirmingGiveUp already get via their own dead-end paths.
@@ -34,15 +38,26 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 	// "still revealed" render first and only reset on the render after,
 	// which the lint rule (react-hooks/set-state-in-effect) flags for
 	// exactly that reason.
-	const [hintRevealed, setHintRevealed] = useState(false);
+	const [revealedHints, setRevealedHints] = useState<Set<HintKey>>(new Set());
 	const [hintQuestionIndex, setHintQuestionIndex] = useState(state.questionIndex);
 	if (state.questionIndex !== hintQuestionIndex) {
 		setHintQuestionIndex(state.questionIndex);
-		setHintRevealed(false);
+		setRevealedHints(new Set());
+	}
+
+	function revealHint(key: HintKey) {
+		setRevealedHints((prev) => new Set(prev).add(key));
 	}
 
 	const question = state.questions[state.questionIndex];
 	if (!question) return null;
+	// A hint key existing (HINT_KEYS) doesn't guarantee it's offered for
+	// THIS question -- nationality is skipped outright when the server sent
+	// null for it (see state.ts's CbQuestion doc), rather than showing a
+	// button that would reveal nothing. country has no such gate: every club
+	// in the actual game data has a real one (verified directly against
+	// production when this hint was built).
+	const availableHints = HINT_KEYS.filter((key) => key !== "nationality" || question.nationality !== null);
 	const turnIndex = currentTurnIndex(state);
 	const current = state.players[turnIndex];
 	const isLastQuestion = state.questionIndex + 1 >= state.questions.length;
@@ -110,15 +125,25 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 								→
 							</span>
 						)}
-						<BadgeTile badge={badge} showCountryHint={hintRevealed} />
+						<BadgeTile badge={badge} showCountryHint={revealedHints.has("country")} />
 					</div>
 				))}
 			</div>
 
-			{!state.lastResult && !hintRevealed && (
-				<button type="button" className="cb-hint-button" onClick={() => setHintRevealed(true)}>
-					💡 Hint: show country
-				</button>
+			{revealedHints.has("nationality") && (
+				<p className="cb-hint-text">Nationality: {question.nationality}</p>
+			)}
+
+			{!state.lastResult && (
+				<div className="cb-hints">
+					{availableHints
+						.filter((key) => !revealedHints.has(key))
+						.map((key) => (
+							<button type="button" key={key} className="cb-hint-button" onClick={() => revealHint(key)}>
+								{HINT_LABELS[key]}
+							</button>
+						))}
+				</div>
 			)}
 
 			{!state.lastResult ? (

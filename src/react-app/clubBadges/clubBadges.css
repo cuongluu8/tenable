@@ -126,8 +126,17 @@
 	pointer-events: none;
 }
 
+/* Row of not-yet-revealed hint buttons (see ClubBadgesPlay.tsx's
+   availableHints) -- wraps as more hints get added over time, same
+   reasoning as .cb-badges wrapping a long career. */
+.cb-hints {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: 0.5rem;
+}
+
 .cb-hint-button {
-	align-self: center;
 	background: none;
 	border: 1px solid #374151;
 	border-radius: 999px;
@@ -137,6 +146,16 @@
 }
 .cb-hint-button:hover:not(:disabled) {
 	border-color: #2563eb;
+}
+
+/* A revealed hint that isn't shown on the badges themselves (unlike the
+   country ribbon -- nationality is a fact about the player, not any one
+   club, so it gets a plain line instead of attaching to a badge). */
+.cb-hint-text {
+	text-align: center;
+	color: #93c5fd;
+	font-size: 0.9rem;
+	margin: 0;
 }
 
 /* Stands in for a badge with no image (not sourced yet, or a url that

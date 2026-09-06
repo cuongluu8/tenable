@@ -41,7 +41,21 @@ export interface CbBadge {
 export interface CbQuestion {
 	id: number;
 	badges: CbBadge[];
+	// Second hint: the player's nationality (country represented
+	// internationally, falling back to country of birth -- see
+	// clubBadges.ts's /round comment on why that fallback is currently a
+	// no-op). null means neither is known for this player -- the hint is
+	// skipped entirely rather than shown with nothing to reveal (see
+	// ClubBadgesPlay.tsx's availableHints).
+	nationality: string | null;
 }
+
+// Every hint this game currently has, in the order their buttons appear.
+// A hint key here doesn't guarantee its button shows for a given question
+// (e.g. nationality is skipped when CbQuestion.nationality is null) -- see
+// ClubBadgesPlay.tsx's availableHints.
+export const HINT_KEYS = ["country", "nationality"] as const;
+export type HintKey = (typeof HINT_KEYS)[number];
 
 export interface CbResult {
 	playerName: string;
