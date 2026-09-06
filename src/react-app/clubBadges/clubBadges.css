@@ -1,13 +1,23 @@
 /* "Guess the player from their clubs" — reuses App.css's global classes
    (.screen, .back-link, .result-panel) and multiplayer.css's roster/player-
    list classes directly (.mp-setup, .mp-players, .mp-players--final,
-   .mp-result-hint — see ClubBadges.tsx's import) since the roster step and
-   final standings list are visually the same shape as multiplayer's. Only
-   genuinely new UI (the badge grid, the turn banner, the reveal) gets a
-   class here, prefixed .cb- to avoid colliding with .mp-'s names. Same
-   palette as both: surface #1f2937, border #374151, accent #4ade80, muted
-   text #9ca3af.
+   .mp-result-hint — see GuessThePlayer.tsx/ClubBadgesPlay.tsx's imports)
+   since the roster step and final standings list are visually the same
+   shape as multiplayer's. Only genuinely new UI (the badge grid, the turn
+   banner, the reveal) gets a class here, prefixed .cb- to avoid colliding
+   with .mp-'s names. Same palette as both: surface #1f2937, border #374151,
+   accent #4ade80, muted text #9ca3af.
 */
+
+/* Same flex column + gap treatment as multiplayer's .mp-play -- .cb-play
+   never had its own layout rule, so every child (progress line, player
+   list, turn banner, badges, guess box, give-up button) was just stacking
+   with zero space between them. */
+.cb-play {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+}
 
 .cb-progress {
 	margin: 0;
