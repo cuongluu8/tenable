@@ -96,6 +96,17 @@
 	align-items: center;
 }
 
+/* Applied once the transfer-date hint is revealed (ClubBadgesPlay.tsx) --
+   widens the arrow columns so a two-line date label (.cb-arrow-date) fits
+   above each glyph without its ellipsis truncating "Jul 2009"/"~2009" in
+   the common case. Overriding the custom property here (rather than a
+   second variable) means every rule already using var(--cb-arrow) --
+   .cb-arrow-stack's width, useResponsiveCols's column-fit math -- just
+   picks up the new value automatically. */
+.cb-badges--wide-arrows {
+	--cb-arrow: 2.6rem;
+}
+
 .cb-badges__row {
 	display: flex;
 	align-items: center;
@@ -122,14 +133,50 @@
    some arrow width up front when computing how many tiles fit -- always
    matches what actually renders, regardless of font/glyph metrics in any
    given browser. */
-.cb-arrow {
+/* Wraps an arrow glyph and, once the transfer-date hint is revealed, a small
+   date label stacked above it -- one column, so the label costs vertical
+   room (plenty of it: a row's height is set by its 64px tiles, dwarfing a
+   two-line label) instead of horizontal room, which there's almost none of
+   between tiles. This is the box .cb-badges--wide-arrows below widens --
+   the glyph itself (.cb-arrow) never changes size, only how much room
+   surrounds it. */
+.cb-arrow-stack {
 	display: inline-flex;
+	flex-direction: column;
 	align-items: center;
 	justify-content: center;
 	width: var(--cb-arrow);
+}
+
+/* Widened to a full tile's width (rather than the normal narrow --cb-arrow)
+   so centering it lands the glyph under the middle of the tile it's
+   pointing away from/into, not hugging the frame's raw edge -- a tile is
+   --cb-tile wide, the connector's own flex-start/flex-end only positions
+   this box, not the stack within it. */
+.cb-arrow-stack--down {
+	width: var(--cb-tile);
+}
+
+.cb-arrow {
 	color: #6b7280;
 	font-size: 1.1rem;
 	font-weight: 700;
+	line-height: 1;
+}
+
+/* "Jul 2009" or "~2009" (see state.ts's CbQuestion doc on the two formats) --
+   small enough to usually fit .cb-arrow-stack's own narrow width without
+   the ellipsis ever kicking in, but truncates rather than overflowing into
+   a neighboring tile on the rare longer string at a large accessibility
+   text-size setting. */
+.cb-arrow-date {
+	font-size: 0.5rem;
+	line-height: 1.2;
+	color: #93c5fd;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	max-width: 100%;
 }
 
 /* A row wrap between two badge rows -- own line, own arrow (ClubBadgesPlay.tsx
@@ -142,15 +189,6 @@
 }
 .cb-badges__connector--right {
 	justify-content: flex-end;
-}
-
-/* Widened to a full tile's width (rather than .cb-arrow's normal narrow
-   --cb-arrow) so centering it lands the glyph under the middle of the tile
-   it's pointing away from/into, not hugging the frame's raw edge -- a tile
-   is --cb-tile wide, the connector's own flex-start/flex-end only positions
-   this box, not the glyph within it. */
-.cb-arrow--down {
-	width: var(--cb-tile);
 }
 
 /* Understated on purpose -- a caveat about the data, not something worth
@@ -242,23 +280,6 @@
 	color: #93c5fd;
 	font-size: 0.9rem;
 	margin: 0;
-}
-
-/* Third hint: one line per transfer with usable date data (see
-   ClubBadgesPlay.tsx/state.ts's CbQuestion doc on why some transfers have
-   none). A plain list rather than attaching to the grid's arrows -- same
-   "fact isn't about one badge" reasoning as .cb-hint-text above, and a date
-   label is too wide to fit the grid's own fixed-size arrow columns anyway. */
-.cb-transfer-dates {
-	list-style: none;
-	margin: 0;
-	padding: 0;
-	display: flex;
-	flex-direction: column;
-	gap: 0.25rem;
-	text-align: center;
-	color: #93c5fd;
-	font-size: 0.85rem;
 }
 
 /* Stands in for a badge with no image (not sourced yet, or a url that

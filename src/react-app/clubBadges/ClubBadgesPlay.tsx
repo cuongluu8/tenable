@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useRef, useState } from "react";
+import { Fragment, useCallback, useLayoutEffect, useRef, useState } from "react";
 import { GuessInput } from "../components/GuessInput";
 import { BadgeTile } from "./BadgeTile";
 import { currentTurnIndex, HINT_KEYS, type CbBadge, type CbState, type HintKey } from "./state";
@@ -81,41 +81,67 @@ interface ResponsiveCols {
 // .cb-badges centering that shared-width block -- so every row, whatever
 // it actually contains, gets identical left/right margins by construction,
 // without a single gap ever being pulled wider than it renders elsewhere.
-function useResponsiveCols(): [(node: HTMLDivElement | null) => void, ResponsiveCols] {
+//
+// `wideArrows` widens --cb-arrow (clubBadges.css's .cb-badges--wide-arrows)
+// once the transfer-date hint is revealed, since each arrow then carries a
+// two-line date label above the glyph (see the render below) that needs
+// more than the plain arrow's normal width -- cols/rowWidth need to be
+// recomputed against that new width the moment it changes, not just on the
+// next resize, so a change to this flag forces a remeasurement below even
+// though the container's actual size didn't move.
+function useResponsiveCols(wideArrows: boolean): [(node: HTMLDivElement | null) => void, ResponsiveCols] {
 	// Reasonable guesses for the instant before the first real measurement.
 	const [state, setState] = useState<ResponsiveCols>({ cols: 3, rowWidth: 0 });
+	const nodeRef = useRef<HTMLDivElement | null>(null);
 	const observerRef = useRef<ResizeObserver | null>(null);
 
-	const setNode = useCallback((node: HTMLDivElement | null) => {
-		observerRef.current?.disconnect();
-		observerRef.current = null;
+	// clientWidth (border-box minus border, i.e. padding+content) minus the
+	// element's own padding -- the same "space actually available for
+	// tiles" ResizeObserver's contentRect gives on its own callback, kept
+	// consistent here since this path (unlike the observer) needs to read
+	// the current width on demand rather than wait for one to be delivered.
+	const recompute = useCallback(() => {
+		const node = nodeRef.current;
 		if (!node) return;
-
-		function recompute(containerWidth: number) {
-			const style = getComputedStyle(node!);
-			const tile = resolveCssLength(style.getPropertyValue("--cb-tile") || "64px");
-			const gap = resolveCssLength(style.getPropertyValue("--cb-gap") || "0.4rem");
-			const arrow = resolveCssLength(style.getPropertyValue("--cb-arrow") || "1rem");
-			// Every tile after the first also costs an arrow plus the two row
-			// gaps flanking it (badges and arrows are direct, alternating
-			// children of the row -- see .cb-badges__row in clubBadges.css and
-			// the render below); solving "how many tiles fit" for that
-			// per-tile cost gives this floor.
-			const stepExtra = arrow + 2 * gap;
-			const cols = Math.max(1, Math.floor((containerWidth + stepExtra) / (tile + stepExtra)));
-			const rowWidth = cols * tile + (cols - 1) * stepExtra;
-			setState({ cols, rowWidth });
-		}
-
-		// contentRect excludes padding/border regardless of box-sizing -- the
-		// same "space actually available for tiles" this formula needs.
-		const observer = new ResizeObserver((entries) => {
-			const width = entries[0]?.contentRect.width;
-			if (width) recompute(width);
-		});
-		observer.observe(node);
-		observerRef.current = observer;
+		const style = getComputedStyle(node);
+		const paddingLeft = resolveCssLength(style.paddingLeft);
+		const paddingRight = resolveCssLength(style.paddingRight);
+		const containerWidth = node.clientWidth - paddingLeft - paddingRight;
+		const tile = resolveCssLength(style.getPropertyValue("--cb-tile") || "64px");
+		const gap = resolveCssLength(style.getPropertyValue("--cb-gap") || "0.4rem");
+		const arrow = resolveCssLength(style.getPropertyValue("--cb-arrow") || "1rem");
+		// Every tile after the first also costs an arrow plus the two row
+		// gaps flanking it (badges and arrows are direct, alternating
+		// children of the row -- see .cb-badges__row in clubBadges.css and
+		// the render below); solving "how many tiles fit" for that
+		// per-tile cost gives this floor.
+		const stepExtra = arrow + 2 * gap;
+		const cols = Math.max(1, Math.floor((containerWidth + stepExtra) / (tile + stepExtra)));
+		const rowWidth = cols * tile + (cols - 1) * stepExtra;
+		setState({ cols, rowWidth });
 	}, []);
+
+	const setNode = useCallback(
+		(node: HTMLDivElement | null) => {
+			observerRef.current?.disconnect();
+			observerRef.current = null;
+			nodeRef.current = node;
+			if (!node) return;
+			const observer = new ResizeObserver(() => recompute());
+			observer.observe(node);
+			observerRef.current = observer;
+			recompute();
+		},
+		[recompute],
+	);
+
+	// Runs synchronously before paint, right after wideArrows's class change
+	// has already been committed to the DOM (React applies className during
+	// the same commit this effect fires after), so there's no visible frame
+	// with the old column count still in effect.
+	useLayoutEffect(() => {
+		recompute();
+	}, [wideArrows, recompute]);
 
 	return [setNode, state];
 }
@@ -134,7 +160,6 @@ interface Props {
 // waiting for "Next" to hand the device to the next player) -- see
 // state.ts's doc on why that's what lastResult's presence means.
 export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, onQuit }: Props) {
-	const [badgesRef, { cols, rowWidth }] = useResponsiveCols();
 	const [guessInput, setGuessInput] = useState("");
 	// Same "confirm before it costs you" pattern as single-player's give-up
 	// (PlayScreen.tsx) -- a stray tap here loses a point on this question
@@ -157,6 +182,10 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 		setHintQuestionIndex(state.questionIndex);
 		setRevealedHints(new Set());
 	}
+	// Declared after revealedHints since useResponsiveCols needs its current
+	// value (whether to widen the arrow columns for the date labels) --
+	// hooks still run unconditionally every render either way.
+	const [badgesRef, { cols, rowWidth }] = useResponsiveCols(revealedHints.has("transferDate"));
 
 	function revealHint(key: HintKey) {
 		setRevealedHints((prev) => new Set(prev).add(key));
@@ -244,8 +273,15 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 			    below is given the SAME explicit width (rowWidth, a full row's
 			    natural width) regardless of how many tiles it actually holds --
 			    that shared frame is what keeps left/right margins identical
-			    across every row instead of each row's own content deciding it. */}
-			<div className="cb-badges" ref={badgesRef}>
+			    across every row instead of each row's own content deciding it.
+			    --wide-arrows only actually shows a label on an arrow whose own
+			    transfer has one (dateFor below can still return null even while
+			    this class is active for an earlier one), but the column width
+			    itself is all-or-nothing per clubBadges.css's comment. */}
+			<div
+				className={["cb-badges", revealedHints.has("transferDate") && "cb-badges--wide-arrows"].filter(Boolean).join(" ")}
+				ref={badgesRef}
+			>
 				{badgeRows.map((row, rowIndex) => {
 					const reversed = rowIndex % 2 === 1;
 					// Within its own shared-width frame, a row just packs its tiles
@@ -271,19 +307,35 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 					// in sync automatically instead of duplicating the logic.
 					const nextRowReversed = (rowIndex + 1) % 2 === 1;
 					const isLastRow = rowIndex === badgeRows.length - 1;
+					// transferDates[i] is the transfer FROM badges[i] TO badges[i+1]
+					// (state.ts), so the arrow arriving at a given originalIndex
+					// reads the entry one before it; the row-wrap connector below
+					// reads off this row's chronologically-last originalIndex (the
+					// max in the row, regardless of display order) for the same
+					// reason -- it represents that same transfer, just drawn between
+					// rows instead of between two side-by-side tiles.
+					const dateFor = (toOriginalIndex: number) =>
+						revealedHints.has("transferDate") ? question.transferDates[toOriginalIndex - 1] : null;
+					const connectorDate = dateFor(Math.max(...row.map((r) => r.originalIndex)) + 1);
 					return (
 						<Fragment key={rowIndex}>
 							<div className={rowClassName} style={{ width: rowWidth }}>
-								{row.map(({ badge, originalIndex }, posInRow) => (
-									<Fragment key={originalIndex}>
-										{posInRow > 0 && (
-											<span className="cb-arrow" aria-hidden="true">
-												{reversed ? "←" : "→"}
-											</span>
-										)}
-										<BadgeTile badge={badge} showCountryHint={revealedHints.has("country")} />
-									</Fragment>
-								))}
+								{row.map(({ badge, originalIndex }, posInRow) => {
+									const arrowDate = posInRow > 0 ? dateFor(originalIndex) : null;
+									return (
+										<Fragment key={originalIndex}>
+											{posInRow > 0 && (
+												<span className="cb-arrow-stack">
+													{arrowDate && <span className="cb-arrow-date">{arrowDate}</span>}
+													<span className="cb-arrow" aria-hidden="true">
+														{reversed ? "←" : "→"}
+													</span>
+												</span>
+											)}
+											<BadgeTile badge={badge} showCountryHint={revealedHints.has("country")} />
+										</Fragment>
+									);
+								})}
 							</div>
 							{!isLastRow && (
 								<div
@@ -292,8 +344,11 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 										.join(" ")}
 									style={{ width: rowWidth }}
 								>
-									<span className="cb-arrow cb-arrow--down" aria-hidden="true">
-										↓
+									<span className="cb-arrow-stack cb-arrow-stack--down">
+										{connectorDate && <span className="cb-arrow-date">{connectorDate}</span>}
+										<span className="cb-arrow" aria-hidden="true">
+											↓
+										</span>
 									</span>
 								</div>
 							)}
@@ -313,27 +368,6 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 
 			{revealedHints.has("nationality") && (
 				<p className="cb-hint-text">Nationality: {question.nationality}</p>
-			)}
-
-			{/* Its own list rather than inline next to each arrow in the grid
-			    above -- a date label ("Jul 2009", "~2015") is far wider than an
-			    arrow glyph, and the grid's own width math (useResponsiveCols)
-			    depends on every arrow staying a small, fixed size regardless of
-			    viewport; text this size would either break that or need its own
-			    much more complex layout. Entries with no data for that specific
-			    transfer are skipped individually -- see state.ts's CbQuestion
-			    doc -- rather than shown as a blank/placeholder line. */}
-			{revealedHints.has("transferDate") && (
-				<ul className="cb-transfer-dates">
-					{question.transferDates.map(
-						(date, i) =>
-							date && (
-								<li key={i}>
-									{question.badges[i].name} → {question.badges[i + 1].name}: {date}
-								</li>
-							),
-					)}
-				</ul>
 			)}
 
 			{/* One hint at a time, in HINT_KEYS order -- not every available hint
