@@ -402,16 +402,6 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 					);
 				})()}
 
-			{/* Solo wrong guess that didn't end the question (a life remained --
-			    see state.ts's "wrongAttempt") -- the guess box stays up so they
-			    can just try again, this is the only sign anything happened.
-			    Gone as soon as they do (the next dispatch is either another one
-			    of these, replacing it, or a "guessResult" that clears it for
-			    the reveal instead). */}
-			{state.lastWrongAttempt !== null && !state.lastResult && (
-				<p className="cb-wrong-attempt">❌ Not quite — try again</p>
-			)}
-
 			{!state.lastResult ? (
 				<>
 					<GuessInput
@@ -454,6 +444,25 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 					<button type="button" className="cb-next-button" onClick={next}>
 						{isLastQuestion ? "See results" : "Next question"}
 					</button>
+				</div>
+			)}
+
+			{/* Same list, same classes, as the daily categories game's own
+			    incorrect-guesses list (App.css's .wrong-guesses -- global, not
+			    category-specific) -- the lives indicator up top already shows
+			    that something went wrong, this is what actually shows what was
+			    tried. Kept visible through the reveal too (not just while still
+			    guessing), same as categories' own placement -- it's still
+			    useful context for what didn't work on this question. Cleared by
+			    "next", not per-guess -- see state.ts's CbState doc. */}
+			{state.wrongGuesses.length > 0 && (
+				<div className="wrong-guesses" aria-live="polite">
+					<h4 className="wrong-guesses__heading">Incorrect guesses</h4>
+					<ul className="wrong-guesses__list">
+						{state.wrongGuesses.map((name, i) => (
+							<li key={`${name}-${i}`}>{name}</li>
+						))}
+					</ul>
 				</div>
 			)}
 		</div>
