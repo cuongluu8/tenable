@@ -23,6 +23,23 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 	// just as surely as give-up loses the round there, so it gets the same
 	// two-step guard rather than acting immediately.
 	const [confirmingGiveUp, setConfirmingGiveUp] = useState(false);
+	// First of what's meant to grow into a small set of hints (see
+	// BadgeTile.tsx) -- just the country-ribbon reveal for now. Per-question:
+	// reset whenever the question changes rather than staying revealed into
+	// the next one, same "starts fresh each question" reasoning as
+	// guessInput/confirmingGiveUp already get via their own dead-end paths.
+	// React's own "adjusting state when a prop changes" pattern (setState
+	// during render, guarded by comparing against a tracked previous value)
+	// rather than a useEffect -- an effect here would commit the stale
+	// "still revealed" render first and only reset on the render after,
+	// which the lint rule (react-hooks/set-state-in-effect) flags for
+	// exactly that reason.
+	const [hintRevealed, setHintRevealed] = useState(false);
+	const [hintQuestionIndex, setHintQuestionIndex] = useState(state.questionIndex);
+	if (state.questionIndex !== hintQuestionIndex) {
+		setHintQuestionIndex(state.questionIndex);
+		setHintRevealed(false);
+	}
 
 	const question = state.questions[state.questionIndex];
 	if (!question) return null;
@@ -93,10 +110,16 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 								→
 							</span>
 						)}
-						<BadgeTile badge={badge} />
+						<BadgeTile badge={badge} showCountryHint={hintRevealed} />
 					</div>
 				))}
 			</div>
+
+			{!state.lastResult && !hintRevealed && (
+				<button type="button" className="cb-hint-button" onClick={() => setHintRevealed(true)}>
+					💡 Hint: show country
+				</button>
+			)}
 
 			{!state.lastResult ? (
 				<>

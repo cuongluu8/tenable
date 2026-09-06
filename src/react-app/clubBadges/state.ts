@@ -26,10 +26,14 @@ export type CbPhase = "setup" | "playing" | "finished";
 // no sourced badge yet -- ClubBadgesPlay.tsx renders `name` as a text
 // placeholder in that case (and also falls back to it if a present url
 // 404s at render time). Showing the name isn't a spoiler: the club isn't
-// the answer, the player is.
+// the answer, the player is. `country` is sent for the same non-spoiler
+// reason, always present in the response but only shown once the hint
+// button is used (see ClubBadgesPlay.tsx/BadgeTile.tsx) -- the first of
+// what's meant to grow into a small set of hints.
 export interface CbBadge {
 	name: string;
 	url: string | null;
+	country: string | null;
 }
 
 // One question as handed out by GET /api/club-badges/round -- deliberately

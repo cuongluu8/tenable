@@ -49,20 +49,25 @@ clubBadges.get("/round", async (c) => {
 	const allClubIds = [...new Set(picked.flatMap((q): number[] => JSON.parse(q.club_sequence)))];
 	const placeholders = allClubIds.map(() => "?").join(",");
 	const { results: clubRows } = await c.env.DB
-		.prepare(`SELECT id, canonical_name, image_key FROM entities WHERE id IN (${placeholders})`)
+		.prepare(`SELECT id, canonical_name, image_key, scope FROM entities WHERE id IN (${placeholders})`)
 		.bind(...allClubIds)
-		.all<{ id: number; canonical_name: string; image_key: string | null }>();
+		.all<{ id: number; canonical_name: string; image_key: string | null; scope: string | null }>();
 	const clubById = new Map((clubRows ?? []).map((r) => [r.id, r]));
 
 	return c.json({
 		questions: picked.map((q) => ({
 			id: q.id,
 			// Deliberately no player_id/name here -- that's the answer.
+			// `country` is entities.scope -- always sent (it's not a spoiler,
+			// same reasoning as club name), just held back from view
+			// client-side until the hint button reveals it (see
+			// ClubBadgesPlay.tsx).
 			badges: (JSON.parse(q.club_sequence) as number[]).map((clubId) => {
 				const club = clubById.get(clubId);
 				return {
 					name: club?.canonical_name ?? "Unknown club",
 					url: club?.image_key ? `/api/media/${club.image_key}` : null,
+					country: club?.scope ?? null,
 				};
 			}),
 		})),
