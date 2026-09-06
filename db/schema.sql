@@ -213,8 +213,13 @@ CREATE TABLE IF NOT EXISTS club_badge_questions (
 	player_id INTEGER NOT NULL REFERENCES entities(id),
 	club_sequence TEXT NOT NULL,
 		-- JSON array of club entity ids, chronological (earliest first),
-		-- de-duplicated (a player re-joining a club later in their career
-		-- shows that club's badge once, not twice) e.g. '[206,261,331]'
+		-- e.g. '[206,261,331]'. Adjacent repeats are collapsed to one
+		-- appearance (the same continuous stint recorded as consecutive
+		-- source rows), but a genuine return to an earlier club later in
+		-- the sequence -- most commonly after a loan -- is kept as its own
+		-- entry rather than merged away: see build_club_badge_questions.py's
+		-- module docstring for why (a real loan-and-return collapsed down
+		-- to one badge would misrepresent the player's actual moves).
 	source TEXT NOT NULL CHECK (source IN ('transfers', 'player_career_stats'))
 		-- which table this sequence was derived from, for traceability
 );

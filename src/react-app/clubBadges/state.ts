@@ -57,6 +57,14 @@ export interface CbQuestion {
 	// (ClubBadgesPlay.tsx) rather than blanking the whole hint; the hint
 	// itself is only offered at all when at least one entry is non-null.
 	transferDates: (string | null)[];
+	// Same indexing as transferDates (one entry per transfer, badges[i] ->
+	// badges[i+1]), but never gated behind the transferDate hint button --
+	// see clubBadges.ts's loanMoves comment for why this isn't itself a
+	// hint. Only ever true for a transfers-sourced move (the 18 batch-1
+	// players -- see clubBadges.ts); player_career_stats has no per-move
+	// classification to draw this from, so it's always false there rather
+	// than guessed at.
+	loanMoves: boolean[];
 }
 
 // Every hint this game currently has, in the order their buttons appear.

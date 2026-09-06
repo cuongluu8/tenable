@@ -331,20 +331,27 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 					// rows instead of between two side-by-side tiles.
 					const dateFor = (toOriginalIndex: number) =>
 						revealedHints.has("transferDate") ? question.transferDates[toOriginalIndex - 1] : null;
-					const connectorDate = dateFor(Math.max(...row.map((r) => r.originalIndex)) + 1);
+					// Unlike dateFor, never gated behind the transferDate hint --
+					// see state.ts's loanMoves doc for why this isn't itself a hint.
+					const loanFor = (toOriginalIndex: number) => question.loanMoves[toOriginalIndex - 1] ?? false;
+					const connectorToIndex = Math.max(...row.map((r) => r.originalIndex)) + 1;
+					const connectorDate = dateFor(connectorToIndex);
+					const connectorLoan = loanFor(connectorToIndex);
 					return (
 						<Fragment key={rowIndex}>
 							<div className={rowClassName} style={{ width: rowWidth }}>
 								{row.map(({ badge, originalIndex }, posInRow) => {
 									const arrowDate = posInRow > 0 ? dateFor(originalIndex) : null;
+									const arrowLoan = posInRow > 0 && loanFor(originalIndex);
 									return (
 										<Fragment key={originalIndex}>
 											{posInRow > 0 && (
-												<span className="cb-arrow-stack">
+												<span className={["cb-arrow-stack", arrowLoan && "cb-arrow-stack--loan"].filter(Boolean).join(" ")}>
 													{arrowDate && <span className="cb-arrow-date">{arrowDate}</span>}
 													<span className="cb-arrow" aria-hidden="true">
 														{reversed ? "←" : "→"}
 													</span>
+													{arrowLoan && <span className="cb-arrow-loan">loan</span>}
 												</span>
 											)}
 											<BadgeTile badge={badge} showCountryHint={revealedHints.has("country")} />
@@ -359,11 +366,16 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 										.join(" ")}
 									style={{ width: rowWidth }}
 								>
-									<span className="cb-arrow-stack cb-arrow-stack--down">
+									<span
+										className={["cb-arrow-stack", "cb-arrow-stack--down", connectorLoan && "cb-arrow-stack--loan"]
+											.filter(Boolean)
+											.join(" ")}
+									>
 										{connectorDate && <span className="cb-arrow-date">{connectorDate}</span>}
 										<span className="cb-arrow" aria-hidden="true">
 											↓
 										</span>
+										{connectorLoan && <span className="cb-arrow-loan">loan</span>}
 									</span>
 								</div>
 							)}
@@ -378,20 +390,12 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 			    since-retired one may have played on past the last club shown
 			    here without ever being recorded. Without this, the sequence
 			    could read as a claim that the last badge is where they ended up,
-			    which isn't guaranteed.
-			    club_sequence is also de-duplicated at the source (see
-			    db/schema.sql's own comment on it) -- a club a player returned to
-			    only shows its badge once, at its first appearance, not again at
-			    the point they actually rejoined. A loan spell is the case this
-			    bites players the most: Courtois reads as Chelsea -> Atletico
-			    Madrid -> Real Madrid here, silently skipping the mandatory
-			    return to Chelsea before Real Madrid actually happened, which a
-			    knowledgeable player could reasonably expect to see and take as
-			    the puzzle being wrong rather than simplified. */}
-			<p className="cb-disclaimer">
-				This may not show their full career, and a club may repeat later on even though it's only shown once
-				here (e.g. after a loan).
-			</p>
+			    which isn't guaranteed. A real return to an earlier club (most
+			    often after a loan) IS shown as its own step now rather than
+			    collapsed away -- see db/schema.sql's club_sequence comment --
+			    and a loan move itself is labeled right on its arrow (below) so
+			    it doesn't read as a normal permanent transfer. */}
+			<p className="cb-disclaimer">This may not show their full career.</p>
 
 			{revealedHints.has("nationality") && (
 				<p className="cb-hint-text">Nationality: {question.nationality}</p>

@@ -7,7 +7,7 @@ const clubBadges = new Hono<{ Bindings: Env }>();
 
 const QUESTIONS_PER_ROUND = 10;
 // A 2-club sequence ("played for A, then B") reads as barely a career --
-// this keeps the pool to players with a real path to trace. 91 of the 107
+// this keeps the pool to players with a real path to trace. 92 of the 107
 // questions clear this bar as of 2026-09-06, comfortably more than one
 // round's worth.
 const MIN_CLUBS_FOR_QUESTION = 3;
@@ -94,9 +94,11 @@ clubBadges.get("/round", async (c) => {
 		// every transfers row for these players and match by (player, from,
 		// to) client-side below rather than building a per-pair IN clause.
 		c.env.DB
-			.prepare(`SELECT player_id, from_club_id, to_club_id, transfer_date FROM transfers WHERE player_id IN (${playerPlaceholders})`)
+			.prepare(
+				`SELECT player_id, from_club_id, to_club_id, transfer_date, transfer_type FROM transfers WHERE player_id IN (${playerPlaceholders})`,
+			)
 			.bind(...playerIds)
-			.all<{ player_id: number; from_club_id: number | null; to_club_id: number | null; transfer_date: string }>(),
+			.all<{ player_id: number; from_club_id: number | null; to_club_id: number | null; transfer_date: string; transfer_type: string }>(),
 		// Fallback for every player not covered above: a year-only estimate
 		// from player_career_stats.years_display (see leadingYear's comment).
 		c.env.DB
@@ -109,69 +111,134 @@ clubBadges.get("/round", async (c) => {
 	const clubById = new Map((clubRows ?? []).map((r) => [r.id, r]));
 	const playerScopeById = new Map((playerRows ?? []).map((r) => [r.id, r.scope]));
 
-	// One date-hint string per transfer (badges[i-1] -> badges[i]), or null
-	// when neither source has anything usable for that step -- same
+	// One entry per transfer (badges[i-1] -> badges[i]): `date` is a
+	// formatted "Mon YYYY" when an exact transfer_date is on record, a
+	// "~YYYY" estimate from a coarser year-only source when it isn't, or
+	// null when neither has anything usable for that step -- same
 	// graceful-skip the nationality hint already uses for missing data,
-	// just per-transfer instead of per-question.
-	function transferDatesFor(playerId: number, clubIds: number[]): (string | null)[] {
+	// just per-transfer instead of per-question. `loan` is true only when
+	// this exact step is a transfers row with transfer_type='loan' --
+	// player_career_stats has no equivalent per-move classification (just
+	// stint records), so every step derived from it is always false rather
+	// than guessed at (same graceful-degrade as the rest of this file).
+	//
+	// club_sequence can now repeat a club (a genuine return, most often
+	// after a loan -- see db/schema.sql's comment on club_sequence), so a
+	// club id showing up twice in one player's clubIds no longer means
+	// "match whichever row/transfer has this club, there's only one".
+	// Both branches below instead consume their source rows in chronological
+	// order, once each, so the Nth time a club is arrived at picks the Nth
+	// matching row rather than always the same (usually earliest) one.
+	function transferDatesFor(playerId: number, clubIds: number[]): { date: string | null; loan: boolean }[] {
+		// Exact-date branch: transfers rows for this player, oldest first --
+		// the same order build_club_badge_questions.py's from_transfers()
+		// chained them in, so walking both in lockstep lines a chain step up
+		// with the one transfer row that produced it. A step this doesn't
+		// advance past (fromClubId/toClubId don't match the next unconsumed
+		// row) is a synthetic "returned to parent" step build_club_badge_
+		// questions.py inferred from a date range rather than a dedicated
+		// transfer row -- there's no exact date for those, so it falls
+		// through to the estimate below (rarely anything, for a
+		// transfers-sourced player -- see build_club_badge_questions.py).
+		const playerTransfers = (transferRows ?? [])
+			.filter((t) => t.player_id === playerId)
+			.sort((a, b) => (a.transfer_date < b.transfer_date ? -1 : a.transfer_date > b.transfer_date ? 1 : 0));
+		let transferPtr = 0;
+
+		// Estimate branch: player_career_stats rows for this player already
+		// come back in source (insertion) order -- group into a same-club
+		// queue per team_id so a repeat visit consumes the next stint's own
+		// year instead of every visit re-using the first one's. Not perfectly
+		// precise: build_club_badge_questions.py's insert_loan_returns can
+		// infer a return with no row of its own at all (see its doc), and
+		// when an earlier occurrence of the same club already absorbed two
+		// real rows (e.g. a loan row immediately followed by that club's own
+		// permanent one, collapsed into a single appearance), this queue has
+		// no way to know that and hands the second real row's year to the
+		// later, actually-unbacked occurrence instead of returning null for
+		// it. Rare in practice (needs both a same-club adjacent double *and*
+		// a later inferred return), and still an estimate either way -- worth
+		// a fully row-level replay of that script's logic here if it turns
+		// out to matter, not before.
+		const yearQueueByClub = new Map<number, number[]>();
+		for (const r of pcsRows ?? []) {
+			if (r.player_id !== playerId) continue;
+			const year = leadingYear(r.years_display);
+			if (year === null) continue;
+			const queue = yearQueueByClub.get(r.team_id) ?? [];
+			queue.push(year);
+			yearQueueByClub.set(r.team_id, queue);
+		}
+
 		return clubIds.slice(1).map((toClubId, i) => {
 			const fromClubId = clubIds[i];
-			const exact = (transferRows ?? []).find(
-				(t) => t.player_id === playerId && t.from_club_id === fromClubId && t.to_club_id === toClubId,
-			);
-			if (exact) {
-				const formatted = formatMonthYear(exact.transfer_date);
-				if (formatted) return formatted;
+			const next = playerTransfers[transferPtr];
+			if (next && next.from_club_id === fromClubId && next.to_club_id === toClubId) {
+				transferPtr++;
+				const loan = next.transfer_type === "loan";
+				const formatted = formatMonthYear(next.transfer_date);
+				if (formatted) return { date: formatted, loan };
+				// transfer_date itself failed to format (malformed, in practice
+				// never happens against the real data) -- still fall through to
+				// the estimate below rather than losing the date hint entirely,
+				// but keep the loan classification: that came from this matched
+				// row, not from whichever estimate ends up filling the date in.
+				const queue = yearQueueByClub.get(toClubId);
+				const year = queue?.shift();
+				return { date: year === undefined ? null : `~${year}`, loan };
 			}
-			const years = (pcsRows ?? [])
-				.filter((r) => r.player_id === playerId && r.team_id === toClubId)
-				.map((r) => leadingYear(r.years_display))
-				.filter((y): y is number => y !== null);
-			if (years.length === 0) return null;
-			// The earliest recorded stint at this club is the one that actually
-			// represents arriving via this transfer (a later stint would be a
-			// re-join, already collapsed into one badge -- see club_sequence's
-			// own de-duplication).
-			return `~${Math.min(...years)}`;
+			const queue = yearQueueByClub.get(toClubId);
+			const year = queue?.shift();
+			return { date: year === undefined ? null : `~${year}`, loan: false };
 		});
 	}
 
 	return c.json({
-		questions: picked.map((q) => ({
-			id: q.id,
-			// Deliberately no player_id/name here -- that's the answer.
-			// `country` is entities.scope -- always sent (it's not a spoiler,
-			// same reasoning as club name), just held back from view
-			// client-side until the hint button reveals it (see
-			// ClubBadgesPlay.tsx).
-			badges: (JSON.parse(q.club_sequence) as number[]).map((clubId) => {
-				const club = clubById.get(clubId);
-				return {
-					name: club?.canonical_name ?? "Unknown club",
-					url: club?.image_key ? `/api/media/${club.image_key}` : null,
-					country: club?.scope ?? null,
-				};
-			}),
-			// Second hint: the player's nationality. entities.scope for a
-			// player entity holds the country they represent internationally
-			// (confirmed against real dual-nationality cases -- e.g. Diego
-			// Costa, born Brazil, scope is "Spain", who he actually plays for
-			// -- not birthplace), which is exactly the first choice the user
-			// asked for. There's no separate birth-country field anywhere in
-			// the schema to fall back to yet (every player in the actual game
-			// pool already has scope set, so this fallback has never actually
-			// been needed) -- null here is the "skip the hint" case once a
-			// second data source exists and still comes up empty, not
-			// currently a real path.
-			nationality: playerScopeById.get(q.player_id) ?? null,
-			// Third hint: one entry per transfer (badges[i-1] -> badges[i+1's
-			// predecessor]), see transferDatesFor's comment on precision/
-			// fallback. Always sent alongside the rest -- like club names and
-			// country, a transfer date isn't the answer, so nothing here is
-			// held back for spoiler reasons, only by whether the hint's been
-			// used yet (ClubBadgesPlay.tsx).
-			transferDates: transferDatesFor(q.player_id, JSON.parse(q.club_sequence)),
-		})),
+		questions: picked.map((q) => {
+			const transfers = transferDatesFor(q.player_id, JSON.parse(q.club_sequence));
+			return {
+				id: q.id,
+				// Deliberately no player_id/name here -- that's the answer.
+				// `country` is entities.scope -- always sent (it's not a spoiler,
+				// same reasoning as club name), just held back from view
+				// client-side until the hint button reveals it (see
+				// ClubBadgesPlay.tsx).
+				badges: (JSON.parse(q.club_sequence) as number[]).map((clubId) => {
+					const club = clubById.get(clubId);
+					return {
+						name: club?.canonical_name ?? "Unknown club",
+						url: club?.image_key ? `/api/media/${club.image_key}` : null,
+						country: club?.scope ?? null,
+					};
+				}),
+				// Second hint: the player's nationality. entities.scope for a
+				// player entity holds the country they represent internationally
+				// (confirmed against real dual-nationality cases -- e.g. Diego
+				// Costa, born Brazil, scope is "Spain", who he actually plays for
+				// -- not birthplace), which is exactly the first choice the user
+				// asked for. There's no separate birth-country field anywhere in
+				// the schema to fall back to yet (every player in the actual game
+				// pool already has scope set, so this fallback has never actually
+				// been needed) -- null here is the "skip the hint" case once a
+				// second data source exists and still comes up empty, not
+				// currently a real path.
+				nationality: playerScopeById.get(q.player_id) ?? null,
+				// Third hint: one entry per transfer (badges[i-1] -> badges[i+1's
+				// predecessor]), see transferDatesFor's comment on precision/
+				// fallback. Always sent alongside the rest -- like club names and
+				// country, a transfer date isn't the answer, so nothing here is
+				// held back for spoiler reasons, only by whether the hint's been
+				// used yet (ClubBadgesPlay.tsx).
+				transferDates: transfers.map((t) => t.date),
+				// Not itself a hint (never gated behind the hint button, unlike
+				// the array above) -- a loan is drawn differently (dashed arrow,
+				// see ClubBadgesPlay.tsx) purely so the sequence doesn't read as
+				// a normal permanent move when it wasn't one, same non-spoiler
+				// reasoning as club names/country: which clubs a player was at
+				// isn't the answer, so how they got between them isn't either.
+				loanMoves: transfers.map((t) => t.loan),
+			};
+		}),
 	});
 });
 

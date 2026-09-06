@@ -164,6 +164,30 @@
 	line-height: 1;
 }
 
+/* A loan move (ClubBadgesPlay.tsx's loanFor, sourced from transfers.transfer_type
+   -- see clubBadges.ts's loanMoves comment for why player_career_stats-sourced
+   players never get this) reads as a normal permanent transfer otherwise, which
+   is exactly the ambiguity that made a returned-to-parent step look like it
+   never happened before club_sequence started keeping it (see db/schema.sql's
+   own comment on club_sequence). The glyph itself stays put -- only its color
+   and this small always-on label change -- so the label, not a resized/altered
+   arrow, is what widens .cb-arrow-stack here; that's also why it's not folded
+   into --cb-arrow's own width the way .cb-arrow-date is (that one only ever
+   appears together with a loan label when the transferDate hint happens to be
+   revealed too, and --cb-arrow is already sized generously enough for both
+   stacked at once). */
+.cb-arrow-stack--loan .cb-arrow {
+	color: #fbbf24;
+}
+.cb-arrow-loan {
+	font-size: 0.5rem;
+	line-height: 1.2;
+	font-weight: 600;
+	letter-spacing: 0.02em;
+	text-transform: uppercase;
+	color: #fbbf24;
+}
+
 /* "Jul 2009" or "~2009" (see state.ts's CbQuestion doc on the two formats) --
    small enough to usually fit .cb-arrow-stack's own narrow width without
    the ellipsis ever kicking in, but truncates rather than overflowing into
