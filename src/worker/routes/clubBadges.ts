@@ -6,6 +6,11 @@ import { enforceSuggestRateLimit } from "../lib/suggestRateLimit";
 const clubBadges = new Hono<{ Bindings: Env }>();
 
 const QUESTIONS_PER_ROUND = 10;
+// A 2-club sequence ("played for A, then B") reads as barely a career --
+// this keeps the pool to players with a real path to trace. 91 of the 107
+// questions clear this bar as of 2026-09-06, comfortably more than one
+// round's worth.
+const MIN_CLUBS_FOR_QUESTION = 3;
 
 interface QuestionRow {
 	id: number;
@@ -26,9 +31,11 @@ clubBadges.get("/round", async (c) => {
 		.prepare("SELECT id, player_id, club_sequence FROM club_badge_questions")
 		.all<QuestionRow>();
 
+	const eligible = (questions ?? []).filter((q) => (JSON.parse(q.club_sequence) as number[]).length >= MIN_CLUBS_FOR_QUESTION);
+
 	// Fisher-Yates, take the first N -- fine at this scale (~107 rows) and
 	// avoids ORDER BY RANDOM() in SQL.
-	const shuffled = [...(questions ?? [])];
+	const shuffled = [...eligible];
 	for (let i = shuffled.length - 1; i > 0; i--) {
 		const j = Math.floor(Math.random() * (i + 1));
 		[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
