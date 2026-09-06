@@ -3,6 +3,7 @@ import "./App.css";
 import { CategoryList } from "./components/CategoryList";
 import { Logo } from "./components/Logo";
 import { PlayScreen } from "./components/PlayScreen";
+import { ClubBadges } from "./clubBadges/ClubBadges";
 import { Multiplayer } from "./multiplayer/Multiplayer";
 import type { CategoriesResponse, Category } from "./types";
 
@@ -35,11 +36,18 @@ function isMultiplayerPath(): boolean {
 	return window.location.pathname === "/multiplayer";
 }
 
+// Same reasoning again — club-badges also has no per-session slug (a round
+// is always a fresh random draw, never a specific one you'd link back to).
+function isClubBadgesPath(): boolean {
+	return window.location.pathname === "/club-badges";
+}
+
 function App() {
 	const [load, setLoad] = useState<LoadState>({ status: "loading" });
 	const [activeSlug, setActiveSlug] = useState<string | null>(() => slugFromPath());
 	const [categoryListActive, setCategoryListActive] = useState<boolean>(() => isCategoryListPath());
 	const [multiplayerActive, setMultiplayerActive] = useState<boolean>(() => isMultiplayerPath());
+	const [clubBadgesActive, setClubBadgesActive] = useState<boolean>(() => isClubBadgesPath());
 
 	const loadCategories = useCallback(() => {
 		fetch("/api/categories")
@@ -71,6 +79,7 @@ function App() {
 			setActiveSlug(slugFromPath());
 			setCategoryListActive(isCategoryListPath());
 			setMultiplayerActive(isMultiplayerPath());
+			setClubBadgesActive(isClubBadgesPath());
 		}
 		window.addEventListener("popstate", handlePopState);
 		return () => window.removeEventListener("popstate", handlePopState);
@@ -84,6 +93,11 @@ function App() {
 	function handleMultiplayerSelect() {
 		window.history.pushState(null, "", "/multiplayer");
 		setMultiplayerActive(true);
+	}
+
+	function handleClubBadgesSelect() {
+		window.history.pushState(null, "", "/club-badges");
+		setClubBadgesActive(true);
 	}
 
 	function handleSelect(cat: Category) {
@@ -102,6 +116,7 @@ function App() {
 		setActiveSlug(null);
 		setCategoryListActive(false);
 		setMultiplayerActive(false);
+		setClubBadgesActive(false);
 	}
 
 	if (activeSlug) {
@@ -110,6 +125,10 @@ function App() {
 
 	if (multiplayerActive) {
 		return <Multiplayer onBack={handleBackToHome} />;
+	}
+
+	if (clubBadgesActive) {
+		return <ClubBadges onBack={handleBackToHome} />;
 	}
 
 	if (categoryListActive) {
@@ -159,6 +178,10 @@ function App() {
 				<button type="button" className="mode-button" onClick={handleMultiplayerSelect}>
 					<strong>🎮 Multiplayer</strong>
 					<span>Pass the device around and take turns</span>
+				</button>
+				<button type="button" className="mode-button" onClick={handleClubBadgesSelect}>
+					<strong>🛡️ Guess the player</strong>
+					<span>Name them from the clubs they've played for</span>
 				</button>
 			</div>
 		</div>

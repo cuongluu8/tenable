@@ -1,0 +1,95 @@
+/* "Guess the player from their clubs" — reuses App.css's global classes
+   (.screen, .back-link, .result-panel) and multiplayer.css's roster/player-
+   list classes directly (.mp-setup, .mp-players, .mp-players--final,
+   .mp-result-hint — see ClubBadges.tsx's import) since the roster step and
+   final standings list are visually the same shape as multiplayer's. Only
+   genuinely new UI (the badge grid, the turn banner, the reveal) gets a
+   class here, prefixed .cb- to avoid colliding with .mp-'s names. Same
+   palette as both: surface #1f2937, border #374151, accent #4ade80, muted
+   text #9ca3af.
+*/
+
+.cb-progress {
+	margin: 0;
+	text-align: center;
+	color: #9ca3af;
+	font-size: 0.9rem;
+}
+
+/* Same shape/colors as multiplayer's .mp-turn-banner (see that file) --
+   duplicated rather than shared because the two live in separate
+   stylesheets scoped to their own screens, same reasoning as state.ts
+   being its own module. */
+.cb-turn-banner {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	text-align: center;
+	font-size: 1.35rem;
+	font-weight: 700;
+	margin: 0;
+	padding: 0.6em 1em;
+	border-radius: 10px;
+	background: color-mix(in srgb, var(--player-color, #22c55e) 20%, #1f2937);
+	border: 2px solid var(--player-color, #4ade80);
+}
+
+.cb-players__correct {
+	font-size: 0.9rem;
+	color: #9ca3af;
+}
+
+/* Badges shown all at once (no progressive reveal — see the club-badges
+   design decision this was built from), wrapped so a long career (up to
+   ~10 clubs) still fits without the row overflowing on a phone. */
+.cb-badges {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: 0.75rem;
+	padding: 1rem;
+	background: #1f2937;
+	border: 1px solid #374151;
+	border-radius: 10px;
+}
+
+.cb-badge {
+	width: 64px;
+	height: 64px;
+	object-fit: contain;
+	background: #ffffff;
+	border-radius: 8px;
+	padding: 4px;
+}
+
+.cb-reveal {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.5rem;
+	text-align: center;
+}
+
+.cb-reveal__correct {
+	font-size: 1.2rem;
+	font-weight: 700;
+	color: #4ade80;
+	margin: 0;
+}
+
+.cb-reveal__wrong {
+	font-size: 1.2rem;
+	font-weight: 700;
+	color: #f87171;
+	margin: 0;
+}
+
+.cb-reveal__clubs {
+	color: #9ca3af;
+	font-size: 0.95rem;
+	margin: 0;
+}
+
+.cb-next-button {
+	margin-top: 0.5rem;
+}
