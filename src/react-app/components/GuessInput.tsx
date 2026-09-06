@@ -10,10 +10,15 @@ interface Props {
 	// picking from the list exists specifically to skip typing out the guess.
 	onPick: (name: string) => void;
 	disabled: boolean;
-	// The category being played — sent with every suggest request so results
-	// are scoped to that category's entity_type (e.g. players never suggest
-	// clubs). See suggest.ts.
-	categorySlug: string;
+	// The suggest endpoint to hit — "/api/suggest" (categories, scoped by
+	// entity_type via `extraQuery`'s category slug) or
+	// "/api/club-badges/suggest" (always players, no category to scope by).
+	// Kept as a plain base path + extra params rather than a single
+	// pre-built URL so this component owns exactly one place that appends
+	// `q`, regardless of which endpoint or how many other params a caller
+	// needs.
+	suggestUrl: string;
+	extraQuery?: Record<string, string>;
 	// Canonical names already found this round. /api/suggest searches the
 	// whole reference pool, not this category's remaining answers (see
 	// suggest.ts), so it has no idea what's already been found — an
@@ -59,7 +64,7 @@ interface DropdownRect {
 	bottom: number;
 }
 
-export function GuessInput({ value, onChange, onPick, disabled, categorySlug, excludeNames = [] }: Props) {
+export function GuessInput({ value, onChange, onPick, disabled, suggestUrl, extraQuery = {}, excludeNames = [] }: Props) {
 	const [suggestions, setSuggestions] = useState<string[]>([]);
 	// True when the server cut the list short (more real matches exist than
 	// were returned) — see suggest.ts's `truncated` flag. Shown as a hint
@@ -169,8 +174,8 @@ export function GuessInput({ value, onChange, onPick, disabled, categorySlug, ex
 		const id = ++requestId.current;
 		const timer = setTimeout(() => {
 			setLoading(true); // the request is actually going out now
-			const params = new URLSearchParams({ q: query, category: categorySlug });
-			fetch(`/api/suggest?${params}`)
+			const params = new URLSearchParams({ q: query, ...extraQuery });
+			fetch(`${suggestUrl}?${params}`)
 				.then((res) => (res.ok ? (res.json() as Promise<{ suggestions: string[]; truncated: boolean }>) : null))
 				.then((data) => {
 					if (!data || id !== requestId.current) return; // stale response
@@ -186,7 +191,12 @@ export function GuessInput({ value, onChange, onPick, disabled, categorySlug, ex
 		}, DEBOUNCE_MS);
 
 		return () => clearTimeout(timer);
-	}, [query, categorySlug]);
+		// extraQuery is compared by value (JSON.stringify), not identity — a
+		// caller passing a fresh object literal every render (e.g.
+		// `extraQuery={{ category: slug }}`) would otherwise re-fire this
+		// effect, and re-debounce, on every unrelated parent re-render.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [query, suggestUrl, JSON.stringify(extraQuery)]);
 
 	function pick(name: string) {
 		justPickedRef.current = true;

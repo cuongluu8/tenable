@@ -107,7 +107,8 @@ export function MultiplayerPlay({ state, onGuess, onPass, submitting, onQuit }: 
 				onChange={setGuessInput}
 				onPick={pick}
 				disabled={submitting}
-				categorySlug={state.category.slug}
+				suggestUrl="/api/suggest"
+				extraQuery={{ category: state.category.slug }}
 				excludeNames={Object.values(state.foundDetails).map((a) => a.name)}
 			/>
 

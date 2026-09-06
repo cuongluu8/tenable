@@ -254,7 +254,8 @@ export function PlayScreen({ slug, onBack }: Props) {
 								onChange={setGuessInput}
 								onPick={pickSuggestion}
 								disabled={submitting}
-								categorySlug={slug}
+								suggestUrl="/api/suggest"
+								extraQuery={{ category: slug }}
 								excludeNames={Array.from(found.values(), (a) => a.name)}
 							/>
 							{confirmingGiveUp ? (
