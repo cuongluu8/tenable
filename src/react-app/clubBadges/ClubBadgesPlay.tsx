@@ -143,8 +143,26 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 			<div className="cb-badges">
 				{badgeRows.map((row, rowIndex) => {
 					const reversed = rowIndex % 2 === 1;
+					// A row that fills all ROW_SIZE slots space-between's its steps
+					// instead of packing them to one side -- flex-start/flex-end left
+					// its far edge wherever the fixed-width tiles happened to end,
+					// which (depending on viewport width) could land well short of
+					// the box's own padding on that side, reading as uneven left/right
+					// spacing. space-between flushes the first and last step against
+					// the row's own edges, so both sides land on exactly the box's
+					// padding regardless of viewport -- a short trailing row (fewer
+					// than ROW_SIZE) keeps flex-start/flex-end since it was never
+					// meant to reach the far edge in the first place (that's the
+					// snake's "picks up where the last row ended" look).
+					const rowClassName = [
+						"cb-badges__row",
+						reversed && "cb-badges__row--reversed",
+						row.length === ROW_SIZE && "cb-badges__row--full",
+					]
+						.filter(Boolean)
+						.join(" ");
 					return (
-						<div className={reversed ? "cb-badges__row cb-badges__row--reversed" : "cb-badges__row"} key={rowIndex}>
+						<div className={rowClassName} key={rowIndex}>
 							{row.map(({ badge, originalIndex }, posInRow) => (
 								<div className="cb-badge-step" key={originalIndex}>
 									{posInRow > 0 && (

@@ -85,6 +85,17 @@
 	justify-content: flex-end;
 }
 
+/* A row with all ROW_SIZE tiles (see ClubBadgesPlay.tsx) -- flush against
+   both of the row's own edges instead of packed to one side, so the visible
+   gap to the box's left/right padding matches on both sides regardless of
+   viewport width. Defined after --reversed so it wins the tie when a full
+   row is also a reversed one (same specificity, source order decides) --
+   a full row's items are always spread edge-to-edge either way, direction
+   only changes which physical tile is first/last in the row. */
+.cb-badges__row--full {
+	justify-content: space-between;
+}
+
 /* Groups an arrow with the badge it points to, so a flex-wrap line break
    can only happen between steps -- never leaving a bare arrow stranded at
    the start of a wrapped line. */
