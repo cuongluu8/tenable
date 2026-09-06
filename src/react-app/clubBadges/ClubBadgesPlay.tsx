@@ -167,11 +167,16 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 	const badgeRows = buildBadgeRows(question.badges, cols);
 	// A hint key existing (HINT_KEYS) doesn't guarantee it's offered for
 	// THIS question -- nationality is skipped outright when the server sent
-	// null for it (see state.ts's CbQuestion doc), rather than showing a
-	// button that would reveal nothing. country has no such gate: every club
-	// in the actual game data has a real one (verified directly against
-	// production when this hint was built).
-	const availableHints = HINT_KEYS.filter((key) => key !== "nationality" || question.nationality !== null);
+	// null for it (see state.ts's CbQuestion doc), and transferDate the same
+	// way when every entry in it is null, rather than showing a button that
+	// would reveal nothing. country has no such gate: every club in the
+	// actual game data has a real one (verified directly against production
+	// when this hint was built).
+	const availableHints = HINT_KEYS.filter((key) => {
+		if (key === "nationality") return question.nationality !== null;
+		if (key === "transferDate") return question.transferDates.some((d) => d !== null);
+		return true;
+	});
 	const turnIndex = currentTurnIndex(state);
 	const current = state.players[turnIndex];
 	const isLastQuestion = state.questionIndex + 1 >= state.questions.length;
@@ -308,6 +313,27 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 
 			{revealedHints.has("nationality") && (
 				<p className="cb-hint-text">Nationality: {question.nationality}</p>
+			)}
+
+			{/* Its own list rather than inline next to each arrow in the grid
+			    above -- a date label ("Jul 2009", "~2015") is far wider than an
+			    arrow glyph, and the grid's own width math (useResponsiveCols)
+			    depends on every arrow staying a small, fixed size regardless of
+			    viewport; text this size would either break that or need its own
+			    much more complex layout. Entries with no data for that specific
+			    transfer are skipped individually -- see state.ts's CbQuestion
+			    doc -- rather than shown as a blank/placeholder line. */}
+			{revealedHints.has("transferDate") && (
+				<ul className="cb-transfer-dates">
+					{question.transferDates.map(
+						(date, i) =>
+							date && (
+								<li key={i}>
+									{question.badges[i].name} → {question.badges[i + 1].name}: {date}
+								</li>
+							),
+					)}
+				</ul>
 			)}
 
 			{/* One hint at a time, in HINT_KEYS order -- not every available hint

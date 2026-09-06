@@ -48,13 +48,22 @@ export interface CbQuestion {
 	// skipped entirely rather than shown with nothing to reveal (see
 	// ClubBadgesPlay.tsx's availableHints).
 	nationality: string | null;
+	// Third hint: one entry per transfer (badges[i] -> badges[i+1]), so
+	// length is always badges.length - 1. Each entry is a formatted "Mon
+	// YYYY" when an exact transfer_date is on record, a "~YYYY" estimate
+	// pulled from a coarser year-only source when it isn't, or null when
+	// neither has anything usable for that specific transfer -- see
+	// clubBadges.ts's transferDatesFor. A null entry is skipped individually
+	// (ClubBadgesPlay.tsx) rather than blanking the whole hint; the hint
+	// itself is only offered at all when at least one entry is non-null.
+	transferDates: (string | null)[];
 }
 
 // Every hint this game currently has, in the order their buttons appear.
 // A hint key here doesn't guarantee its button shows for a given question
 // (e.g. nationality is skipped when CbQuestion.nationality is null) -- see
 // ClubBadgesPlay.tsx's availableHints.
-export const HINT_KEYS = ["country", "nationality"] as const;
+export const HINT_KEYS = ["country", "nationality", "transferDate"] as const;
 export type HintKey = (typeof HINT_KEYS)[number];
 
 export interface CbResult {

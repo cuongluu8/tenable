@@ -244,6 +244,23 @@
 	margin: 0;
 }
 
+/* Third hint: one line per transfer with usable date data (see
+   ClubBadgesPlay.tsx/state.ts's CbQuestion doc on why some transfers have
+   none). A plain list rather than attaching to the grid's arrows -- same
+   "fact isn't about one badge" reasoning as .cb-hint-text above, and a date
+   label is too wide to fit the grid's own fixed-size arrow columns anyway. */
+.cb-transfer-dates {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+	text-align: center;
+	color: #93c5fd;
+	font-size: 0.85rem;
+}
+
 /* Stands in for a badge with no image (not sourced yet, or a url that
    failed to load -- see BadgeTile.tsx). Same fixed 64x64 as .cb-badge --
    every tile in a row needs to be the same size for the row-based snake

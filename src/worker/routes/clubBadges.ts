@@ -18,6 +18,29 @@ interface QuestionRow {
 	club_sequence: string; // JSON array of club entity ids
 }
 
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+// transfers.transfer_date is a plain "YYYY-MM-DD" string -- parsed by hand
+// rather than `new Date(...)` specifically to avoid that constructor
+// treating a date-only string as UTC midnight and then a Workers-runtime
+// locale/timezone formatting it back to the previous day's month.
+function formatMonthYear(isoDate: string): string | null {
+	const match = /^(\d{4})-(\d{2})-\d{2}$/.exec(isoDate);
+	if (!match) return null;
+	const monthName = MONTH_NAMES[Number(match[2]) - 1];
+	return monthName ? `${monthName} ${match[1]}` : null;
+}
+
+// player_career_stats.years_display is free text as sourced ("2009–2012",
+// "1984", "2024–" for a still-active stint, ...) -- see db/schema.sql's own
+// comment on why this was never normalized. Every format actually in use
+// leads with a 4-digit year, so pulling that (and nothing more ambitious)
+// is the only part reliable enough to build a hint on.
+function leadingYear(yearsDisplay: string): number | null {
+	const match = /^(\d{4})/.exec(yearsDisplay);
+	return match ? Number(match[1]) : null;
+}
+
 // "Guess the player from the clubs they played for" -- same stateless,
 // client-holds-the-round philosophy as multiplayer.ts: no session to
 // persist, no device id, the server's only job is (1) hand out a random
@@ -57,7 +80,7 @@ clubBadges.get("/round", async (c) => {
 	const clubPlaceholders = allClubIds.map(() => "?").join(",");
 	const playerIds = [...new Set(picked.map((q) => q.player_id))];
 	const playerPlaceholders = playerIds.map(() => "?").join(",");
-	const [{ results: clubRows }, { results: playerRows }] = await Promise.all([
+	const [{ results: clubRows }, { results: playerRows }, { results: transferRows }, { results: pcsRows }] = await Promise.all([
 		c.env.DB
 			.prepare(`SELECT id, canonical_name, image_key, scope FROM entities WHERE id IN (${clubPlaceholders})`)
 			.bind(...allClubIds)
@@ -66,9 +89,52 @@ clubBadges.get("/round", async (c) => {
 			.prepare(`SELECT id, scope FROM entities WHERE id IN (${playerPlaceholders})`)
 			.bind(...playerIds)
 			.all<{ id: number; scope: string | null }>(),
+		// Third hint: when a transfer happened. Real month+day precision only
+		// exists for players sourced via `transfers` (db/schema.sql) -- fetch
+		// every transfers row for these players and match by (player, from,
+		// to) client-side below rather than building a per-pair IN clause.
+		c.env.DB
+			.prepare(`SELECT player_id, from_club_id, to_club_id, transfer_date FROM transfers WHERE player_id IN (${playerPlaceholders})`)
+			.bind(...playerIds)
+			.all<{ player_id: number; from_club_id: number | null; to_club_id: number | null; transfer_date: string }>(),
+		// Fallback for every player not covered above: a year-only estimate
+		// from player_career_stats.years_display (see leadingYear's comment).
+		c.env.DB
+			.prepare(
+				`SELECT player_id, team_id, years_display FROM player_career_stats WHERE player_id IN (${playerPlaceholders}) AND competition_type = 'club' AND team_id IS NOT NULL AND years_display IS NOT NULL`,
+			)
+			.bind(...playerIds)
+			.all<{ player_id: number; team_id: number; years_display: string }>(),
 	]);
 	const clubById = new Map((clubRows ?? []).map((r) => [r.id, r]));
 	const playerScopeById = new Map((playerRows ?? []).map((r) => [r.id, r.scope]));
+
+	// One date-hint string per transfer (badges[i-1] -> badges[i]), or null
+	// when neither source has anything usable for that step -- same
+	// graceful-skip the nationality hint already uses for missing data,
+	// just per-transfer instead of per-question.
+	function transferDatesFor(playerId: number, clubIds: number[]): (string | null)[] {
+		return clubIds.slice(1).map((toClubId, i) => {
+			const fromClubId = clubIds[i];
+			const exact = (transferRows ?? []).find(
+				(t) => t.player_id === playerId && t.from_club_id === fromClubId && t.to_club_id === toClubId,
+			);
+			if (exact) {
+				const formatted = formatMonthYear(exact.transfer_date);
+				if (formatted) return formatted;
+			}
+			const years = (pcsRows ?? [])
+				.filter((r) => r.player_id === playerId && r.team_id === toClubId)
+				.map((r) => leadingYear(r.years_display))
+				.filter((y): y is number => y !== null);
+			if (years.length === 0) return null;
+			// The earliest recorded stint at this club is the one that actually
+			// represents arriving via this transfer (a later stint would be a
+			// re-join, already collapsed into one badge -- see club_sequence's
+			// own de-duplication).
+			return `~${Math.min(...years)}`;
+		});
+	}
 
 	return c.json({
 		questions: picked.map((q) => ({
@@ -98,6 +164,13 @@ clubBadges.get("/round", async (c) => {
 			// second data source exists and still comes up empty, not
 			// currently a real path.
 			nationality: playerScopeById.get(q.player_id) ?? null,
+			// Third hint: one entry per transfer (badges[i-1] -> badges[i+1's
+			// predecessor]), see transferDatesFor's comment on precision/
+			// fallback. Always sent alongside the rest -- like club names and
+			// country, a transfer date isn't the answer, so nothing here is
+			// held back for spoiler reasons, only by whether the hint's been
+			// used yet (ClubBadgesPlay.tsx).
+			transferDates: transferDatesFor(q.player_id, JSON.parse(q.club_sequence)),
 		})),
 	});
 });
