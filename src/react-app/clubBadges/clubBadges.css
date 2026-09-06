@@ -75,14 +75,25 @@
 	background: #1f2937;
 	border: 1px solid #374151;
 	border-radius: 10px;
-	/* No explicit width here -- .cb-play is a column flex container, so this
-	   box naturally stretches to fill the space its siblings (turn banner,
-	   guess box) already span. That's exactly the width useResponsiveCols
-	   measures via ResizeObserver to decide how many tiles fit per row, so
-	   there's nothing to fight: whatever this box's real width ends up being
-	   on any given device, viewport, zoom level or window size, the tile
-	   count adapts to it live instead of assuming a fixed number was checked
-	   against enough devices to be safe. */
+	/* Every row is given the same explicit width regardless of how many
+	   tiles it holds (ClubBadgesPlay.tsx's rowWidth -- a full row's own
+	   natural width, tiles at their fixed size with tight, never-stretched
+	   gaps) rather than each row sizing itself to its own content or
+	   stretching to fill this box (the default for a column flex container's
+	   children). `center` places that identical-width block at the same
+	   horizontal offset for every row, so left/right margins end up equal
+	   across the whole grid by construction -- not by inflating any row's
+	   internal spacing to reach the edges, which is what every earlier
+	   attempt at this (a computed box width, then space-between, then
+	   center-the-row) actually did, and which is exactly why arrows kept
+	   ending up shoved apart into oversized gaps instead of sitting snugly
+	   next to the tiles they connect: cols is a floor, so there's almost
+	   always real leftover width, and stretching *any* row's own gaps to
+	   soak it up shows up as visibly uneven, disconnected-looking spacing
+	   the more slack there is. Centering the row as a whole spends that same
+	   leftover width as plain margin outside the tiles instead, where it
+	   was always meant to go. */
+	align-items: center;
 }
 
 .cb-badges__row {
@@ -92,42 +103,18 @@
 	gap: var(--cb-gap);
 }
 
-/* Odd rows (2nd, 4th, ...) are right-aligned instead of left -- so a row
-   that reads right-to-left visually picks up from directly under wherever
-   the row above it ended, the way a snake path actually turns, rather than
-   floating unconnected in the middle of the row. A short trailing row
-   (fewer tiles than a full row) is narrower than the box on purpose -- it
-   was never meant to reach the far edge, that gap is the snake's turn, not
-   a bug. */
+/* Odd rows (2nd, 4th, ...) pack their tiles to the right instead of the
+   left -- so a row that reads right-to-left visually picks up from directly
+   under wherever the row above it ended, the way a snake path actually
+   turns, rather than floating unconnected in the middle of the row. Every
+   row (see .cb-badges's align-items above) renders at the same width
+   regardless of how many tiles it actually holds, so a short trailing row's
+   tiles hug one side of that shared frame with plain, unstretched blank
+   space left over on the other -- that's the snake's turn, not a bug. A
+   full row's tiles already span its own frame edge to edge on their own, so
+   flex-start vs flex-end makes no visible difference for one. */
 .cb-badges__row--reversed {
 	justify-content: flex-end;
-}
-
-/* A full row (see ClubBadgesPlay.tsx's useResponsiveCols/buildBadgeRows) was
-   sized to fit the box's width, but the column count is a floor, so there's
-   almost always a leftover sliver of unused width. space-between splits
-   that sliver evenly across *every* gap in the row -- flushing the first
-   and last tile against the row's own edges (so a full row always touches
-   both sides, which the reversed row below or above it needs to visually
-   continue from) while also keeping each arrow centered between its two
-   tiles, since badges and arrows are direct, alternating children of the
-   row (see the .map below in ClubBadgesPlay.tsx) with one uniform gap
-   between every one of them -- not a badge+arrow pair glued together with
-   its own tighter internal gap, which is what an earlier version of this
-   markup did. That grouping was originally meant to keep an arrow from
-   being stranded alone at a wrapped line's start, but rows here never wrap
-   internally (JS pre-chunks exactly how many tiles fit, see buildBadgeRows)
-   so there was nothing to protect against -- and it meant the extra space
-   between-groups only ever fell on one side of each arrow, and a first
-   attempt at fixing that ("center" the row as a whole, splitting the sliver
-   between its two outer edges) fixed the arrow but stopped a full row from
-   touching either edge at all, breaking the snake's continuity with the
-   next row instead. Flattening the structure removes both problems at once
-   instead of trading one for the other. Defined after --reversed so it
-   wins the tie when a full row is also a reversed one (same specificity,
-   source order decides). */
-.cb-badges__row--full {
-	justify-content: space-between;
 }
 
 /* Pinned to a fixed width (rather than left to the glyph's own natural

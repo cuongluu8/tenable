@@ -46,6 +46,17 @@ function resolveCssLength(value: string): number {
 	return px;
 }
 
+interface ResponsiveCols {
+	cols: number;
+	// A full row's own natural width in px (cols tiles, tight fixed gaps,
+	// never stretched) -- every row, full or partial, is rendered at exactly
+	// this width (see the render below) so they all share one reference
+	// frame and get centered identically, rather than each row's own visible
+	// content deciding its width. See buildBadgeRows/render for why a shared
+	// frame is what makes the snake's rows line up.
+	rowWidth: number;
+}
+
 // How many tiles actually fit across .cb-badges's own (live) width, kept up
 // to date via ResizeObserver -- a real measurement of the real container, so
 // it's correct on a phone, a tablet, a resized desktop window, after a
@@ -53,10 +64,26 @@ function resolveCssLength(value: string): number {
 // specifically checked against. --cb-tile/--cb-gap/--cb-arrow (clubBadges.css)
 // are read back from the element's own computed style rather than a second
 // hardcoded copy here, so this can't quietly disagree with what the CSS
-// actually renders at (exactly the bug that made the previous, formula-only
+// actually renders at (exactly the bug that made an earlier, formula-only
 // version of this fix wrong -- see clubBadges.css's .cb-badges history).
-function useResponsiveCols(): [(node: HTMLDivElement | null) => void, number] {
-	const [cols, setCols] = useState(3); // a reasonable guess for the instant before the first measurement
+//
+// Earlier versions of this fix tried to make a full row's *own* content
+// stretch to exactly fill the container (via a computed width, then
+// space-between, then center) so its edges would land flush against the
+// box's padding. All of those made the same mistake: `cols` is a floor, so
+// there's almost always real leftover width, and stretching a row's
+// internal gaps to soak that up looks exactly like what it is -- tiles
+// wrenched apart with visibly oversized, uneven-looking gaps, worse than
+// the plain padding mismatch this was meant to fix. Rows now keep their
+// natural, tight, always-fixed spacing (see .cb-badges__row/.cb-arrow in
+// clubBadges.css -- no stretching class needed there anymore) and instead
+// all render at the same explicit width (a full row's width) with
+// .cb-badges centering that shared-width block -- so every row, whatever
+// it actually contains, gets identical left/right margins by construction,
+// without a single gap ever being pulled wider than it renders elsewhere.
+function useResponsiveCols(): [(node: HTMLDivElement | null) => void, ResponsiveCols] {
+	// Reasonable guesses for the instant before the first real measurement.
+	const [state, setState] = useState<ResponsiveCols>({ cols: 3, rowWidth: 0 });
 	const observerRef = useRef<ResizeObserver | null>(null);
 
 	const setNode = useCallback((node: HTMLDivElement | null) => {
@@ -75,7 +102,9 @@ function useResponsiveCols(): [(node: HTMLDivElement | null) => void, number] {
 			// the render below); solving "how many tiles fit" for that
 			// per-tile cost gives this floor.
 			const stepExtra = arrow + 2 * gap;
-			setCols(Math.max(1, Math.floor((containerWidth + stepExtra) / (tile + stepExtra))));
+			const cols = Math.max(1, Math.floor((containerWidth + stepExtra) / (tile + stepExtra)));
+			const rowWidth = cols * tile + (cols - 1) * stepExtra;
+			setState({ cols, rowWidth });
 		}
 
 		// contentRect excludes padding/border regardless of box-sizing -- the
@@ -88,7 +117,7 @@ function useResponsiveCols(): [(node: HTMLDivElement | null) => void, number] {
 		observerRef.current = observer;
 	}, []);
 
-	return [setNode, cols];
+	return [setNode, state];
 }
 
 interface Props {
@@ -105,7 +134,7 @@ interface Props {
 // waiting for "Next" to hand the device to the next player) -- see
 // state.ts's doc on why that's what lastResult's presence means.
 export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, onQuit }: Props) {
-	const [badgesRef, cols] = useResponsiveCols();
+	const [badgesRef, { cols, rowWidth }] = useResponsiveCols();
 	const [guessInput, setGuessInput] = useState("");
 	// Same "confirm before it costs you" pattern as single-player's give-up
 	// (PlayScreen.tsx) -- a stray tap here loses a point on this question
@@ -204,35 +233,29 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 
 			{/* ref hands the live element to useResponsiveCols so it can measure
 			    the real available width and observe it for resizes -- see that
-			    hook above for why this replaced a fixed column count. */}
+			    hook above for why this replaced a fixed column count. Rows are
+			    centered as a block (see .cb-badges's align-items in
+			    clubBadges.css) rather than individually stretched, so every row
+			    below is given the SAME explicit width (rowWidth, a full row's
+			    natural width) regardless of how many tiles it actually holds --
+			    that shared frame is what keeps left/right margins identical
+			    across every row instead of each row's own content deciding it. */}
 			<div className="cb-badges" ref={badgesRef}>
 				{badgeRows.map((row, rowIndex) => {
 					const reversed = rowIndex % 2 === 1;
-					// A row that fills all `cols` slots space-between's its children
-					// instead of packing them to one side -- cols was computed to
-					// (approximately) fill the container already, so this just
-					// flushes whatever sub-tile rounding remainder is left evenly
-					// across every gap instead of dumping it all on one side. Badges
-					// and arrows are direct, alternating children of the row (not an
-					// arrow nested with "its" badge) specifically so that even
-					// distribution lands the same extra space on both sides of every
-					// arrow, keeping it centered between the two tiles it connects,
-					// rather than only between whole badge+arrow groups (which glued
-					// each arrow to one neighbor and left all the slack on its other
-					// side -- see clubBadges.css's history on this class for how that
-					// looked). A short trailing row (fewer than `cols`) keeps
-					// flex-start/flex-end since it was never meant to reach the far
-					// edge in the first place (that's the snake's "picks up where the
-					// last row ended" look).
-					const rowClassName = [
-						"cb-badges__row",
-						reversed && "cb-badges__row--reversed",
-						row.length === cols && "cb-badges__row--full",
-					]
-						.filter(Boolean)
-						.join(" ");
+					// Within its own shared-width frame, a row just packs its tiles
+					// to whichever side continues the snake -- flex-start reads on
+					// from the left, flex-end from the right -- at their natural,
+					// always-fixed spacing (no stretching, see useResponsiveCols's
+					// comment on why that was the actual bug in two earlier attempts
+					// at this). A full row's tiles already span the entire frame on
+					// their own, so flex-start/flex-end make no visible difference
+					// for one; only a short trailing row visibly hugs one side,
+					// leaving blank space on the other within the shared frame --
+					// that's the snake's "picks up where the last row ended" look.
+					const rowClassName = ["cb-badges__row", reversed && "cb-badges__row--reversed"].filter(Boolean).join(" ");
 					return (
-						<div className={rowClassName} key={rowIndex}>
+						<div className={rowClassName} key={rowIndex} style={{ width: rowWidth }}>
 							{row.map(({ badge, originalIndex }, posInRow) => (
 								<Fragment key={originalIndex}>
 									{posInRow > 0 && (
