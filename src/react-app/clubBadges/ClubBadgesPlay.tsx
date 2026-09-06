@@ -1,7 +1,34 @@
 import { useState } from "react";
 import { GuessInput } from "../components/GuessInput";
 import { BadgeTile } from "./BadgeTile";
-import { currentTurnIndex, HINT_KEYS, type CbState, type HintKey } from "./state";
+import { currentTurnIndex, HINT_KEYS, type CbBadge, type CbState, type HintKey } from "./state";
+
+// Tiles are a fixed 64x64 (see clubBadges.css's .cb-badge) so a row's width
+// is predictable regardless of viewport -- 4 fits comfortably even on a
+// narrow phone screen without needing to measure the actual container.
+const ROW_SIZE = 4;
+
+interface BadgeRowItem {
+	badge: CbBadge;
+	originalIndex: number;
+}
+
+// Splits a chronological badge sequence into fixed-size rows for a
+// boustrophedon ("snake") layout: odd rows (2nd, 4th, ...) are reversed for
+// display, so the path reads left-to-right, then right-to-left, then
+// left-to-right again -- continuing visually from wherever the previous row
+// ended, instead of every wrapped row restarting at the left the way plain
+// flex-wrap would. See the render below for how the arrow direction and
+// row alignment flip to match.
+function buildBadgeRows(badges: CbBadge[]): BadgeRowItem[][] {
+	const rows: BadgeRowItem[][] = [];
+	for (let i = 0; i < badges.length; i += ROW_SIZE) {
+		const row = badges.slice(i, i + ROW_SIZE).map((badge, j) => ({ badge, originalIndex: i + j }));
+		const rowNumber = i / ROW_SIZE;
+		rows.push(rowNumber % 2 === 1 ? row.reverse() : row);
+	}
+	return rows;
+}
 
 interface Props {
 	state: CbState;
@@ -46,6 +73,7 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 
 	const question = state.questions[state.questionIndex];
 	if (!question) return null;
+	const badgeRows = buildBadgeRows(question.badges);
 	// A hint key existing (HINT_KEYS) doesn't guarantee it's offered for
 	// THIS question -- nationality is skipped outright when the server sent
 	// null for it (see state.ts's CbQuestion doc), rather than showing a
@@ -113,16 +141,23 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 			</p>
 
 			<div className="cb-badges">
-				{question.badges.map((badge, i) => (
-					<div className="cb-badge-step" key={i}>
-						{i > 0 && (
-							<span className="cb-arrow" aria-hidden="true">
-								→
-							</span>
-						)}
-						<BadgeTile badge={badge} showCountryHint={revealedHints.has("country")} />
-					</div>
-				))}
+				{badgeRows.map((row, rowIndex) => {
+					const reversed = rowIndex % 2 === 1;
+					return (
+						<div className={reversed ? "cb-badges__row cb-badges__row--reversed" : "cb-badges__row"} key={rowIndex}>
+							{row.map(({ badge, originalIndex }, posInRow) => (
+								<div className="cb-badge-step" key={originalIndex}>
+									{posInRow > 0 && (
+										<span className="cb-arrow" aria-hidden="true">
+											{reversed ? "←" : "→"}
+										</span>
+									)}
+									<BadgeTile badge={badge} showCountryHint={revealedHints.has("country")} />
+								</div>
+							))}
+						</div>
+					);
+				})}
 			</div>
 
 			{revealedHints.has("nationality") && (

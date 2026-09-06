@@ -50,18 +50,33 @@
 }
 
 /* Badges shown all at once (no progressive reveal — see the club-badges
-   design decision this was built from), wrapped so a long career (up to
-   ~10 clubs) still fits without the row overflowing on a phone. */
+   design decision this was built from). A column of fixed-size rows (see
+   ClubBadgesPlay.tsx's buildBadgeRows) rather than one flex-wrap line --
+   long careers (up to ~10-12 clubs) snake across multiple rows instead of
+   just wrapping straight back to the left each time. */
 .cb-badges {
 	display: flex;
-	flex-wrap: wrap;
-	justify-content: center;
-	align-items: center;
-	gap: 0.4rem;
+	flex-direction: column;
+	gap: 0.5rem;
 	padding: 1rem;
 	background: #1f2937;
 	border: 1px solid #374151;
 	border-radius: 10px;
+}
+
+.cb-badges__row {
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	gap: 0.4rem;
+}
+
+/* Odd rows (2nd, 4th, ...) are right-aligned instead of left -- so a row
+   that reads right-to-left visually picks up from directly under wherever
+   the row above it ended, the way a snake path actually turns, rather than
+   floating unconnected in the middle of the row. */
+.cb-badges__row--reversed {
+	justify-content: flex-end;
 }
 
 /* Groups an arrow with the badge it points to, so a flex-wrap line break
@@ -154,15 +169,13 @@
 }
 
 /* Stands in for a badge with no image (not sourced yet, or a url that
-   failed to load -- see BadgeTile.tsx). White-background sizing wouldn't
-   fit a club name legibly, so this is wider/text-oriented instead of just
-   .cb-badge's dimensions with different content -- dark surface matching
-   the rest of the UI (not white, which .cb-badge only uses because crest
-   SVGs assume a light background to sit on). */
+   failed to load -- see BadgeTile.tsx). Same fixed 64x64 as .cb-badge --
+   every tile in a row needs to be the same size for the row-based snake
+   layout (buildBadgeRows) to line up regardless of which tiles are real
+   images vs placeholders. Dark surface instead of white (which .cb-badge
+   only uses because crest SVGs assume a light background to sit on). */
 .cb-badge--placeholder {
-	width: auto;
-	min-width: 64px;
-	max-width: 110px;
+	width: 64px;
 	height: 64px;
 	display: flex;
 	align-items: center;
@@ -171,16 +184,23 @@
 	background: #374151;
 	border: 1px solid #4b5563;
 	border-radius: 8px;
-	padding: 4px 6px;
+	padding: 4px;
 	box-sizing: border-box;
+	overflow: hidden;
 }
 
 .cb-badge--placeholder span {
-	font-size: 0.7rem;
-	line-height: 1.15;
+	font-size: 0.6rem;
+	line-height: 1.1;
 	color: #d1d5db;
 	overflow-wrap: break-word;
 	hyphens: auto;
+	/* A long name ("İstanbul Başakşehir") in a fixed 64px box can only fit
+	   so much -- clip rather than overflow into neighboring tiles. */
+	display: -webkit-box;
+	-webkit-line-clamp: 4;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
 }
 
 .cb-reveal {
