@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { Fragment, useCallback, useRef, useState } from "react";
 import { GuessInput } from "../components/GuessInput";
 import { BadgeTile } from "./BadgeTile";
 import { currentTurnIndex, HINT_KEYS, type CbBadge, type CbState, type HintKey } from "./state";
@@ -69,11 +69,11 @@ function useResponsiveCols(): [(node: HTMLDivElement | null) => void, number] {
 			const tile = resolveCssLength(style.getPropertyValue("--cb-tile") || "64px");
 			const gap = resolveCssLength(style.getPropertyValue("--cb-gap") || "0.4rem");
 			const arrow = resolveCssLength(style.getPropertyValue("--cb-arrow") || "1rem");
-			// Every tile after the first also costs an arrow plus its two gaps
-			// (one between the arrow and its badge, one between this step and
-			// the previous one -- see .cb-badge-step/.cb-badges__row in
-			// clubBadges.css); solving "how many tiles fit" for that per-tile
-			// cost gives this floor.
+			// Every tile after the first also costs an arrow plus the two row
+			// gaps flanking it (badges and arrows are direct, alternating
+			// children of the row -- see .cb-badges__row in clubBadges.css and
+			// the render below); solving "how many tiles fit" for that
+			// per-tile cost gives this floor.
 			const stepExtra = arrow + 2 * gap;
 			setCols(Math.max(1, Math.floor((containerWidth + stepExtra) / (tile + stepExtra))));
 		}
@@ -208,14 +208,22 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 			<div className="cb-badges" ref={badgesRef}>
 				{badgeRows.map((row, rowIndex) => {
 					const reversed = rowIndex % 2 === 1;
-					// A row that fills all `cols` slots space-between's its steps
+					// A row that fills all `cols` slots space-between's its children
 					// instead of packing them to one side -- cols was computed to
 					// (approximately) fill the container already, so this just
-					// flushes whatever sub-tile rounding remainder is left evenly to
-					// both edges instead of dumping it all on one side. A short
-					// trailing row (fewer than `cols`) keeps flex-start/flex-end since
-					// it was never meant to reach the far edge in the first place
-					// (that's the snake's "picks up where the last row ended" look).
+					// flushes whatever sub-tile rounding remainder is left evenly
+					// across every gap instead of dumping it all on one side. Badges
+					// and arrows are direct, alternating children of the row (not an
+					// arrow nested with "its" badge) specifically so that even
+					// distribution lands the same extra space on both sides of every
+					// arrow, keeping it centered between the two tiles it connects,
+					// rather than only between whole badge+arrow groups (which glued
+					// each arrow to one neighbor and left all the slack on its other
+					// side -- see clubBadges.css's history on this class for how that
+					// looked). A short trailing row (fewer than `cols`) keeps
+					// flex-start/flex-end since it was never meant to reach the far
+					// edge in the first place (that's the snake's "picks up where the
+					// last row ended" look).
 					const rowClassName = [
 						"cb-badges__row",
 						reversed && "cb-badges__row--reversed",
@@ -226,14 +234,14 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 					return (
 						<div className={rowClassName} key={rowIndex}>
 							{row.map(({ badge, originalIndex }, posInRow) => (
-								<div className="cb-badge-step" key={originalIndex}>
+								<Fragment key={originalIndex}>
 									{posInRow > 0 && (
 										<span className="cb-arrow" aria-hidden="true">
 											{reversed ? "←" : "→"}
 										</span>
 									)}
 									<BadgeTile badge={badge} showCountryHint={revealedHints.has("country")} />
-								</div>
+								</Fragment>
 							))}
 						</div>
 					);

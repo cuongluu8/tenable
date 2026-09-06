@@ -58,8 +58,8 @@
 	display: flex;
 	flex-direction: column;
 	/* --cb-tile/--cb-gap/--cb-arrow are the actual fixed sizes a tile, a gap
-	   and an arrow render at (see .cb-badge, .cb-badges__row/.cb-badge-step,
-	   and .cb-arrow below, all of which reference these same variables
+	   and an arrow render at (see .cb-badge, .cb-badges__row, and .cb-arrow
+	   below, all of which reference these same variables
 	   rather than repeating the literals) -- defined once here since every
 	   element that needs them is a descendant of this box and custom
 	   properties inherit. ClubBadgesPlay.tsx's useResponsiveCols reads these
@@ -105,38 +105,36 @@
 
 /* A full row (see ClubBadgesPlay.tsx's useResponsiveCols/buildBadgeRows) was
    sized to fit the box's width, but the column count is a floor, so there's
-   almost always a leftover sliver of unused width. `center` puts that
-   sliver split evenly on both outer edges rather than dumping it on one
-   side the way flex-start/flex-end would -- fixing the same left/right
-   padding this class was written for.
-   This used to be space-between, which also flushes both edges but does it
-   by inserting the sliver's worth of extra space *between* each pair of
-   .cb-badge-step children -- and since an arrow is glued to the badge it
-   points at (their shared 0.4rem gap lives inside the same .cb-badge-step,
-   not between steps), that inserted space always lands on the arrow's other
-   side, dragging every arrow off-center from the two tiles it's meant to
-   sit between the more slack there is to distribute. `center` only adds
-   margin around the row as a whole, so it fixes the edges without ever
-   touching the fixed internal spacing between an arrow and its tiles.
-   Defined after --reversed so it wins the tie when a full row is also a
-   reversed one (same specificity, source order decides). */
+   almost always a leftover sliver of unused width. space-between splits
+   that sliver evenly across *every* gap in the row -- flushing the first
+   and last tile against the row's own edges (so a full row always touches
+   both sides, which the reversed row below or above it needs to visually
+   continue from) while also keeping each arrow centered between its two
+   tiles, since badges and arrows are direct, alternating children of the
+   row (see the .map below in ClubBadgesPlay.tsx) with one uniform gap
+   between every one of them -- not a badge+arrow pair glued together with
+   its own tighter internal gap, which is what an earlier version of this
+   markup did. That grouping was originally meant to keep an arrow from
+   being stranded alone at a wrapped line's start, but rows here never wrap
+   internally (JS pre-chunks exactly how many tiles fit, see buildBadgeRows)
+   so there was nothing to protect against -- and it meant the extra space
+   between-groups only ever fell on one side of each arrow, and a first
+   attempt at fixing that ("center" the row as a whole, splitting the sliver
+   between its two outer edges) fixed the arrow but stopped a full row from
+   touching either edge at all, breaking the snake's continuity with the
+   next row instead. Flattening the structure removes both problems at once
+   instead of trading one for the other. Defined after --reversed so it
+   wins the tie when a full row is also a reversed one (same specificity,
+   source order decides). */
 .cb-badges__row--full {
-	justify-content: center;
-}
-
-/* Groups an arrow with the badge it points to, so a flex-wrap line break
-   can only happen between steps -- never leaving a bare arrow stranded at
-   the start of a wrapped line. */
-.cb-badge-step {
-	display: flex;
-	align-items: center;
-	gap: var(--cb-gap);
+	justify-content: space-between;
 }
 
 /* Pinned to a fixed width (rather than left to the glyph's own natural
-   width) so .cb-badges's width calc above -- which has to assume some
-   arrow width up front -- always matches what actually renders, regardless
-   of font/glyph metrics in any given browser. */
+   width) so useResponsiveCols (ClubBadgesPlay.tsx) -- which has to assume
+   some arrow width up front when computing how many tiles fit -- always
+   matches what actually renders, regardless of font/glyph metrics in any
+   given browser. */
 .cb-arrow {
 	display: inline-flex;
 	align-items: center;
