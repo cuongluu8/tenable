@@ -123,25 +123,55 @@ def search_title(session: requests.Session, query: str) -> str | None:
     return results[0]["title"] if results else None
 
 
-def candidate_pages(session: requests.Session, title_guess: str, fallback_query: str):
-    """Yields (title, wikitext) candidates in priority order: the exact
-    title first (if it's not a disambiguation page), then the search
-    fallback. A candidate existing and not being a disambig page is NOT
-    enough to stop here -- a bare club name (e.g. "Barnsley") often
+def candidate_pages(session: requests.Session, name: str, country: str):
+    """Yields (title, wikitext, trusted) candidates in priority order. A
+    candidate existing and not being a disambig page is NOT enough to stop
+    here -- a bare club name (e.g. "Barnsley", "Lincoln City") very often
     resolves cleanly to an unrelated article (the town), which is a
-    different failure mode than "missing" or "disambiguation" and would
-    otherwise never trigger the fallback. The caller checks each
-    candidate for an actual football club infobox and only moves on to
-    the next one if it doesn't have one."""
-    title, content = get_content(session, title_guess)
-    if content is not None and not is_disambiguation_page(content):
-        yield title, content
+    different failure mode than "missing" or "disambiguation". The caller
+    checks each candidate for an actual club infobox and only moves to the
+    next if it doesn't have one.
 
-    search_hit = search_title(session, fallback_query)
-    if search_hit and search_hit != title:
-        title2, content2 = get_content(session, search_hit)
-        if content2 is not None and not is_disambiguation_page(content2):
-            yield title2, content2
+    `trusted` distinguishes two very different reliability tiers, found
+    the hard way, 2026-09-06: the direct title and the country-qualified
+    search ("<name> football club <country>") almost always land on the
+    right club even for a generic name, since the country term does real
+    work narrowing the search. The country-FREE queries ("<name> F.C.",
+    "<name> football club") were added later specifically to recover
+    genuine town-name collisions (Lincoln City, Ancona, ...) but, without
+    a country term, just as readily hand back a completely different,
+    more famous club that happens to share part of the name in ANOTHER
+    country (this exact bug matched Brazil's "CSA" to a Romanian club,
+    Paraguay's "Nacional"/"San Lorenzo" clubs to Argentina's/a different
+    Paraguayan club's page, and Spain's "Merida" to a Mexican one) -- and
+    a same-country wrong-club mixup like that often still mentions the
+    right country somewhere in its own text, so a naive "does the country
+    name appear anywhere" check does NOT reliably catch it either. A
+    `trusted=False` candidate is therefore never auto-accepted by the
+    caller -- only ever offered to a human as a review candidate.
+    """
+    seen_titles: set[str] = set()
+
+    def try_title(title: str, trusted: bool):
+        if title in seen_titles:
+            return
+        got_title, content = get_content(session, title)
+        if got_title:
+            seen_titles.add(got_title)
+        if content is not None and not is_disambiguation_page(content):
+            yield got_title, content, trusted
+
+    yield from try_title(name.replace(" ", "_"), trusted=True)
+
+    country_query = f"{name} football club {country}".strip()
+    hit = search_title(session, country_query)
+    if hit:
+        yield from try_title(hit, trusted=True)
+
+    for query in (f"{name} F.C.", f"{name} football club"):
+        hit = search_title(session, query)
+        if hit:
+            yield from try_title(hit, trusted=False)
 
 
 def find_club_infobox(wikitext: str):
@@ -182,14 +212,12 @@ def param_text(infobox, name: str) -> str | None:
 
 def research_club(entity_id: str, name: str, country: str, sleep_s: float) -> dict:
     result = {"entity_id": entity_id, "name": name, "country": country, "status": "review", "reason": "", "filename": "", "wiki_title": ""}
-    title_guess = name.replace(" ", "_")
-    fallback_query = f"{name} football club {country}".strip()
     session = requests.Session()
     session.headers.update({"User-Agent": USER_AGENT})
 
     reasons = []
     try:
-        candidates = list(candidate_pages(session, title_guess, fallback_query))
+        candidates = list(candidate_pages(session, name, country))
     except requests.RequestException as exc:
         result["reason"] = f"Network error: {exc}"
         time.sleep(sleep_s)
@@ -200,7 +228,7 @@ def research_club(entity_id: str, name: str, country: str, sleep_s: float) -> di
         result["reason"] = "No Wikipedia article found (direct title and search fallback both failed)."
         return result
 
-    for title, wikitext in candidates:
+    for title, wikitext, trusted in candidates:
         infobox = find_club_infobox(wikitext)
         if infobox is None:
             reasons.append(f'"{title}": no "Infobox football club" template (wrong article, e.g. a place name, not the club)')
@@ -216,6 +244,17 @@ def research_club(entity_id: str, name: str, country: str, sleep_s: float) -> di
         match = re.search(r"(?:File:)?([^|\[\]]+\.(?:svg|png|jpg|jpeg|gif))", image, re.IGNORECASE)
         if not match:
             reasons.append(f'"{title}": infobox image field ({image!r}) doesn\'t look like a plain image filename')
+            continue
+
+        if not trusted:
+            # A real image with a real club infobox is still possibly the
+            # WRONG club -- this candidate only came from a country-free
+            # search query (see candidate_pages' docstring on the 2026-09-06
+            # incident). A same-country wrong-club mixup often still
+            # mentions the right country somewhere in its own text, so
+            # merely checking for that (tried first) isn't reliable enough
+            # either -- always defer to a human instead of guessing here.
+            reasons.append(f'"{title}": has a real club infobox and image ({match.group(1).strip()}), but only via a country-free search -- verify by hand before trusting this match')
             continue
 
         result["wiki_title"] = title
