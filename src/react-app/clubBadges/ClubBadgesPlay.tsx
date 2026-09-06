@@ -76,7 +76,14 @@ export function ClubBadgesPlay({ state, onGuess, onNext, submitting, onQuit }: P
 
 			<div className="cb-badges">
 				{question.badges.map((badge, i) => (
-					<BadgeTile key={i} badge={badge} />
+					<div className="cb-badge-step" key={i}>
+						{i > 0 && (
+							<span className="cb-arrow" aria-hidden="true">
+								→
+							</span>
+						)}
+						<BadgeTile badge={badge} />
+					</div>
 				))}
 			</div>
 
