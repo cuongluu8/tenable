@@ -875,6 +875,37 @@ approaches them — raise deliberately, don't delete the guardrail.
 (KV or D1), consider whether it needs its own guard the way `/api/suggest`
 did, rather than relying solely on the global daily ceiling.
 
+**Incident, 2026-09-06 — the D1 free-tier *read* ceiling has no guard at all,
+and it got hit for real.** The request-count/rate-limit guardrails above
+only bound request *volume* — nothing bounds how many rows a single query
+reads. `suggestNames()`'s alias-matching branch (`src/worker/lib/
+categories.ts`) used `WHERE alias LIKE ?3 || '%'`, which looks like an
+index-friendly prefix search but isn't reliably one through a join — SQLite's
+query planner instead drove the join from `entities` filtered by
+`entity_type` (effectively every player row) and probed `entity_aliases` per
+row. `wrangler d1 insights tenable-content --sort-by=reads` (an
+under-documented but very useful diagnostic — see its `--help`) showed this
+one query read **~73,000 rows per call, 1.47 million rows total from just 20
+calls** — about 30% of the whole 5,000,000/day D1 free-tier read limit from
+one inefficient query, not from traffic volume. This blew through the daily
+limit and put the live app in a hard-down state (every D1 read errors) until
+the next UTC day, with no guardrail in this app catching it beforehand.
+Fixed by replacing the `LIKE` with explicit `>=`/`<` range bounds against a
+computed upper bound (`prefix + "￿"`) — confirmed via `EXPLAIN QUERY
+PLAN` to produce a genuine bounded index range scan
+(`idx_entity_aliases_alias`) regardless of join shape, and confirmed
+byte-for-byte identical results against the old query across several test
+prefixes before shipping.
+
+**Rule for agents:** a request-count guardrail is not a rows-read guardrail
+— they're independent failure modes. Any new or modified query against a
+table of meaningful size (`entities`, `entity_aliases`, `entity_stats`,
+`player_career_stats`) should have its `EXPLAIN QUERY PLAN` actually looked
+at, not just "it returned the right rows in testing" — a query can be
+correct and still silently read orders of magnitude more than it returns.
+`wrangler d1 insights <db> --sort-by=reads` is the tool to catch this after
+the fact in production; reach for it if usage ever looks anomalous again.
+
 ## Workers Builds cost
 
 No GitHub Actions minutes are involved (see Deployment above). Workers
