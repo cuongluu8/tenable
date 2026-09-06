@@ -3,11 +3,6 @@ import { GuessInput } from "../components/GuessInput";
 import { BadgeTile } from "./BadgeTile";
 import { currentTurnIndex, HINT_KEYS, type CbState, type HintKey } from "./state";
 
-const HINT_LABELS: Record<HintKey, string> = {
-	country: "💡 Hint: show country",
-	nationality: "🌍 Hint: show nationality",
-};
-
 interface Props {
 	state: CbState;
 	onGuess: (guess: string) => void;
@@ -135,16 +130,17 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 			)}
 
 			{/* One hint at a time, in HINT_KEYS order -- not every available hint
-			    at once. Already-revealed hints (their ribbon/text above) stay
-			    up regardless; only the button for whichever's next disappears
-			    once used, then the next hint's button (if any) takes its place. */}
+			    at once, and no label naming what it is (that would itself be a
+			    hint). Already-revealed hints (their ribbon/text above) stay up
+			    regardless; only the button for whichever's next disappears once
+			    used, then the next hint's button (if any) takes its place. */}
 			{!state.lastResult &&
 				(() => {
 					const nextHint = availableHints.find((key) => !revealedHints.has(key));
 					return (
 						nextHint && (
 							<button type="button" className="cb-hint-button" onClick={() => revealHint(nextHint)}>
-								{HINT_LABELS[nextHint]}
+								💡 Hint
 							</button>
 						)
 					);
