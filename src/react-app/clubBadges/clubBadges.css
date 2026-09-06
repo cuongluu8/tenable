@@ -126,17 +126,12 @@
 	pointer-events: none;
 }
 
-/* Row of not-yet-revealed hint buttons (see ClubBadgesPlay.tsx's
-   availableHints) -- wraps as more hints get added over time, same
-   reasoning as .cb-badges wrapping a long career. */
-.cb-hints {
-	display: flex;
-	flex-wrap: wrap;
-	justify-content: center;
-	gap: 0.5rem;
-}
-
+/* Only ever one of these on screen at a time -- the next not-yet-revealed
+   hint (see ClubBadgesPlay.tsx) -- so this is a direct .cb-play child, not
+   a row; align-self centers it the same way .give-up-link centers itself
+   in App.css. */
 .cb-hint-button {
+	align-self: center;
 	background: none;
 	border: 1px solid #374151;
 	border-radius: 999px;

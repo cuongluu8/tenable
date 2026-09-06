@@ -134,17 +134,21 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 				<p className="cb-hint-text">Nationality: {question.nationality}</p>
 			)}
 
-			{!state.lastResult && (
-				<div className="cb-hints">
-					{availableHints
-						.filter((key) => !revealedHints.has(key))
-						.map((key) => (
-							<button type="button" key={key} className="cb-hint-button" onClick={() => revealHint(key)}>
-								{HINT_LABELS[key]}
+			{/* One hint at a time, in HINT_KEYS order -- not every available hint
+			    at once. Already-revealed hints (their ribbon/text above) stay
+			    up regardless; only the button for whichever's next disappears
+			    once used, then the next hint's button (if any) takes its place. */}
+			{!state.lastResult &&
+				(() => {
+					const nextHint = availableHints.find((key) => !revealedHints.has(key));
+					return (
+						nextHint && (
+							<button type="button" className="cb-hint-button" onClick={() => revealHint(nextHint)}>
+								{HINT_LABELS[nextHint]}
 							</button>
-						))}
-				</div>
-			)}
+						)
+					);
+				})()}
 
 			{!state.lastResult ? (
 				<>
