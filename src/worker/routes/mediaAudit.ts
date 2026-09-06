@@ -8,12 +8,13 @@ const mediaAudit = new Hono<{ Bindings: Env }>();
 // tiles needs to tell these apart at a glance, not by reading each label):
 //   - MISSING (red)   -- entities.image_key is NULL, nothing was ever sourced
 //   - BROKEN (orange) -- image_key is set but the actual image failed to
-//     load in the browser (stale R2 key, corrupt object, or -- in local
-//     dev specifically -- local R2 simply has no objects in it at all;
-//     every real upload went to the production bucket, see
-//     data/research/upload_media.sh, so ~every non-MISSING tile will show
-//     as BROKEN in local dev and that's expected, not a bug)
+//     load in the browser (stale R2 key, corrupt object, sourced-but-broken
+//     upload -- see data/research/media_needs_reupload.csv for known cases)
 //   - a real image     -- image_key set and it actually loaded
+// wrangler.json's r2_buckets MEDIA binding has "remote": true specifically
+// so this page (and the game itself) sees real uploaded images in local dev
+// too, not an empty local R2 emulation -- D1 stays local (no such flag on
+// d1_databases), so this doesn't touch the D1 free-tier quota at all.
 // No script can tell "this is a real image" from "this is the RIGHT image
 // for this entity" (a wrong-club crest still loads fine) -- only a person
 // looking at the grid can catch that; the point of this page is to make
@@ -25,8 +26,6 @@ const mediaAudit = new Hono<{ Bindings: Env }>();
 mediaAudit.get("/", async (c) => {
 	const type = c.req.query("type") === "country" ? "country" : "club";
 	const missingOnly = c.req.query("missing") === "1";
-	const host = c.req.header("host") ?? "";
-	const isLocalDev = host.startsWith("localhost") || host.startsWith("127.0.0.1");
 
 	const { results } = await c.env.DB.prepare(
 		`SELECT id, canonical_name, scope, image_key FROM entities
@@ -75,7 +74,6 @@ mediaAudit.get("/", async (c) => {
 	.legend { display: flex; gap: 14px; font-size: 12px; color: #999; margin-bottom: 16px; }
 	.legend span { display: inline-flex; align-items: center; gap: 5px; }
 	.legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
-	.dev-note { background: #2d2510; border: 1px solid #665a1f; color: #e0c96a; font-size: 12px; padding: 8px 12px; border-radius: 6px; margin-bottom: 16px; }
 	.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
 	.tile { background: #1c1c1c; border: 1px solid #333; border-radius: 8px; padding: 10px; text-align: center; }
 	.tile--missing { border-color: #a33; background: #2a1414; }
@@ -107,7 +105,6 @@ mediaAudit.get("/", async (c) => {
 		<span><i style="background:#b56b1f"></i> Broken — image_key set, but the image failed to load</span>
 		<span><i style="background:#fff"></i> A real image loaded</span>
 	</div>
-	${isLocalDev ? `<div class="dev-note">Local dev: local R2 has no real objects in it — every uploaded badge/flag went to the production bucket only. Expect every non-missing tile here to show BROKEN locally; that's not a bug. Check the real state on the deployed site.</div>` : ""}
 	<div class="grid">${tiles}</div>
 </body>
 </html>`;

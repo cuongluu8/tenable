@@ -55,7 +55,15 @@
 	"r2_buckets": [
 		{
 			"binding": "MEDIA",
-			"bucket_name": "tenable-media"
+			"bucket_name": "tenable-media",
+			// Real badge/flag uploads only ever go to the production bucket
+			// (see data/research/upload_media.sh) -- local R2 emulation is
+			// always empty, so without this every image shows as broken in
+			// local dev regardless of what's actually uploaded. D1 stays
+			// local (no "remote" flag on d1_databases above) so local dev
+			// still doesn't touch the D1 free-tier quota at all -- this only
+			// affects the MEDIA binding.
+			"remote": true
 		}
 	]
 }
