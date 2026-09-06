@@ -57,7 +57,13 @@
 .cb-badges {
 	display: flex;
 	flex-direction: column;
-	gap: 0.5rem;
+	/* Same 0.4rem as .cb-badges__row/.cb-badge-step's item-to-item gap below --
+	   row-to-row and item-to-item used to be two different values (0.5rem vs
+	   0.4rem), which reads as inconsistent spacing once a question actually
+	   wraps to a second row (e.g. 6 clubs -> a full 4-item row plus a
+	   right-aligned 2-item row) and the mismatch has something to compare
+	   against. */
+	gap: 0.4rem;
 	padding: 1rem;
 	background: #1f2937;
 	border: 1px solid #374151;
