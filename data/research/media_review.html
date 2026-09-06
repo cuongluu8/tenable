@@ -1,0 +1,152 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Badge review — 39 broken uploads</title>
+<style>
+	body { font-family: system-ui, sans-serif; background: #111; color: #eee; margin: 0; padding: 20px; }
+	h1 { font-size: 18px; margin: 0 0 4px; }
+	.summary { color: #aaa; margin-bottom: 16px; font-size: 14px; }
+	.toolbar { margin-bottom: 16px; display: flex; gap: 10px; }
+	button { background: #2d5a3d; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+	button:hover { background: #366b48; }
+	button.secondary { background: #333; }
+	button.secondary:hover { background: #444; }
+	textarea { width: 100%; height: 120px; background: #1c1c1c; color: #9f9; border: 1px solid #333; border-radius: 6px; padding: 10px; font-family: monospace; font-size: 12px; margin-top: 10px; }
+	.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+	.card { background: #1c1c1c; border: 1px solid #333; border-radius: 8px; padding: 14px; }
+	.card.approved { border-color: #2d5a3d; background: #16241a; }
+	.card.rejected { border-color: #a33; background: #2a1414; opacity: 0.6; }
+	.name { font-weight: 600; font-size: 15px; margin-bottom: 2px; }
+	.meta { font-size: 11px; color: #888; margin-bottom: 10px; }
+	.compare { display: flex; gap: 10px; margin-bottom: 10px; }
+	.slot { flex: 1; text-align: center; }
+	.slot label { display: block; font-size: 10px; color: #999; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+	.slot img { width: 100%; height: 90px; object-fit: contain; background: #fff; border-radius: 4px; }
+	.slot .fail { width: 100%; height: 90px; display: flex; align-items: center; justify-content: center; background: #333; color: #888; font-size: 11px; border-radius: 4px; }
+	.actions { display: flex; gap: 8px; }
+	.actions button { flex: 1; padding: 6px; font-size: 12px; }
+	.btn-approve { background: #2d5a3d; }
+	.btn-reject { background: #a33; }
+	.url { font-size: 10px; color: #666; margin-top: 8px; word-break: break-all; }
+</style>
+</head>
+<body>
+	<h1>Badge review — 39 known-broken uploads</h1>
+	<div class="summary">
+		Left = what's currently live (broken). Right = candidate, sourced directly from each club's own Wikipedia
+		infobox, hotlinked straight from Wikipedia — <strong>nothing has been uploaded anywhere yet</strong>.
+		Approve the ones that look right, then copy the approved list and hand it back for the real upload.
+	</div>
+	<div class="toolbar">
+		<button onclick="approveAll()">Approve all</button>
+		<button class="secondary" onclick="generateManifest()">Generate approved manifest</button>
+	</div>
+	<textarea id="output" placeholder="Click 'Generate approved manifest' after reviewing..." readonly></textarea>
+	<div class="grid" id="grid"></div>
+
+	<script>
+		// entity_id, canonical_name, scope, current (live, broken) key, candidate Wikipedia filename
+		const items = [
+			[38, "Atletico Mineiro", "Brazil", "clubs/38.svg", "Logo of Clube Atlético Mineiro.svg"],
+			[184, "Aston Villa", "England", "clubs/184.png", "Aston Villa FC new crest.svg"],
+			[187, "Brighton", "England", "clubs/187.svg", "Brighton and Hove Albion FC crest.svg"],
+			[213, "Mallorca", "Spain", "clubs/213.svg", "Rcd mallorca.svg"],
+			[225, "Cagliari", "Italy", "clubs/225.svg", "Cagliari Calcio 1920.svg"],
+			[248, "Eintracht Frankfurt", "Germany", "clubs/248.svg", "Eintracht Frankfurt crest.svg"],
+			[266, "Nice", "France", "clubs/266.svg", "OGC Nice logo.svg"],
+			[271, "Nantes", "France", "clubs/271.svg", "Logo FC Nantes (avec fond) - 2019.svg"],
+			[275, "Le Havre", "France", "clubs/275.svg", "Le Havre AC logo.svg"],
+			[283, "Ajax", "Netherlands", "clubs/283.svg", "Logo AFC Ajax (1928-1991, 2025-).png"],
+			[290, "Fenerbahce", "Turkey", "clubs/290.png", "Fenerbahçe.svg"],
+			[296, "Dynamo Kyiv", "Ukraine", "clubs/296.svg", "Dynamo logo.svg"],
+			[313, "Blackburn Rovers", "England", "clubs/313.svg", "Blackburn Rovers.svg"],
+			[314, "Stoke City", "England", "clubs/314.svg", "Stoke City FC crest 2026.svg"],
+			[331, "Inter Miami", "United States", "clubs/331.svg", "Inter Miami CF logo.svg"],
+			[333, "LAFC", "United States", "clubs/333.svg", "Los Angeles Football Club.svg"],
+			[395, "Hibernian", "Scotland", "clubs/395.svg", "Hibernian FC 2026 crest.svg"],
+			[401, "Deportivo La Coruna", "Spain", "clubs/401.svg", "RC Deportivo A Coruña logo 2026.svg"],
+			[18973, "Heerenveen", "Netherlands", "clubs/18973.svg", "SC_Heerenveen_logo.svg"],
+			[18978, "FC Groningen", "Netherlands", "clubs/18978.svg", "FC Groningen logo.svg"],
+			[18996, "Genk", "Belgium", "clubs/18996.svg", "Logo KRC Genk.png"],
+			[19000, "Charleroi", "Belgium", "clubs/19000.svg", "Royal Charleroi Sporting Club logo.svg"],
+			[19003, "Trabzonspor", "Turkey", "clubs/19003.svg", "Trabzonspor Amblem.svg"],
+			[19011, "AEK Athens", "Greece", "clubs/19011.svg", "AEK Athens FC logo.svg"],
+			[19017, "Leon", "Mexico", "clubs/19017.svg", "Club Leon Logo.svg"],
+			[19031, "New York City FC", "United States", "clubs/19031.svg", "Logo New York City FC 2025.svg"],
+			[19032, "New York Red Bulls", "United States", "clubs/19032.svg", "New York Red Bulls logo.svg"],
+			[19034, "DC United", "United States", "clubs/19034.svg", "D.C. United logo (2016).svg"],
+			[19038, "Orlando City", "United States", "clubs/19038.svg", "Orlando City 2014.svg"],
+			[19043, "San Jose Earthquakes", "United States", "clubs/19043.svg", "San Jose Earthquakes 2014.svg"],
+			[19049, "Minnesota United", "United States", "clubs/19049.svg", "Minnesota United FC (MLS) Primary logo.svg"],
+			[19050, "CF Montreal", "United States", "clubs/19050.svg", "Logo of CF Montreal 2023.svg"],
+			[19054, "Palermo", "Italy", "clubs/19054.svg", "Palermo Calcio logo (2019).svg"],
+			[19081, "Reggina", "Italy", "clubs/19081.png", "AS Reggina 1914 crest.svg"],
+			[19084, "Vicenza", "Italy", "clubs/19084.svg", "LR Vicenza Virtus (logo).svg"],
+			[19123, "Guingamp", "France", "clubs/19123.svg", "En Avant Guingamp logo.svg"],
+			[19124, "Caen", "France", "clubs/19124.svg", "SM Caen 2016 logo.svg"],
+			[19145, "Santa Cruz", "Brazil", "clubs/19145.svg", "Santa Cruz Futebol Clube logo.svg"],
+			[19148, "Juventude", "Brazil", "clubs/19148.svg", "Juventude crest.png"],
+		];
+
+		const state = {}; // id -> "approved" | "rejected" | undefined
+
+		function wikiUrl(filename) {
+			return "https://en.wikipedia.org/wiki/Special:FilePath/" + encodeURIComponent(filename);
+		}
+
+		function render() {
+			const grid = document.getElementById("grid");
+			grid.innerHTML = items.map(([id, name, scope, currentKey, candidateFile]) => {
+				const cls = state[id] ? state[id] : "";
+				return `
+					<div class="card ${cls}" id="card-${id}">
+						<div class="name">${name}</div>
+						<div class="meta">#${id} · ${scope}</div>
+						<div class="compare">
+							<div class="slot">
+								<label>Currently live (broken)</label>
+								<img src="https://tenable.cuong-luu.workers.dev/api/media/${currentKey}"
+								     onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'fail',textContent:'fails to load'}))">
+							</div>
+							<div class="slot">
+								<label>Candidate</label>
+								<img src="${wikiUrl(candidateFile)}"
+								     onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'fail',textContent:'candidate failed to load'}))">
+							</div>
+						</div>
+						<div class="url">${candidateFile}</div>
+						<div class="actions" style="margin-top:8px">
+							<button class="btn-approve" onclick="setState(${id},'approved')">✓ Approve</button>
+							<button class="btn-reject" onclick="setState(${id},'rejected')">✗ Reject</button>
+						</div>
+					</div>`;
+			}).join("");
+		}
+
+		function setState(id, value) {
+			state[id] = state[id] === value ? undefined : value;
+			render();
+		}
+
+		function approveAll() {
+			for (const [id] of items) state[id] = "approved";
+			render();
+		}
+
+		function generateManifest() {
+			const approved = items.filter(([id]) => state[id] === "approved");
+			const lines = approved.map(([id, , , , candidateFile]) =>
+				`${id},club,${wikiUrl(candidateFile)}`
+			);
+			const rejected = items.filter(([id]) => state[id] === "rejected").map(([, name]) => name);
+			let text = `# ${approved.length} approved, ${rejected.length} rejected, ${items.length - approved.length - rejected.length} not reviewed\n`;
+			text += lines.join("\n");
+			if (rejected.length) text += `\n\n# Rejected (needs different sourcing): ${rejected.join(", ")}`;
+			document.getElementById("output").value = text;
+		}
+
+		render();
+	</script>
+</body>
+</html>
