@@ -797,14 +797,13 @@ allow hyphens. It was `dist/tenable/` before the 2026-09-08 rename below.)
 
 ## Deployment
 
-Deploys have historically happened via **Cloudflare Workers Builds** —
-Cloudflare's own Git integration, connected directly to this repo through
-the Cloudflare dashboard, most likely set up by the original "Deploy to
-Cloudflare" template button. Every push to `main` was automatically built
-and deployed by Cloudflare's own infrastructure — **no GitHub Actions
-workflow is involved, and none should be added for this.** Build/deploy
-status and logs are visible in the Cloudflare dashboard under that Worker's
-**Deployments** tab, not in the repo's Actions tab.
+Deploys happen via **Cloudflare Workers Builds** — Cloudflare's own Git
+integration, connected directly to this repo through the Cloudflare
+dashboard. Every push to `main` is automatically built and deployed by
+Cloudflare's own infrastructure — **no GitHub Actions workflow is involved,
+and none should be added for this.** Build/deploy status and logs are
+visible in the Cloudflare dashboard under that Worker's **Deployments**
+tab, not in the repo's Actions tab.
 
 An earlier version of this project *did* have a custom
 `.github/workflows/deploy.yml` (`wrangler deploy` via `cloudflare/wrangler-action`)
@@ -818,20 +817,22 @@ replaced (e.g. moving to a different Cloudflare account with no Git
 integration configured) — check the dashboard's Builds tab first if deploys
 ever seem to stop working, before assuming a new CI workflow is the fix.
 
-**2026-09-08 rename note:** Cloudflare doesn't support renaming a Worker in
-place, and a Git-connected Worker's dashboard identity has to match
-`wrangler.json`'s own `name` — so changing that field (`tenable` →
-`top-10-tension`, done in this rename) breaks the existing Workers Builds
-Git integration, which is still wired to the old `tenable` Worker. The new
-`top-10-tension` Worker was deployed directly via `wrangler deploy` (this
-environment does in fact have working `wrangler` auth, contrary to what an
-earlier version of this section claimed — that claim was simply wrong/stale,
-not a rule to preserve). Restoring push-to-deploy on `main` requires a
-one-time **manual dashboard step**, not done as part of this rename: delete
-the old `tenable` Worker (or at least its Git integration/route), then
-connect a new Worker named `top-10-tension` to this repo via Workers Builds.
-Until that's done, deploy manually with `npm run deploy`
-(`wrangler deploy`) after every push that needs to go live.
+Note: this environment does in fact have working `wrangler` auth (contrary
+to what an earlier version of this section claimed — that claim was simply
+wrong/stale, not a rule to preserve), so `npm run deploy` also works as a
+manual/emergency path if Workers Builds is ever down or mid-reconfiguration.
+
+**2026-09-08 rename, now fully cut over:** the app was renamed from
+`tenable` to `top-10-tension` (see "What this is" above for why). Cloudflare
+doesn't support renaming a Worker in place, so the cutover was: deploy a
+brand-new `top-10-tension` Worker directly via `wrangler deploy` (bound to
+the *same* D1 database and R2 bucket as the old one — no data migration
+needed, see the resources table below), verify it live, then the account
+owner deleted the old `tenable` Worker and connected Workers Builds'
+existing Git integration to the new `top-10-tension` Worker instead —
+confirmed working (`tenable.cuong-luu.workers.dev` now 404s, `top-10-tension.
+cuong-luu.workers.dev` is the one and only live URL, and push-to-deploy on
+`main` is wired to it). Nothing transitional left to do here.
 
 ## Cloudflare resources
 
