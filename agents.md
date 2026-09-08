@@ -729,6 +729,7 @@ npm run lint
 npm run build             # tsc -b && vite build
 npm run verify:matching        # re-seed local D1 first — see scripts/verify-guess-matching.ts
 npm run verify:category-defs   # re-seed local D1 first — see scripts/verify-category-defs.ts
+npm run verify:query-plans     # re-seed local D1 first — see scripts/verify-query-plans.ts
 npm run playtest                # self-resets local D1 + KV — see scripts/playtest.ts
 
 # Requires FOOTBALL_DATA_API_KEY (free tier: https://www.football-data.org/client/register)
@@ -758,6 +759,23 @@ result matching what's actually materialized in `category_answers` (catches a ty
 `stat_key`/`scope`, or a stale rebuild). **This also runs in CI** (`.github/workflows/ci.yml`)
 — it's the direct replacement for the retired `verify:name-sync` in that pipeline, covering a
 different bug class specific to the derived-answers model.
+
+**Run `npm run verify:query-plans` after touching `suggestNames()`/`SUGGEST_NAMES_SQL`
+(`src/worker/lib/suggestNamesSql.ts`), or any other query added to its `CHECKS` list.**
+Unlike the other checks, this one isn't about correctness of results — it's about the
+*query plan* SQLite actually picks, which correctness checks have no way to catch at all.
+`suggestNames()`'s curated-alias branch silently regressed from a bounded index range scan
+back to a full ~18,500-row scan of every player entity **twice** (2026-09-06, then again
+2026-09-08 — the second time with no code change in between, and it burned through D1's
+entire daily free-tier quota and took the app down before anyone noticed) — a one-off
+`EXPLAIN QUERY PLAN` check confirmed once and never run again is worth nothing against a
+planner that's free to re-cost a query differently as table statistics drift. This script
+runs `EXPLAIN QUERY PLAN` against the exact `SUGGEST_NAMES_SQL` string the app actually
+executes (imported directly, not a hand-copied approximation of it) and asserts the plan
+still contains the expected bounded scan and none of the two incidents' known bad-plan
+signatures. **This also runs in CI** (`.github/workflows/ci.yml`). If it ever fails: fix
+the query (or re-pin it with `INDEXED BY`, as the 2026-09-08 fix did) — do not "fix" this
+check by loosening its assertions to match whatever the new plan happens to be.
 
 **Run `npm run verify:content-source` after adding or changing any answer in a
 "This Season" category (`group_label = 'This Season'`).** Unlike the other three

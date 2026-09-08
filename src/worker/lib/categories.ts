@@ -1,5 +1,6 @@
 import type { CategoryPublic } from "./types";
 import { toFtsPrefixQuery, collapseToAlnum } from "./normalize";
+import { SUGGEST_NAMES_SQL } from "./suggestNamesSql";
 
 interface CategoryRow {
 	id: number;
@@ -269,8 +270,9 @@ export async function suggestNames(
 	// as before) showed bounds alone don't reliably keep the planner pinned
 	// there either -- SQLite is still free to re-cost the join as row counts
 	// on either side change, with no error or warning when it picks the
-	// worse side again. `INDEXED BY` below removes that choice entirely: it
-	// forces this branch through `idx_entity_aliases_alias` unconditionally,
+	// worse side again. `INDEXED BY` in SUGGEST_NAMES_SQL above removes that
+	// choice entirely: it forces this branch through `idx_entity_aliases_alias`
+	// unconditionally,
 	// so a genuine bounded range scan is the ONLY plan SQLite can produce
 	// here — and if that index is ever dropped or renamed, this query fails
 	// outright (a loud, obvious break) instead of silently degrading into
@@ -278,39 +280,7 @@ export async function suggestNames(
 	const prefixUpperBound = normalizedPrefix + "￿";
 
 	const result = await db
-		.prepare(
-			`SELECT name FROM (
-				SELECT name, MIN(priority) AS priority
-				FROM (
-					-- Tokenized full-text match against every entity's canonical
-					-- name: any word of the name, not just its start.
-					SELECT es.name,
-					       CASE
-					           WHEN EXISTS (SELECT 1 FROM category_answers WHERE entity_id = es.entity_id) THEN 0
-					           WHEN ?4 IS NOT NULL AND e.scope = ?4 THEN 1
-					           ELSE 2
-					       END AS priority
-					FROM entity_search es
-					JOIN entities e ON e.id = es.entity_id
-					WHERE es.entity_search MATCH ?1 AND es.entity_type = ?2
-					UNION ALL
-					-- Curated nickname aliases — not derivable by tokenizing the
-					-- canonical name itself, so these still need a curated row.
-					SELECT e.canonical_name AS name,
-					       CASE
-					           WHEN EXISTS (SELECT 1 FROM category_answers WHERE entity_id = e.id) THEN 0
-					           WHEN ?4 IS NOT NULL AND e.scope = ?4 THEN 1
-					           ELSE 2
-					       END AS priority
-					FROM entity_aliases al INDEXED BY idx_entity_aliases_alias
-					JOIN entities e ON al.entity_id = e.id
-					WHERE al.alias >= ?3 AND al.alias < ?6 AND e.entity_type = ?2
-				 )
-				 GROUP BY name
-			 )
-			 ORDER BY priority ASC, LENGTH(name) ASC, name ASC
-			 LIMIT ?5`,
-		)
+		.prepare(SUGGEST_NAMES_SQL)
 		.bind(ftsQuery, entityType, normalizedPrefix, scope, limit + 1, prefixUpperBound)
 		.all<{ name: string }>();
 	const names = (result.results ?? []).map((r) => r.name);
