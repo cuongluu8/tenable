@@ -25,7 +25,19 @@
 	},
 	"assets": {
 		"directory": "./dist/client",
-		"not_found_handling": "single-page-application"
+		"not_found_handling": "single-page-application",
+		// Without this, Cloudflare's asset routing uses automatic
+		// Sec-Fetch-Mode:navigate detection: ANY real browser navigation
+		// (address bar, a link, a hard refresh) gets served the SPA's
+		// index.html regardless of path -- including /api/* -- since a
+		// browser navigating to a URL sends that header and curl/fetch/XHR
+		// don't. This silently broke /api/admin/media-audit (a route meant
+		// to be visited directly) in both local dev and production; curl
+		// "confirming" it worked was a false positive precisely because
+		// curl never sends that header. run_worker_first forces matching
+		// paths to always hit the Worker, navigation or not. Needs Wrangler
+		// 4.20.0+ / Cloudflare Vite plugin 1.7.0+ (both satisfied here).
+		"run_worker_first": ["/api/*"]
 	},
 	"d1_databases": [
 		{
@@ -43,7 +55,15 @@
 	"r2_buckets": [
 		{
 			"binding": "MEDIA",
-			"bucket_name": "tenable-media"
+			"bucket_name": "tenable-media",
+			// Real badge/flag uploads only ever go to the production bucket
+			// (see data/research/upload_media.sh) -- local R2 emulation is
+			// always empty, so without this every image shows as broken in
+			// local dev regardless of what's actually uploaded. D1 stays
+			// local (no "remote" flag on d1_databases above) so local dev
+			// still doesn't touch the D1 free-tier quota at all -- this only
+			// affects the MEDIA binding.
+			"remote": true
 		}
 	]
 }

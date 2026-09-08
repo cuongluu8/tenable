@@ -1,156 +1,130 @@
-import { Fragment, useCallback, useLayoutEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { GuessInput } from "../components/GuessInput";
 import { LivesIndicator } from "../components/LivesIndicator";
 import { BadgeTile } from "./BadgeTile";
-import { currentTurnIndex, HINT_KEYS, MAX_WRONG_LIVES, type CbBadge, type CbState, type HintKey } from "./state";
+import {
+	computeScore,
+	currentTurnIndex,
+	HINT_KEYS,
+	MAX_WRONG_LIVES,
+	scoreBand,
+	type CbBadge,
+	type CbState,
+	type HintKey,
+} from "./state";
 
-interface BadgeRowItem {
+// Rebuilt from scratch 2026-09-07, deleting an earlier version (manual
+// row-packing sized against a ResizeObserver-measured container, plus a
+// separately-computed "bypass arrow" overlay for loan runs, built up over
+// many rounds of layout rules) that had grown far more complex than this
+// screen actually needs. This version: one flat list of tiles, one plain
+// flex row that wraps on its own (clubBadges.css's .cb-badges), a normal
+// inline arrow between every pair -- nothing measured, nothing absolutely
+// positioned.
+
+// One club actually shown in the chain, plus whether the move INTO it was
+// a loan (state.ts's loanMoves) and its index into question.badges (used
+// to look up its own incoming transfer date).
+interface ChainTile {
 	badge: CbBadge;
 	originalIndex: number;
+	isLoan: boolean;
 }
 
-// Splits a chronological badge sequence into fixed-size rows for a
-// boustrophedon ("snake") layout: odd rows (2nd, 4th, ...) are reversed for
-// display, so the path reads left-to-right, then right-to-left, then
-// left-to-right again -- continuing visually from wherever the previous row
-// ended, instead of every wrapped row restarting at the left the way plain
-// flex-wrap would. See the render below for how the arrow direction and
-// row alignment flip to match. `cols` is however many tiles actually fit
-// across the real container -- see useResponsiveCols below -- not a fixed
-// number: an earlier version hardcoded this (first 4, then 3 after 4 turned
-// out to overflow every standard iPhone) by checking it against a handful of
-// phone widths, which is exactly the kind of thing that breaks the next time
-// someone opens this on a tablet, a resized browser window, or a phone that
-// wasn't in the list.
-function buildBadgeRows(badges: CbBadge[], cols: number): BadgeRowItem[][] {
-	const rows: BadgeRowItem[][] = [];
-	for (let i = 0; i < badges.length; i += cols) {
-		const row = badges.slice(i, i + cols).map((badge, j) => ({ badge, originalIndex: i + j }));
-		const rowNumber = i / cols;
-		rows.push(rowNumber % 2 === 1 ? row.reverse() : row);
+// Collapses a genuine return to the same parent right after a loan
+// (build_club_badge_questions.py's insert_loan_returns -- e.g. Chelsea ->
+// loan Genk -> Chelsea) into the loan spell it's continuing, rather than
+// showing the same club a second time. Everything else becomes its own
+// tile, in order.
+function buildChainTiles(badges: CbBadge[], loanMoves: boolean[]): ChainTile[] {
+	const tiles: ChainTile[] = [];
+	const sameClub = (a: CbBadge, b: CbBadge) => (a.url && b.url ? a.url === b.url : a.name === b.name);
+	badges.forEach((badge, i) => {
+		const isLoan = i > 0 && loanMoves[i - 1];
+		if (!isLoan && tiles.length > 0 && tiles[tiles.length - 1].isLoan) {
+			let j = tiles.length - 1;
+			while (j >= 0 && tiles[j].isLoan) j--;
+			const parent = tiles[j];
+			if (parent && sameClub(badge, parent.badge)) return;
+		}
+		tiles.push({ badge, originalIndex: i, isLoan });
+	});
+	return tiles;
+}
+
+// A permanent tile's width and the space one arrow takes between two
+// tiles (clubBadges.css's .cb-badges__row/.cb-arrow-stack). N tiles in a row need
+// N of the former but only N-1 of the latter -- there's no arrow trailing
+// the last tile -- so the budget for N tiles is N*TILE_WIDTH +
+// (N-1)*ARROW_WIDTH, not N*(TILE_WIDTH+ARROW_WIDTH) (confirmed the wrong
+// way, 2026-09-07: that overcounted by one arrow's width and undercounted
+// how many tiles actually fit -- a 390px-wide row should hold 4 tiles
+// (4*64 + 3*32 = 352, leaving 38px as outer padding), not 3).
+const TILE_WIDTH = 64;
+const ARROW_WIDTH = 48;
+
+// m:ss, for the running per-question timer below -- not padded to a
+// fixed width in minutes (a question would need to sit open 100+ minutes
+// before that mattered).
+function formatElapsed(totalSeconds: number): string {
+	const minutes = Math.floor(totalSeconds / 60);
+	const seconds = totalSeconds % 60;
+	return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
+// How many grid columns actually fit in .cb-badges's real width, kept up
+// to date via ResizeObserver -- correct on a phone, a tablet, a resized
+// desktop window, or after a rotation, rather than a guess baked in at
+// build time. The grid itself (clubBadges.css's .cb-badges) then wraps
+// into as many rows as the tile count needs at that column count -- there
+// isn't a separate "how many rows" calculation, that's just what a grid
+// with a fixed column count does on its own once more items exist than
+// fit in one row.
+function useGridColumns(): [(node: HTMLDivElement | null) => void, number] {
+	const [columns, setColumns] = useState(1);
+	const observerRef = useRef<ResizeObserver | null>(null);
+
+	const setNode = useCallback((node: HTMLDivElement | null) => {
+		observerRef.current?.disconnect();
+		observerRef.current = null;
+		if (!node) return;
+		const recompute = () => {
+			const style = getComputedStyle(node);
+			const availableWidth =
+				node.clientWidth - Number.parseFloat(style.paddingLeft) - Number.parseFloat(style.paddingRight);
+			// Solving N*TILE_WIDTH + (N-1)*ARROW_WIDTH <= availableWidth for N.
+			const columns = Math.floor((availableWidth + ARROW_WIDTH) / (TILE_WIDTH + ARROW_WIDTH));
+			setColumns(Math.max(1, columns));
+		};
+		recompute();
+		const observer = new ResizeObserver(recompute);
+		observer.observe(node);
+		observerRef.current = observer;
+	}, []);
+
+	return [setNode, columns];
+}
+
+// Splits the flat, chronological tile sequence into rows of exactly
+// `columns` tiles each (the last row however many are left over) -- what
+// actually produces "N rows" isn't a separate calculation, just chunking
+// the tile count by the per-row count useGridColumns already worked out.
+function chunkRows(tiles: ChainTile[], columns: number): ChainTile[][] {
+	const rows: ChainTile[][] = [];
+	for (let i = 0; i < tiles.length; i += columns) {
+		rows.push(tiles.slice(i, i + columns));
 	}
 	return rows;
 }
 
-// Resolves a CSS length (e.g. "0.4rem", "64px") to actual on-screen pixels by
-// briefly rendering it and measuring the result -- robust to whatever the
-// current root font-size actually is (browser zoom, an accessibility text
-// -size setting) rather than assuming a fixed px-per-rem conversion, which
-// would just be a different flavor of the same "hardcoded number that only
-// matches what was tested" problem this hook exists to avoid.
-function resolveCssLength(value: string): number {
-	const probe = document.createElement("div");
-	probe.style.cssText = `position:absolute;visibility:hidden;height:0;width:${value}`;
-	document.body.appendChild(probe);
-	const px = probe.getBoundingClientRect().width;
-	probe.remove();
-	return px;
-}
-
-interface ResponsiveCols {
-	cols: number;
-	// A full row's own natural width in px (cols tiles, tight fixed gaps,
-	// never stretched) -- every row, full or partial, is rendered at exactly
-	// this width (see the render below) so they all share one reference
-	// frame and get centered identically, rather than each row's own visible
-	// content deciding its width. See buildBadgeRows/render for why a shared
-	// frame is what makes the snake's rows line up.
-	rowWidth: number;
-}
-
-// How many tiles actually fit across .cb-badges's own (live) width, kept up
-// to date via ResizeObserver -- a real measurement of the real container, so
-// it's correct on a phone, a tablet, a resized desktop window, after a
-// rotation, after a browser zoom change, or on any device this was never
-// specifically checked against. --cb-tile/--cb-gap/--cb-arrow (clubBadges.css)
-// are read back from the element's own computed style rather than a second
-// hardcoded copy here, so this can't quietly disagree with what the CSS
-// actually renders at (exactly the bug that made an earlier, formula-only
-// version of this fix wrong -- see clubBadges.css's .cb-badges history).
-//
-// Earlier versions of this fix tried to make a full row's *own* content
-// stretch to exactly fill the container (via a computed width, then
-// space-between, then center) so its edges would land flush against the
-// box's padding. All of those made the same mistake: `cols` is a floor, so
-// there's almost always real leftover width, and stretching a row's
-// internal gaps to soak that up looks exactly like what it is -- tiles
-// wrenched apart with visibly oversized, uneven-looking gaps, worse than
-// the plain padding mismatch this was meant to fix. Rows now keep their
-// natural, tight, always-fixed spacing (see .cb-badges__row/.cb-arrow in
-// clubBadges.css -- no stretching class needed there anymore) and instead
-// all render at the same explicit width (a full row's width) with
-// .cb-badges centering that shared-width block -- so every row, whatever
-// it actually contains, gets identical left/right margins by construction,
-// without a single gap ever being pulled wider than it renders elsewhere.
-//
-// `wideArrows` widens --cb-arrow (clubBadges.css's .cb-badges--wide-arrows)
-// once the transfer-date hint is revealed, since each arrow then carries a
-// two-line date label above the glyph (see the render below) that needs
-// more than the plain arrow's normal width -- cols/rowWidth need to be
-// recomputed against that new width the moment it changes, not just on the
-// next resize, so a change to this flag forces a remeasurement below even
-// though the container's actual size didn't move.
-function useResponsiveCols(wideArrows: boolean): [(node: HTMLDivElement | null) => void, ResponsiveCols] {
-	// Reasonable guesses for the instant before the first real measurement.
-	const [state, setState] = useState<ResponsiveCols>({ cols: 3, rowWidth: 0 });
-	const nodeRef = useRef<HTMLDivElement | null>(null);
-	const observerRef = useRef<ResizeObserver | null>(null);
-
-	// clientWidth (border-box minus border, i.e. padding+content) minus the
-	// element's own padding -- the same "space actually available for
-	// tiles" ResizeObserver's contentRect gives on its own callback, kept
-	// consistent here since this path (unlike the observer) needs to read
-	// the current width on demand rather than wait for one to be delivered.
-	const recompute = useCallback(() => {
-		const node = nodeRef.current;
-		if (!node) return;
-		const style = getComputedStyle(node);
-		const paddingLeft = resolveCssLength(style.paddingLeft);
-		const paddingRight = resolveCssLength(style.paddingRight);
-		const containerWidth = node.clientWidth - paddingLeft - paddingRight;
-		const tile = resolveCssLength(style.getPropertyValue("--cb-tile") || "64px");
-		const gap = resolveCssLength(style.getPropertyValue("--cb-gap") || "0.4rem");
-		const arrow = resolveCssLength(style.getPropertyValue("--cb-arrow") || "1rem");
-		// Every tile after the first also costs an arrow plus the two row
-		// gaps flanking it (badges and arrows are direct, alternating
-		// children of the row -- see .cb-badges__row in clubBadges.css and
-		// the render below); solving "how many tiles fit" for that
-		// per-tile cost gives this floor.
-		const stepExtra = arrow + 2 * gap;
-		const cols = Math.max(1, Math.floor((containerWidth + stepExtra) / (tile + stepExtra)));
-		const rowWidth = cols * tile + (cols - 1) * stepExtra;
-		setState({ cols, rowWidth });
-	}, []);
-
-	const setNode = useCallback(
-		(node: HTMLDivElement | null) => {
-			observerRef.current?.disconnect();
-			observerRef.current = null;
-			nodeRef.current = node;
-			if (!node) return;
-			const observer = new ResizeObserver(() => recompute());
-			observer.observe(node);
-			observerRef.current = observer;
-			recompute();
-		},
-		[recompute],
-	);
-
-	// Runs synchronously before paint, right after wideArrows's class change
-	// has already been committed to the DOM (React applies className during
-	// the same commit this effect fires after), so there's no visible frame
-	// with the old column count still in effect.
-	useLayoutEffect(() => {
-		recompute();
-	}, [wideArrows, recompute]);
-
-	return [setNode, state];
-}
-
 interface Props {
 	state: CbState;
-	onGuess: (guess: string) => void;
-	onGiveUp: () => void;
+	// `points` is this question's live score at the instant the guess/
+	// give-up was pressed (computeScore(elapsedSeconds, hints revealed) --
+	// see below) -- GuessThePlayer.tsx just carries it through to the
+	// reducer unchanged, it never recomputes it itself.
+	onGuess: (guess: string, points: number) => void;
+	onGiveUp: (points: number) => void;
 	onNext: () => void;
 	submitting: boolean;
 	onQuit: () => void;
@@ -178,23 +152,44 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 	// which the lint rule (react-hooks/set-state-in-effect) flags for
 	// exactly that reason.
 	const [revealedHints, setRevealedHints] = useState<Set<HintKey>>(new Set());
+	// Seconds this question has been open -- ticks once per second (the
+	// effect below) while still being guessed, frozen the instant it's
+	// answered (nothing reads it after that; computeScore's own call in
+	// pick()/confirmGiveUp() below already captured the score at the
+	// moment of submission, not whenever the server happens to respond).
+	// Reset alongside revealedHints on the same "question actually
+	// changed" check -- a retry that stays on the same question (solo
+	// lives, state.ts's "wrongAttempt") must NOT reset either one: the
+	// clock and hint count both keep running against the same 100-point
+	// budget until this question is actually done, one way or another.
+	const [elapsedSeconds, setElapsedSeconds] = useState(0);
 	const [hintQuestionIndex, setHintQuestionIndex] = useState(state.questionIndex);
 	if (state.questionIndex !== hintQuestionIndex) {
 		setHintQuestionIndex(state.questionIndex);
 		setRevealedHints(new Set());
+		setElapsedSeconds(0);
 	}
-	// Declared after revealedHints since useResponsiveCols needs its current
-	// value (whether to widen the arrow columns for the date labels) --
-	// hooks still run unconditionally every render either way.
-	const [badgesRef, { cols, rowWidth }] = useResponsiveCols(revealedHints.has("transferDate"));
+	const question = state.questions[state.questionIndex];
+	const [gridRef, columns] = useGridColumns();
+
+	// A real subscription (a ticking interval), not state derived from a
+	// prop -- this is exactly what useEffect is for, unlike the render-time
+	// reset above. Stops the instant state.lastResult is set (question
+	// answered) rather than running on uselessly in the background; restarts
+	// on questionIndex changing to the next question.
+	useEffect(() => {
+		if (state.lastResult) return;
+		const id = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
+		return () => clearInterval(id);
+	}, [state.questionIndex, state.lastResult]);
 
 	function revealHint(key: HintKey) {
 		setRevealedHints((prev) => new Set(prev).add(key));
 	}
 
-	const question = state.questions[state.questionIndex];
 	if (!question) return null;
-	const badgeRows = buildBadgeRows(question.badges, cols);
+	const chainTiles = buildChainTiles(question.badges, question.loanMoves);
+	const rows = chunkRows(chainTiles, columns);
 	// A hint key existing (HINT_KEYS) doesn't guarantee it's offered for
 	// THIS question -- nationality is skipped outright when the server sent
 	// null for it (see state.ts's CbQuestion doc), and transferDate the same
@@ -222,7 +217,7 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 
 	function pick(name: string) {
 		setGuessInput(name);
-		onGuess(name);
+		onGuess(name, computeScore(elapsedSeconds, revealedHints.size));
 		setGuessInput("");
 	}
 
@@ -233,7 +228,7 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 
 	function confirmGiveUp() {
 		setConfirmingGiveUp(false);
-		onGiveUp();
+		onGiveUp(computeScore(elapsedSeconds, revealedHints.size));
 	}
 
 	return (
@@ -253,7 +248,9 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 			    doesn't matter anymore. Multiplayer has no such cap (see
 			    state.ts's "next" case), so there's nothing meaningful to show
 			    here for a real roster. */}
-			{solo && <LivesIndicator total={MAX_WRONG_LIVES} remaining={MAX_WRONG_LIVES - state.wrongCount} />}
+			{solo && (
+				<LivesIndicator total={MAX_WRONG_LIVES} remaining={MAX_WRONG_LIVES - state.wrongCount} />
+			)}
 
 			{!solo && (
 				<ul className="mp-players">
@@ -270,7 +267,10 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 				</ul>
 			)}
 
-			<p className="cb-turn-banner" style={{ "--player-color": current.color } as React.CSSProperties}>
+			<p
+				className="cb-turn-banner"
+				style={{ "--player-color": current.color } as React.CSSProperties}
+			>
 				{solo
 					? "Who is this?"
 					: state.lastResult
@@ -280,105 +280,161 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 						: `${current.name}'s turn — who is this?`}
 			</p>
 
-			{/* ref hands the live element to useResponsiveCols so it can measure
-			    the real available width and observe it for resizes -- see that
-			    hook above for why this replaced a fixed column count. Rows are
-			    centered as a block (see .cb-badges's align-items in
-			    clubBadges.css) rather than individually stretched, so every row
-			    below is given the SAME explicit width (rowWidth, a full row's
-			    natural width) regardless of how many tiles it actually holds --
-			    that shared frame is what keeps left/right margins identical
-			    across every row instead of each row's own content deciding it.
-			    --wide-arrows only actually shows a label on an arrow whose own
-			    transfer has one (dateFor below can still return null even while
-			    this class is active for an earlier one), but the column width
-			    itself is all-or-nothing per clubBadges.css's comment. */}
-			<div
-				className={["cb-badges", revealedHints.has("transferDate") && "cb-badges--wide-arrows"].filter(Boolean).join(" ")}
-				ref={badgesRef}
-			>
-				{badgeRows.map((row, rowIndex) => {
+			{/* Live countdown pressure on the 100-point budget above --
+			    tabular-nums (clubBadges.css) so the digits don't jitter the
+			    layout as they change. Stays on screen through the reveal
+			    rather than disappearing -- the ticking effect above already
+			    stops the instant state.lastResult is set, so this just shows
+			    whatever the clock read at the moment the score (below) was
+			    actually earned, instead of vanishing right when it'd be most
+			    useful to see. */}
+			<p className="cb-timer">⏱ {formatElapsed(elapsedSeconds)}</p>
+
+			{/* useGridColumns computes how many tiles fit per row; chunking
+			    chainTiles into rows of that many (clubBadges.css's
+			    .cb-badges, a plain flex column) is what actually determines
+			    row count -- as many rows as the tile count needs at that
+			    per-row count, the last one however short. Each row is its
+			    own grid with an explicit alternating template -- a tile
+			    track, then an arrow track, repeating -- so an arrow renders
+			    in its own dedicated (narrow) column between two tiles
+			    rather than living inside either tile's own box. */}
+			<div className="cb-badges" ref={gridRef}>
+				{rows.map((row, rowIndex) => {
+					// Boustrophedon ("snake"): odd rows read right-to-left instead
+					// of left-to-right, continuing visually from wherever the row
+					// above it ended, rather than always wrapping back to the
+					// left. `direction: rtl` on the row (clubBadges.css) is what
+					// actually flips it -- DOM/tile order below stays exactly
+					// chronological regardless, so there's no separate "which
+					// tile comes before this one" bookkeeping to get wrong the
+					// way an earlier version of this screen's reversed rows did.
 					const reversed = rowIndex % 2 === 1;
-					// Within its own shared-width frame, a row just packs its tiles
-					// to whichever side continues the snake -- flex-start reads on
-					// from the left, flex-end from the right -- at their natural,
-					// always-fixed spacing (no stretching, see useResponsiveCols's
-					// comment on why that was the actual bug in two earlier attempts
-					// at this). A full row's tiles already span the entire frame on
-					// their own, so flex-start/flex-end make no visible difference
-					// for one; only a short trailing row visibly hugs one side,
-					// leaving blank space on the other within the shared frame --
-					// that's the snake's "picks up where the last row ended" look.
-					const rowClassName = ["cb-badges__row", reversed && "cb-badges__row--reversed"].filter(Boolean).join(" ");
-					// A row wrap is still a step in the same sequence, so it gets an
-					// arrow too -- just pointing down instead of sideways, sitting
-					// between this row and the next one. It has to land under
-					// whichever tile the sequence actually continues from: this
-					// row's last tile if it's *not* reversed (which is at the
-					// frame's right edge -- see .cb-badges__row--reversed's comment
-					// on why full rows fill the frame edge to edge), or the frame's
-					// left edge if it is. That's exactly the side the *next* row's
-					// own reversed flag reads from, so reusing it here keeps the two
-					// in sync automatically instead of duplicating the logic.
-					const nextRowReversed = (rowIndex + 1) % 2 === 1;
-					const isLastRow = rowIndex === badgeRows.length - 1;
-					// transferDates[i] is the transfer FROM badges[i] TO badges[i+1]
-					// (state.ts), so the arrow arriving at a given originalIndex
-					// reads the entry one before it; the row-wrap connector below
-					// reads off this row's chronologically-last originalIndex (the
-					// max in the row, regardless of display order) for the same
-					// reason -- it represents that same transfer, just drawn between
-					// rows instead of between two side-by-side tiles.
-					const dateFor = (toOriginalIndex: number) =>
-						revealedHints.has("transferDate") ? question.transferDates[toOriginalIndex - 1] : null;
-					// Unlike dateFor, never gated behind the transferDate hint --
-					// see state.ts's loanMoves doc for why this isn't itself a hint.
-					const loanFor = (toOriginalIndex: number) => question.loanMoves[toOriginalIndex - 1] ?? false;
-					const connectorToIndex = Math.max(...row.map((r) => r.originalIndex)) + 1;
-					const connectorDate = dateFor(connectorToIndex);
-					const connectorLoan = loanFor(connectorToIndex);
+					const rowTemplate = `repeat(${columns - 1}, ${TILE_WIDTH}px ${ARROW_WIDTH}px) ${TILE_WIDTH}px`;
 					return (
 						<Fragment key={rowIndex}>
-							<div className={rowClassName} style={{ width: rowWidth }}>
-								{row.map(({ badge, originalIndex }, posInRow) => {
-									const arrowDate = posInRow > 0 ? dateFor(originalIndex) : null;
-									const arrowLoan = posInRow > 0 && loanFor(originalIndex);
-									return (
-										<Fragment key={originalIndex}>
-											{posInRow > 0 && (
-												<span className={["cb-arrow-stack", arrowLoan && "cb-arrow-stack--loan"].filter(Boolean).join(" ")}>
-													{arrowDate && <span className="cb-arrow-date">{arrowDate}</span>}
-													<span className="cb-arrow" aria-hidden="true">
-														{reversed ? "←" : "→"}
-													</span>
-													{arrowLoan && <span className="cb-arrow-loan">loan</span>}
-												</span>
-											)}
-											<BadgeTile badge={badge} showCountryHint={revealedHints.has("country")} />
-										</Fragment>
-									);
-								})}
-							</div>
-							{!isLastRow && (
+						<div
+							className={["cb-badges__row", reversed && "cb-badges__row--reversed"].filter(Boolean).join(" ")}
+							// Always the full `columns` width, not row.length -- the
+							// last row can hold fewer tiles than the rest, but every
+							// row still needs the SAME template so tiles actually
+							// line up into vertical columns across rows instead of
+							// each row's (potentially narrower) content being
+							// centered independently. A short row's own cells (its
+							// trailing tracks, or leading ones under direction: rtl)
+							// just stay empty.
+							style={{ gridTemplateColumns: rowTemplate }}
+						>
+						{row.map((tile, posInRow) => {
+							const isRowFirst = posInRow === 0;
+							// The only arrow that needs the extra breathing room:
+							// leaving a permanent tile to START a loan spell. A
+							// loan-to-loan arrow (two consecutive loan tiles) sits
+							// between two tiles that are already both inset within
+							// their own 64px wrap, so it doesn't read as cramped
+							// against its left neighbor the way this one does.
+							const isEnteringLoan = !isRowFirst && tile.isLoan && !row[posInRow - 1].isLoan;
+							// The mirror case: leaving a loan club to enter a
+							// permanent one. That arrow doesn't really originate
+							// from the loan club at all -- the player actually
+							// returned to the parent first (see db/schema.sql's
+							// club_sequence comment), the loan tile just happens
+							// to be the nearest thing drawn next to it. Lowering
+							// it to the loan tile's own lower half (rather than
+							// the row's vertical center) reads as "this comes
+							// from underneath/behind the loan step, not from it."
+							const isLeavingLoan = !isRowFirst && !tile.isLoan && row[posInRow - 1].isLoan;
+							const arrowDate =
+								!isRowFirst && revealedHints.has("transferDate")
+									? question.transferDates[tile.originalIndex - 1]
+									: null;
+							return (
+								<Fragment key={tile.originalIndex}>
+									{!isRowFirst && (
+										<span
+											className={[
+												"cb-arrow-stack",
+												tile.isLoan && "cb-arrow-stack--loan-target",
+												isEnteringLoan && "cb-arrow-stack--entering-loan",
+												isLeavingLoan && "cb-arrow-stack--leaving-loan",
+											]
+												.filter(Boolean)
+												.join(" ")}
+										>
+											{arrowDate && <span className="cb-arrow-date">{arrowDate}</span>}
+											<span
+												className={["cb-arrow", tile.isLoan && "cb-arrow--loan"].filter(Boolean).join(" ")}
+												aria-hidden="true"
+											>
+												{reversed ? "←" : "→"}
+											</span>
+											{tile.isLoan && <span className="cb-arrow-loan">loan</span>}
+										</span>
+									)}
+									<BadgeTile
+										badge={tile.badge}
+										showCountryHint={revealedHints.has("country")}
+										small={tile.isLoan}
+									/>
+								</Fragment>
+							);
+						})}
+						</div>
+						{rowIndex < rows.length - 1 && (() => {
+							// Links this row to the next one -- the same grid
+							// template as a tile row (so its columns line up with
+							// theirs) and the same direction as THIS row, with a
+							// single "↓" placed in the last column. That's always
+							// where this row's own last tile landed (a full row
+							// always fills every column), and -- since the next
+							// row's direction is always the opposite of this
+							// one's -- it's also exactly where the next row's
+							// first tile lands, direction flipping the visual
+							// edge right back to the same spot (confirmed on
+							// paper before writing this, not just eyeballed: row
+							// N's last tile is always at raw column 2*columns-1;
+							// under direction: rtl that's the left edge, under
+							// ltr the right edge; row N+1 starts at raw column 1,
+							// which is the left edge under ltr and the right
+							// edge under rtl -- alternating directions makes
+							// those the same physical edge every time).
+							//
+							// The tile this arrow actually leads into is the next
+							// row's own first tile, not anything in this row -- so
+							// whether it needs the loan styling (color, "LOAN" tag,
+							// date) depends on THAT tile, same as every other arrow
+							// in this chain, just crossing a row boundary instead
+							// of sitting between two tiles in the same row.
+							const target = rows[rowIndex + 1][0];
+							const targetDate =
+								revealedHints.has("transferDate") ? question.transferDates[target.originalIndex - 1] : null;
+							return (
 								<div
-									className={["cb-badges__connector", nextRowReversed && "cb-badges__connector--right"]
+									className={["cb-badges__row", "cb-badges__connector", reversed && "cb-badges__row--reversed"]
 										.filter(Boolean)
 										.join(" ")}
-									style={{ width: rowWidth }}
+									style={{ gridTemplateColumns: rowTemplate }}
 								>
-									<span
-										className={["cb-arrow-stack", "cb-arrow-stack--down", connectorLoan && "cb-arrow-stack--loan"]
-											.filter(Boolean)
-											.join(" ")}
-									>
-										{connectorDate && <span className="cb-arrow-date">{connectorDate}</span>}
-										<span className="cb-arrow" aria-hidden="true">
+									{/* No --entering-loan margin here, unlike the same
+									    case within a row -- that nudge is a horizontal
+									    breathing-room fix, but this arrow's horizontal
+									    position is alignment-critical (it has to land
+									    exactly on the target tile's own column above/
+									    below it), so shifting it sideways would misalign
+									    it instead of just adding space. */}
+									<span className="cb-arrow-stack" style={{ gridColumnStart: 2 * columns - 1 }}>
+										{targetDate && <span className="cb-arrow-date">{targetDate}</span>}
+										<span
+											className={["cb-arrow", target.isLoan && "cb-arrow--loan"].filter(Boolean).join(" ")}
+											aria-hidden="true"
+										>
 											↓
 										</span>
-										{connectorLoan && <span className="cb-arrow-loan">loan</span>}
+										{target.isLoan && <span className="cb-arrow-loan">loan</span>}
 									</span>
 								</div>
-							)}
+							);
+						})()}
 						</Fragment>
 					);
 				})}
@@ -430,7 +486,12 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 					{confirmingGiveUp ? (
 						<div className="give-up-confirm">
 							<span>Give up on this one?</span>
-							<button type="button" className="give-up-confirm__yes" onClick={confirmGiveUp} disabled={submitting}>
+							<button
+								type="button"
+								className="give-up-confirm__yes"
+								onClick={confirmGiveUp}
+								disabled={submitting}
+							>
 								Yes, give up
 							</button>
 							<button
@@ -443,14 +504,23 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 							</button>
 						</div>
 					) : (
-						<button type="button" className="give-up-link" onClick={() => setConfirmingGiveUp(true)} disabled={submitting}>
+						<button
+							type="button"
+							className="give-up-link"
+							onClick={() => setConfirmingGiveUp(true)}
+							disabled={submitting}
+						>
 							Give up
 						</button>
 					)}
 				</>
 			) : (
 				<div className="cb-reveal">
-					<p className={state.lastResult.outcome === "correct" ? "cb-reveal__correct" : "cb-reveal__wrong"}>
+					<p
+						className={
+							state.lastResult.outcome === "correct" ? "cb-reveal__correct" : "cb-reveal__wrong"
+						}
+					>
 						{state.lastResult.outcome === "correct"
 							? // Confirms the canonical name, not just that the guess counted --
 								// a guess can match via an alias or loose/typo-tolerant matching
@@ -461,6 +531,16 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 								? `It was ${state.lastResult.correctName}`
 								: `❌ Not quite — it was ${state.lastResult.correctName}`}
 					</p>
+					{/* Only for a correct guess -- state.ts's CbResult doc on why a
+					    wrong guess/give-up still carries a `points` value (the
+					    reducer/action shape stays uniform either way) without ever
+					    showing it: there's nothing to have "gotten" if the answer
+					    was wrong. */}
+					{state.lastResult.outcome === "correct" && (
+						<p className={`cb-score cb-score--${scoreBand(state.lastResult.points)}`}>
+							{state.lastResult.points} points
+						</p>
+					)}
 					<button type="button" className="cb-next-button" onClick={next}>
 						{isLastQuestion ? "See results" : "Next question"}
 					</button>

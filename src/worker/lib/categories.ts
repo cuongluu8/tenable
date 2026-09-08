@@ -252,6 +252,20 @@ export async function suggestNames(
 	const ftsQuery = toFtsPrefixQuery(normalizedPrefix);
 	if (!ftsQuery) return { names: [], truncated: false };
 
+	// `alias LIKE ?3 || '%'` looks like an obvious prefix search, but SQLite's
+	// LIKE-to-index-range optimization doesn't reliably kick in through a join
+	// -- confirmed via EXPLAIN QUERY PLAN (2026-09-06 incident: this exact
+	// query read ~73,000 rows per call in production, 20 calls alone burning
+	// ~30% of a whole day's D1 free-tier quota) that the planner was instead
+	// driving the join from `entities` filtered by entity_type -- effectively
+	// every player row -- and probing entity_aliases per row, rather than the
+	// other way round. Explicit `>=`/`<` bounds against a computed upper bound
+	// are unambiguous to the planner regardless of join shape, and verified
+	// (same EXPLAIN) to produce a genuine `SEARCH ... USING INDEX
+	// idx_entity_aliases_alias (alias>? AND alias<?)` — an actual bounded
+	// range scan, not a scan of every aliased row let alone every entity.
+	const prefixUpperBound = normalizedPrefix + "￿";
+
 	const result = await db
 		.prepare(
 			`SELECT name FROM (
@@ -279,14 +293,14 @@ export async function suggestNames(
 					       END AS priority
 					FROM entity_aliases al
 					JOIN entities e ON al.entity_id = e.id
-					WHERE al.alias LIKE ?3 || '%' AND e.entity_type = ?2
+					WHERE al.alias >= ?3 AND al.alias < ?6 AND e.entity_type = ?2
 				 )
 				 GROUP BY name
 			 )
 			 ORDER BY priority ASC, LENGTH(name) ASC, name ASC
 			 LIMIT ?5`,
 		)
-		.bind(ftsQuery, entityType, normalizedPrefix, scope, limit + 1)
+		.bind(ftsQuery, entityType, normalizedPrefix, scope, limit + 1, prefixUpperBound)
 		.all<{ name: string }>();
 	const names = (result.results ?? []).map((r) => r.name);
 	const truncated = names.length > limit;

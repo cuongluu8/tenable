@@ -49,170 +49,171 @@
 	color: #9ca3af;
 }
 
-/* Badges shown all at once (no progressive reveal — see the club-badges
-   design decision this was built from). A column of fixed-size rows (see
-   ClubBadgesPlay.tsx's buildBadgeRows) rather than one flex-wrap line --
-   long careers (up to ~10-12 clubs) snake across multiple rows instead of
-   just wrapping straight back to the left each time. */
+/* Badges shown all at once (no progressive reveal). ClubBadgesPlay.tsx's
+   useGridColumns computes how many tiles fit per row from the real
+   container width, then chunks the flat tile list into rows of that many
+   -- this is just the column of those rows; each row is its own grid
+   (.cb-badges__row below). */
 .cb-badges {
 	display: flex;
 	flex-direction: column;
-	/* --cb-tile/--cb-gap/--cb-arrow are the actual fixed sizes a tile, a gap
-	   and an arrow render at (see .cb-badge, .cb-badges__row, and .cb-arrow
-	   below, all of which reference these same variables
-	   rather than repeating the literals) -- defined once here since every
-	   element that needs them is a descendant of this box and custom
-	   properties inherit. ClubBadgesPlay.tsx's useResponsiveCols reads these
-	   same three back (via getComputedStyle) to work out how many tiles
-	   actually fit across this box's live width, so there's exactly one
-	   place each value is written, not a second copy in JS that could
-	   quietly drift from what's actually rendered. */
-	--cb-tile: 64px;
-	--cb-gap: 0.4rem;
-	--cb-arrow: 1rem;
-	gap: var(--cb-gap);
-	padding: 1rem;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.75rem;
 	background: #1f2937;
 	border: 1px solid #374151;
 	border-radius: 10px;
-	/* Every row is given the same explicit width regardless of how many
-	   tiles it holds (ClubBadgesPlay.tsx's rowWidth -- a full row's own
-	   natural width, tiles at their fixed size with tight, never-stretched
-	   gaps) rather than each row sizing itself to its own content or
-	   stretching to fill this box (the default for a column flex container's
-	   children). `center` places that identical-width block at the same
-	   horizontal offset for every row, so left/right margins end up equal
-	   across the whole grid by construction -- not by inflating any row's
-	   internal spacing to reach the edges, which is what every earlier
-	   attempt at this (a computed box width, then space-between, then
-	   center-the-row) actually did, and which is exactly why arrows kept
-	   ending up shoved apart into oversized gaps instead of sitting snugly
-	   next to the tiles they connect: cols is a floor, so there's almost
-	   always real leftover width, and stretching *any* row's own gaps to
-	   soak it up shows up as visibly uneven, disconnected-looking spacing
-	   the more slack there is. Centering the row as a whole spends that same
-	   leftover width as plain margin outside the tiles instead, where it
-	   was always meant to go. */
-	align-items: center;
 }
 
-/* Applied once the transfer-date hint is revealed (ClubBadgesPlay.tsx) --
-   widens the arrow columns so a two-line date label (.cb-arrow-date) fits
-   above each glyph without its ellipsis truncating "Jul 2009"/"~2009" in
-   the common case. Overriding the custom property here (rather than a
-   second variable) means every rule already using var(--cb-arrow) --
-   .cb-arrow-stack's width, useResponsiveCols's column-fit math -- just
-   picks up the new value automatically. */
-.cb-badges--wide-arrows {
-	--cb-arrow: 2.6rem;
-}
-
+/* One row: an explicit alternating template -- a tile-width track, then
+   an arrow-width track, repeating, ending on a tile -- set inline per row
+   (ClubBadgesPlay.tsx, since the last row can hold fewer tiles than the
+   rest). An arrow renders in its own dedicated track between two tiles
+   this way, rather than living inside either tile's own box. No gap on
+   top of that -- the template's own tracks already account for every
+   pixel useGridColumns budgeted between two tiles; a grid gap on top
+   would make the real rendered row wider than what was budgeted, risking
+   overflow instead of the intended leftover-space-as-padding
+   (justify-content: center) once a row is narrower than the container. */
 .cb-badges__row {
-	display: flex;
+	display: grid;
+	justify-content: center;
+	justify-items: center;
 	align-items: center;
-	justify-content: flex-start;
-	gap: var(--cb-gap);
 }
 
-/* Odd rows (2nd, 4th, ...) pack their tiles to the right instead of the
-   left -- so a row that reads right-to-left visually picks up from directly
-   under wherever the row above it ended, the way a snake path actually
-   turns, rather than floating unconnected in the middle of the row. Every
-   row (see .cb-badges's align-items above) renders at the same width
-   regardless of how many tiles it actually holds, so a short trailing row's
-   tiles hug one side of that shared frame with plain, unstretched blank
-   space left over on the other -- that's the snake's turn, not a bug. A
-   full row's tiles already span its own frame edge to edge on their own, so
-   flex-start vs flex-end makes no visible difference for one. */
+/* The boustrophedon ("snake") flip -- every other row reads right-to-left
+   instead of left-to-right, so the path continues visually from wherever
+   the row above it ended. `direction: rtl` reverses which end of the row
+   grid auto-placement fills first (ClubBadgesPlay.tsx's tile/arrow order
+   in the markup is always chronological regardless -- this is a pure CSS
+   flip, not a data reversal). Doesn't affect any of this game's own text
+   rendering -- everything here already uses text-align: center rather
+   than the logical start/end that direction would otherwise reinterpret,
+   and images (the crests themselves) are never mirrored by `direction`
+   the way flipping the row's own axis is. */
 .cb-badges__row--reversed {
-	justify-content: flex-end;
+	direction: rtl;
 }
 
-/* Pinned to a fixed width (rather than left to the glyph's own natural
-   width) so useResponsiveCols (ClubBadgesPlay.tsx) -- which has to assume
-   some arrow width up front when computing how many tiles fit -- always
-   matches what actually renders, regardless of font/glyph metrics in any
-   given browser. */
-/* Wraps an arrow glyph and, once the transfer-date hint is revealed, a small
-   date label stacked above it -- one column, so the label costs vertical
-   room (plenty of it: a row's height is set by its 64px tiles, dwarfing a
-   two-line label) instead of horizontal room, which there's almost none of
-   between tiles. This is the box .cb-badges--wide-arrows below widens --
-   the glyph itself (.cb-arrow) never changes size, only how much room
-   surrounds it. */
+/* Links one row to the next -- same grid template as a tile row (so its
+   one real cell, the "↓" placed via inline grid-column-start in
+   ClubBadgesPlay.tsx, lines up with whichever tile it's actually
+   connecting), just shorter, since there's no 64px tile here to set the
+   row's own height. */
+.cb-badges__connector {
+	min-height: 0;
+}
+
+/* Wraps an arrow glyph and, once the transfer-date hint is revealed, a
+   small date label above it. Fixed at exactly ARROW_WIDTH
+   (ClubBadgesPlay.tsx) rather than sized to content -- a "LOAN" tag or a
+   date string would otherwise render wider than what useGridColumns
+   budgeted for every arrow, which is exactly the mismatch that caused a
+   row to be undercounted before. 48px specifically (not just enough for
+   the plain arrow glyph) is sized for the date label -- measured against
+   the real formatted strings (state.ts's "Mon YYYY"/"~YYYY"), the widest
+   being an 8-character month-year like "Sep 2023" at ~40px -- narrower
+   than this and the date hint truncates ("Au...", "...023") instead of
+   showing the real date (confirmed the hard way, 2026-09-08). */
 .cb-arrow-stack {
 	display: inline-flex;
 	flex-direction: column;
 	align-items: center;
 	justify-content: center;
-	width: var(--cb-arrow);
+	width: 48px;
+	/* A flex/grid item's default min-width is auto (its content's
+	   min-content size), which silently overrides a smaller explicit
+	   width once content can't shrink below it -- exactly what "LOAN"
+	   (an unbreakable word wider than 24px) would otherwise do, throwing
+	   off centering against the fixed-width arrow track this is meant to
+	   occupy. min-width: 0 forces the 24px to actually hold; overflow
+	   lets wider content (LOAN, a long date) spill without stretching
+	   the box that's supposed to stay centered. */
+	min-width: 0;
+	overflow: visible;
 }
 
-/* Widened to a full tile's width (rather than the normal narrow --cb-arrow)
-   so centering it lands the glyph under the middle of the tile it's
-   pointing away from/into, not hugging the frame's raw edge -- a tile is
-   --cb-tile wide, the connector's own flex-start/flex-end only positions
-   this box, not the stack within it. */
-.cb-arrow-stack--down {
-	width: var(--cb-tile);
+/* An arrow leading into a loan tile needs to point at that tile's own
+   48px image (.cb-badge--small), not the middle of the full 64px wrap
+   around it -- a loan tile's image sits top-middle within its wrap, not
+   vertically centered (see .cb-badge-wrap--small's own comment). Pinning
+   this to the row's own top edge (align-self overriding .cb-badges__row's
+   align-items: center) and giving it the same 48px height as the image,
+   rather than trying to nudge it down by some computed margin, means
+   whatever centers content within a 48px box centers it identically for
+   both -- they're sharing the same reference frame, not two independent
+   calculations that have to be kept in sync by hand. */
+.cb-arrow-stack--loan-target {
+	align-self: start;
+	height: 48px;
+}
+
+/* The mirror case: an arrow leaving a loan tile to enter a permanent one.
+   That move doesn't actually originate from the loan club -- the player
+   returned to the parent club first (db/schema.sql's club_sequence
+   comment) -- so this is pinned to the row's own BOTTOM edge instead of
+   its top, reading as "coming from underneath/behind the loan step" the
+   same way .cb-arrow-stack--loan-target reads as "pointing at the loan
+   step's own image" for the entering case. No fixed height to match here
+   (unlike --loan-target) -- this arrow isn't centered against a specific
+   image, just pushed to the row's bottom edge with its own natural size. */
+.cb-arrow-stack--leaving-loan {
+	align-self: end;
+	/* Pulled back up from the row's true bottom edge -- flush against it
+	   read as too low (confirmed the hard way, 2026-09-08). This lands it
+	   closer to just below the loan image's own bottom edge (the loan
+	   image ends at 48px into a 64px-tall row) instead of the row's full
+	   64px edge. */
+	margin-bottom: 12px;
+}
+
+/* The one loan-target arrow that visually reads as too close to its left
+   neighbor -- leaving a full 64px permanent tile to start a loan spell.
+   A loan-to-loan arrow doesn't get this: both its neighbors are already
+   inset loan tiles, so it doesn't read as cramped the same way. */
+.cb-arrow-stack--entering-loan {
+	margin-left: 10px;
 }
 
 .cb-arrow {
+	display: inline-block;
 	color: #6b7280;
 	font-size: 1.1rem;
 	font-weight: 700;
 	line-height: 1;
 }
 
-/* A loan move (ClubBadgesPlay.tsx's loanFor, sourced from transfers.transfer_type
-   -- see clubBadges.ts's loanMoves comment for why player_career_stats-sourced
-   players never get this) reads as a normal permanent transfer otherwise, which
-   is exactly the ambiguity that made a returned-to-parent step look like it
-   never happened before club_sequence started keeping it (see db/schema.sql's
-   own comment on club_sequence). The glyph itself stays put -- only its color
-   and this small always-on label change -- so the label, not a resized/altered
-   arrow, is what widens .cb-arrow-stack here; that's also why it's not folded
-   into --cb-arrow's own width the way .cb-arrow-date is (that one only ever
-   appears together with a loan label when the transferDate hint happens to be
-   revealed too, and --cb-arrow is already sized generously enough for both
-   stacked at once). */
-.cb-arrow-stack--loan .cb-arrow {
+/* A loan move (ClubBadgesPlay.tsx's ChainTile.isLoan, sourced from
+   transfers.transfer_type -- see clubBadges.ts's loanMoves comment for why
+   player_career_stats-sourced players never get this) reads as a normal
+   permanent transfer otherwise, which is exactly the ambiguity that made a
+   returned-to-parent step look like it never happened before club_sequence
+   started keeping it (see db/schema.sql's own comment on club_sequence). */
+.cb-arrow--loan {
 	color: #fbbf24;
 }
 .cb-arrow-loan {
-	font-size: 0.5rem;
-	line-height: 1.2;
+	display: block;
+	text-align: center;
+	font-size: 0.55rem;
 	font-weight: 600;
 	letter-spacing: 0.02em;
 	text-transform: uppercase;
 	color: #fbbf24;
 }
 
-/* "Jul 2009" or "~2009" (see state.ts's CbQuestion doc on the two formats) --
-   small enough to usually fit .cb-arrow-stack's own narrow width without
-   the ellipsis ever kicking in, but truncates rather than overflowing into
-   a neighboring tile on the rare longer string at a large accessibility
-   text-size setting. */
+/* "Jul 2009" or "~2009" (see state.ts's CbQuestion doc on the two formats),
+   shown once the transfer-date hint is revealed. */
 .cb-arrow-date {
-	font-size: 0.5rem;
-	line-height: 1.2;
+	display: block;
+	text-align: center;
+	font-size: 0.55rem;
 	color: #93c5fd;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	max-width: 100%;
-}
-
-/* A row wrap between two badge rows -- own line, own arrow (ClubBadgesPlay.tsx
-   renders one of these between every pair of rows), pointing down instead of
-   sideways. Sized to the same shared rowWidth frame as the rows themselves
-   so flex-start/--right land it under the correct edge of that frame -- see
-   ClubBadgesPlay.tsx's comment on which edge that is. */
-.cb-badges__connector {
-	display: flex;
-}
-.cb-badges__connector--right {
-	justify-content: flex-end;
 }
 
 /* Understated on purpose -- a caveat about the data, not something worth
@@ -226,57 +227,163 @@
 	font-style: italic;
 }
 
-/* Positioning context for the country-ribbon hint overlay (see
-   .cb-badge-ribbon below). Explicitly fixed at 64px here too (not just
-   left to shrink-wrap around its child) and clipped -- a long unbroken
-   club name inside the placeholder's text was growing this wrapper past
-   64px otherwise (its child's own explicit width doesn't reliably stop an
+/* A flex column so the two hint elements either side of the image --
+   .cb-badge-ribbon (country) above, .cb-badge-name (club name) below --
+   are real blocks that push the wrap taller, not overlays absolutely
+   positioned on top of the image's own top/bottom edges the way an
+   earlier version of each was. Both started that way (matching the
+   classic "banner across a card corner" look) and both turned out to have
+   the same real bug once actually looked at with a hint revealed: the
+   ribbon was cropping the top of every crest, and the name (needing more
+   room than a fixed-height overlay could ever give it) was forcing an
+   ellipsis onto anything longer than a couple of characters (confirmed
+   the hard way, 2026-09-07, in that order). Width is still fixed at 64px
+   here (not left to shrink-wrap around its child) -- a long unbroken club
+   name inside the placeholder's text was growing this wrapper past 64px
+   otherwise (its child's own explicit width doesn't reliably stop an
    inline-block ancestor's shrink-to-fit sizing from being influenced by
-   that child's flex content in every browser), so this is now a hard
-   width ceiling regardless of what's inside. */
+   that child's flex content in every browser), so this stays a hard width
+   ceiling regardless of what's inside. */
 .cb-badge-wrap {
-	position: relative;
-	width: var(--cb-tile);
-	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	width: 64px;
 	border-radius: 8px;
 }
 
 .cb-badge {
-	width: var(--cb-tile);
-	height: var(--cb-tile);
+	width: 64px;
+	height: 64px;
 	object-fit: contain;
 	background: #ffffff;
 	border-radius: 8px;
 	padding: 4px;
 }
 
-/* Country hint (see BadgeTile.tsx) -- a banner across the tile's top edge
-   rather than the classic diagonal corner ribbon: at this tile size (64px,
-   up to 110px for a placeholder) a rotated ribbon has no room to stay
-   legible for longer names ("Saudi Arabia", "United States"), where a
-   straight banner can at least truncate cleanly instead of overlapping
-   itself. Sits on both .cb-badge's white background and
-   .cb-badge--placeholder's dark one, so its own background needs to read
-   against either -- solid, high-contrast blue does that; matches the
-   tile's own top corner radius so it looks attached, not just floating
-   on top. */
+/* A loan club -- its own badge is half-size (.cb-badge--small below), so
+   it visibly reads as a detour rather than a peer of the clubs either
+   side of it, but the WRAP stays the full 64px like every other tile --
+   same width as its own grid column (ClubBadgesPlay.tsx's TILE_WIDTH), so
+   it fills that column edge to edge instead of sitting inset with empty
+   space on both sides (confirmed the hard way, 2026-09-07: a 32px-wide
+   wrap centered in a 64px column left a 16px gap on each side, which is
+   what made the arrow pointing at it look off-center even though the
+   arrow's own box was centered). min-height, not height, so a revealed
+   hint's ribbon/name (see .cb-badge-wrap's own comment above) can still
+   grow the wrap taller than 64px instead of overflowing a fixed box.
+   .cb-badge-wrap's own align-items: center + this rule's default
+   justify-content (flex-start) is what puts the smaller image at the
+   top-middle rather than vertically centered or stretched. */
+.cb-badge-wrap--small {
+	min-height: 64px;
+	/* .cb-badges__row centers grid items vertically (align-items: center)
+	   within the row's own height -- a no-op while every wrap is exactly
+	   64px tall, but once the country hint adds a ribbon + name label,
+	   a loan wrap (whose own image is smaller) ends up shorter overall
+	   than a permanent tile's wrap in the same row, and centering a
+	   shorter item in a taller row is exactly what pushes it down instead
+	   of keeping its ribbon flush with the row's top like every other
+	   tile's (confirmed the hard way, 2026-09-07 -- this, not the arrow
+	   pointing at it, was the actual cause of the "shifts down" report).
+	   align-self overrides that just for this wrap. */
+	align-self: start;
+}
+.cb-badge--small {
+	width: 48px;
+	height: 48px;
+}
+
+/* Country hint (see BadgeTile.tsx) -- a real block above the image (same
+   "don't overlay it" reasoning as .cb-badge-name below, added the same day
+   after this ribbon turned out to have the identical bug first: absolutely
+   positioning it over the image's own top edge was cropping the top of
+   every crest, not just clipping a long country name the way the
+   band-across-the-top design was actually meant to guard against). Full
+   width via align-self: stretch (.cb-badge-wrap's align-items: center
+   would otherwise shrink it to its own text width, unlike the image next
+   to it) -- solid, high-contrast blue reads against both .cb-badge's white
+   background and .cb-badge--placeholder's dark one. Still truncated with
+   an ellipsis rather than wrapping like .cb-badge-name -- a country name
+   is one line by nature ("United States", not "United\nStates"), and
+   there's no equivalent readability reason to let it wrap.
+   A fixed height for exactly one line (never more, by design above) rather
+   than shrink-wrapping the text -- every tile's ribbon is then the same
+   height regardless of how long its own country name is, which is what
+   actually keeps every crest below it lined up (.cb-badge-name has the
+   equivalent fix for its own, taller, reservation -- see that rule's
+   comment for the misalignment this fixes, confirmed the hard way,
+   2026-09-07: shrink-wrapped ribbons/names of different sizes meant each
+   tile's own total height differed, and centering differently-sized tiles
+   within one row is exactly what pushed their crests out of alignment
+   with each other despite the crests themselves all being the same size). */
 .cb-badge-ribbon {
-	position: absolute;
-	top: 0;
-	left: 0;
-	right: 0;
+	align-self: stretch;
+	/* Overridden belowchec for a loan tile: stretch here means "the full 64px
+	   wrap," which used to be the same as the image's own width. Since
+	   the wrap now stays 64px while the loan image itself is 48px (see
+	   .cb-badge-wrap--small/.cb-badge--small), stretching to the wrap
+	   would make the ribbon wider than the crest sitting right under it
+	   instead of reading as attached to it. */
 	background: #2563eb;
 	color: #ffffff;
 	font-size: 0.55rem;
 	font-weight: 700;
 	line-height: 1.3;
+	height: calc(1.3em + 2px);
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
+	justify-content: center;
 	text-align: center;
 	padding: 1px 3px;
-	border-radius: 8px 8px 0 0;
+	border-radius: 4px;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
-	pointer-events: none;
+}
+
+/* A loan tile's ribbon matches its own 48px image instead of stretching
+   to the wrap's full 64px -- otherwise it reads as a banner floating
+   above the crest rather than actually attached to it. */
+.cb-badge-wrap--small .cb-badge-ribbon {
+	align-self: center;
+	width: 48px;
+}
+
+/* The same hint also names the club, not just its country (BadgeTile.tsx)
+   -- placeholder tiles already show this unconditionally (there's no image
+   to hide it behind), so this only appears once a real image is showing.
+   A real block below the image (.cb-badge-wrap's own comment on why,
+   not overlaid on top of it the way .cb-badge-ribbon sits over the top
+   edge) with a real gap above it, and wrapping onto a second line -- never
+   truncated -- rather than an ellipsis eating a name down to a couple of
+   characters. Same non-spoiler reasoning as everywhere else club names
+   show up in this game: the club isn't the answer, the player is.
+   min-height (not height -- an actual overflowing third line, rare as
+   that should be at this tile width, should still show in full rather
+   than get clipped, unlike the country ribbon's own deliberate one-line
+   ellipsis above) reserves room for two lines regardless of whether a
+   given name is short enough to need only one -- see .cb-badge-ribbon's
+   comment for the misalignment a shrink-wrapped version of this caused. */
+.cb-badge-name {
+	margin-top: 3px;
+	max-width: 100%;
+	background: #1f2937;
+	color: #ffffff;
+	font-size: 0.55rem;
+	font-weight: 700;
+	line-height: 1.3;
+	min-height: calc(2.6em + 2px);
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	text-align: center;
+	padding: 1px 4px;
+	border-radius: 4px;
+	overflow-wrap: anywhere;
+	hyphens: auto;
 }
 
 /* Only ever one of these on screen at a time -- the next not-yet-revealed
@@ -307,14 +414,12 @@
 }
 
 /* Stands in for a badge with no image (not sourced yet, or a url that
-   failed to load -- see BadgeTile.tsx). Same fixed 64x64 as .cb-badge --
-   every tile in a row needs to be the same size for the row-based snake
-   layout (buildBadgeRows) to line up regardless of which tiles are real
-   images vs placeholders. Dark surface instead of white (which .cb-badge
-   only uses because crest SVGs assume a light background to sit on). */
+   failed to load -- see BadgeTile.tsx). Same fixed 64x64 as .cb-badge.
+   Dark surface instead of white (which .cb-badge only uses because crest
+   SVGs assume a light background to sit on). */
 .cb-badge--placeholder {
-	width: var(--cb-tile);
-	height: var(--cb-tile);
+	width: 64px;
+	height: 64px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -325,6 +430,14 @@
 	padding: 4px;
 	box-sizing: border-box;
 	overflow: hidden;
+}
+/* Two classes beats .cb-badge--placeholder's own one-class width/height
+   above regardless of source order, so a loan club with no badge image
+   (BadgeTile's small prop) still shrinks to half size like a real one
+   does, instead of the placeholder's fixed full-tile size winning out. */
+.cb-badge--placeholder.cb-badge--small {
+	width: 32px;
+	height: 32px;
 }
 
 .cb-badge--placeholder span {
@@ -364,6 +477,57 @@
 
 .cb-next-button {
 	margin-top: 0.5rem;
+}
+
+/* Live per-question countdown (ClubBadgesPlay.tsx's ticking elapsedSeconds)
+   -- same muted treatment as .cb-progress above it, since it's ambient
+   status, not something to draw the eye the way the turn banner does.
+   tabular-nums keeps every digit the same width so the line doesn't
+   jitter/reflow once a second as the seconds tick over. */
+.cb-timer {
+	margin: 0;
+	text-align: center;
+	color: #9ca3af;
+	font-size: 0.9rem;
+	font-variant-numeric: tabular-nums;
+}
+
+/* This question's score (state.ts's computeScore), shown only on a
+   correct guess -- see ClubBadgesPlay.tsx. A pill like .cb-hint-button
+   rather than plain text so the color-coded band (below) actually reads
+   as a distinct "result" chip instead of another line of body text. */
+.cb-score {
+	align-self: center;
+	margin: 0;
+	padding: 0.3em 1em;
+	border-radius: 999px;
+	font-size: 1.1rem;
+	font-weight: 700;
+}
+
+/* Five bands, exactly as specified: >80 gold, 50-79 silver, 30-49
+   yellow, 0-29 brown, <0 grey (scoreBand's own doc covers the one-point
+   gap at exactly 80). Dark text on the three lighter chips, light text
+   on the two darker ones, for contrast either way. */
+.cb-score--gold {
+	background: #d4af37;
+	color: #1f2937;
+}
+.cb-score--silver {
+	background: #c0c0c0;
+	color: #1f2937;
+}
+.cb-score--yellow {
+	background: #eab308;
+	color: #1f2937;
+}
+.cb-score--brown {
+	background: #92400e;
+	color: #f3f4f6;
+}
+.cb-score--grey {
+	background: #6b7280;
+	color: #f3f4f6;
 }
 
 /* Explains a shorter-than-10 round on the result screen (see

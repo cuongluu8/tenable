@@ -44,6 +44,7 @@
 		"verify:matching": "node --experimental-strip-types scripts/verify-guess-matching.ts",
 		"verify:category-defs": "node --experimental-strip-types scripts/verify-category-defs.ts",
 		"verify:content-source": "node --experimental-strip-types scripts/verify-content-source.ts",
+		"verify:club-badges": "node --experimental-strip-types scripts/verify-club-badges.ts",
 		"playtest": "node --experimental-strip-types scripts/playtest.ts"
 	},
 	"type": "module"

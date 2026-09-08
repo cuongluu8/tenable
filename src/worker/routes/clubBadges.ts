@@ -54,16 +54,31 @@ clubBadges.get("/round", async (c) => {
 		.prepare("SELECT id, player_id, club_sequence FROM club_badge_questions")
 		.all<QuestionRow>();
 
-	const eligible = (questions ?? []).filter((q) => (JSON.parse(q.club_sequence) as number[]).length >= MIN_CLUBS_FOR_QUESTION);
-
-	// Fisher-Yates, take the first N -- fine at this scale (~107 rows) and
-	// avoids ORDER BY RANDOM() in SQL.
-	const shuffled = [...eligible];
-	for (let i = shuffled.length - 1; i > 0; i--) {
-		const j = Math.floor(Math.random() * (i + 1));
-		[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+	// Dev/test-only override -- the real client never sends this (see
+	// GuessThePlayer.tsx, which only appends it when the *page* was opened
+	// with ?playerId=... in the first place), so normal play is exactly as
+	// random as ever. Forces the round to just that one player's question
+	// instead of a random 10, so a specific layout case (a loan sequence,
+	// say) can be reached directly instead of clicking "give up" through
+	// questions hoping to land on it. Bypasses MIN_CLUBS_FOR_QUESTION on
+	// purpose -- wanting to look at a short/edge-case sequence is exactly
+	// when this gets used.
+	const rawPlayerId = c.req.query("playerId");
+	const debugPlayerId = rawPlayerId ? Number(rawPlayerId) : NaN;
+	let picked: QuestionRow[];
+	if (Number.isInteger(debugPlayerId)) {
+		picked = (questions ?? []).filter((q) => q.player_id === debugPlayerId);
+	} else {
+		const eligible = (questions ?? []).filter((q) => (JSON.parse(q.club_sequence) as number[]).length >= MIN_CLUBS_FOR_QUESTION);
+		// Fisher-Yates, take the first N -- fine at this scale (~107 rows) and
+		// avoids ORDER BY RANDOM() in SQL.
+		const shuffled = [...eligible];
+		for (let i = shuffled.length - 1; i > 0; i--) {
+			const j = Math.floor(Math.random() * (i + 1));
+			[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+		}
+		picked = shuffled.slice(0, QUESTIONS_PER_ROUND);
 	}
-	const picked = shuffled.slice(0, QUESTIONS_PER_ROUND);
 
 	if (picked.length === 0) {
 		return c.json({ questions: [] });
@@ -140,8 +155,22 @@ clubBadges.get("/round", async (c) => {
 		// transfer row -- there's no exact date for those, so it falls
 		// through to the estimate below (rarely anything, for a
 		// transfers-sourced player -- see build_club_badge_questions.py).
+		// A row with a null from/to club (an early move whose other end
+		// wasn't resolved to an entity -- e.g. Salah's first pro move, "Basel
+		// not found in local club pool") can never match a real club_sequence
+		// transition, since neither side is ever actually null there. Left
+		// in, it sits at transferPtr's starting position and never gets
+		// consumed (no fromClubId/toClubId comparison against null ever
+		// succeeds) -- permanently blocking every real match after it, not
+		// just skipping the one row itself. Confirmed the hard way,
+		// 2026-09-08: this silently marked Salah's real Chelsea -> Fiorentina
+		// loan (and every transfer after it) as non-loans, because his
+		// unresolved 2012 Basel-era row was sitting first in line. Dropping
+		// unmatchable rows before the walk starts is what actually fixes
+		// this, not just this one player -- anyone with an early unresolved
+		// move has the same latent bug.
 		const playerTransfers = (transferRows ?? [])
-			.filter((t) => t.player_id === playerId)
+			.filter((t) => t.player_id === playerId && t.from_club_id !== null && t.to_club_id !== null)
 			.sort((a, b) => (a.transfer_date < b.transfer_date ? -1 : a.transfer_date > b.transfer_date ? 1 : 0));
 		let transferPtr = 0;
 

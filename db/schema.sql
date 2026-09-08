@@ -284,6 +284,21 @@ INSERT OR IGNORE INTO content_version (id, version, updated_at) VALUES (1, 1, '2
 -- inserted answer rows. Now every entity carries its own entity_type
 -- directly and permanently — there's exactly one source table, and nothing
 -- to cascade.
+-- entity_id is stored UNINDEXED (FTS5 doesn't build a B-tree on it, so a
+-- WHERE on it can only ever be a full-table SCAN, not a SEARCH) -- every
+-- row's rowid is deliberately set equal to its entities.id at insert time
+-- (see the triggers below) specifically so the triggers can delete/replace
+-- by rowid instead, which FTS5 DOES support as an indexed lookup. Learned
+-- the hard way, 2026-09-06: the original version of these triggers deleted
+-- by the unindexed entity_id column, so every single UPDATE (or DELETE) on
+-- `entities` -- e.g. every badge/flag image_key change -- silently forced a
+-- full scan of this whole table (~19,364 rows) as a side effect. Confirmed
+-- via `wrangler d1 insights` as one of the two dominant contributors (the
+-- other was suggestNames()'s own LIKE issue, see categories.ts) to that
+-- day's D1 free-tier rows_read limit being exhausted. See
+-- data/research/migration_fix_entity_search_rowid.sql for the one-off fix
+-- applied to already-existing databases (this CREATE is only reached on a
+-- genuinely fresh install).
 CREATE VIRTUAL TABLE IF NOT EXISTS entity_search USING fts5(
 	name,
 	entity_type UNINDEXED,
@@ -292,18 +307,18 @@ CREATE VIRTUAL TABLE IF NOT EXISTS entity_search USING fts5(
 );
 
 CREATE TRIGGER IF NOT EXISTS entity_search_ai AFTER INSERT ON entities BEGIN
-	INSERT INTO entity_search (name, entity_type, entity_id)
-	VALUES (NEW.canonical_name, NEW.entity_type, NEW.id);
+	INSERT INTO entity_search (rowid, name, entity_type, entity_id)
+	VALUES (NEW.id, NEW.canonical_name, NEW.entity_type, NEW.id);
 END;
 
 CREATE TRIGGER IF NOT EXISTS entity_search_au AFTER UPDATE ON entities BEGIN
-	DELETE FROM entity_search WHERE entity_id = OLD.id;
-	INSERT INTO entity_search (name, entity_type, entity_id)
-	VALUES (NEW.canonical_name, NEW.entity_type, NEW.id);
+	DELETE FROM entity_search WHERE rowid = OLD.id;
+	INSERT INTO entity_search (rowid, name, entity_type, entity_id)
+	VALUES (NEW.id, NEW.canonical_name, NEW.entity_type, NEW.id);
 END;
 
 CREATE TRIGGER IF NOT EXISTS entity_search_ad AFTER DELETE ON entities BEGIN
-	DELETE FROM entity_search WHERE entity_id = OLD.id;
+	DELETE FROM entity_search WHERE rowid = OLD.id;
 END;
 
 -- Cost guardrails (see agents.md — Cloudflare has no account-wide spending

@@ -62,6 +62,66 @@ anyway, point the local setup at the specific doc explicitly as its first
 instruction, and verify (`npm ci && npm run lint && npm run build`) before
 trusting anything it pushes.
 
+## Verifying a visual/layout fix before claiming it's done
+
+**Incident, 2026-09-07 — declared a CSS layout bug "fixed" twice in a row
+while the actual visual result was still broken, both times because the
+verification measured one narrow number instead of looking at the whole
+picture.** Context: the club-badges "guess the player" game
+(`src/react-app/clubBadges/`) draws a loan-club detour as a small satellite
+badge plus its own arrow, inside a box (`.cb-arrow-stack`) shared with the
+main chain's arrow into whatever club came next.
+
+1. **First claim of "fixed":** the loan-run's box was still a single fixed
+   width sized for the worst case anywhere in the app (four satellites,
+   Harry Kane's data) even for a chain with only one or two loans (Kevin De
+   Bruyne's). The arrow glyph inside that oversized box was centered in the
+   middle of it instead of hugging the edge next to the tile it pointed
+   into — verified by measuring "arrow-to-target-tile distance" (~158px),
+   fixed by aligning the glyph to that edge (align-items: flex-end), then
+   re-measured the SAME distance (~15px) and reported it fixed. The user
+   then reported "nothing has changed" from their own browser — which,
+   after ruling out cache/stale-server explanations (confirmed the exact
+   running process, its cwd, a hard-reload, then incognito — all correctly
+   done, and all correctly ruled out an environment mismatch), turned out
+   to be right: **the box itself was still the old fixed worst-case width.**
+   Moving the arrow glyph to the box's right edge just relocated the dead
+   space that used to sit between the arrow and the target tile to a new
+   spot — between the loan satellites and the arrow, inside the same
+   oversized box. The single measurement I'd checked (arrow-to-tile
+   distance) genuinely had improved; the thing a human actually sees
+   (is this row visually one connected sequence, or does it still have a
+   dead gap in it somewhere) had not.
+2. **Second claim of "fixed":** even after sending the user an actual
+   screenshot as proof, I didn't re-look at that screenshot critically
+   before asserting it showed the fix — the user had to point out "that
+   screenshot you generated shows the same. how are you accepting that?"
+   before the still-oversized-box problem actually got looked at and
+   fixed properly (making the box's width a function of how many
+   satellites *that specific arrow* has, not a shared constant sized for
+   the worst case anywhere in the app).
+
+**The general, reusable lesson — not just for this component:** when a fix
+targets one symptom you can measure (a distance, a color, a count),
+that measurement can genuinely improve while the underlying cause (e.g. a
+container/box sized for a different, unrelated worst case) still produces
+a visibly broken result somewhere else in the same element. Aligning
+content to one edge of a box doesn't fix the box being the wrong size — it
+just moves where the leftover space shows up. Before reporting a visual
+fix as done:
+- Look at (or send) the actual rendered result and ask "does this read as
+  correct/connected as a whole," not just "did the one number I changed
+  move in the right direction."
+- If a fix involves a shared/fixed-size constant applied to variable
+  content (a box sized for the worst case across many different instances,
+  reused for a smaller instance), check whether the *size* itself, not
+  just the *alignment* of content within it, needs to depend on that
+  specific instance's own actual content.
+- When a user says "nothing changed" or pushes back on a screenshot you
+  already sent, don't re-assert the same measurement — re-look at the
+  whole picture with fresh eyes; they're often seeing something real that
+  a narrow, already-anchored check will keep missing.
+
 ## Stack
 
 - **Frontend**: React 19 + Vite, in `src/react-app/`
@@ -573,6 +633,18 @@ matching.ts`'s collision check is what catches this now, and it's exactly
 why that check stayed (see below) rather than being retired alongside
 name-sync.
 
+#### Media assets (club badges, country flags)
+
+`entities.image_key` points at an object in the `tenable-media` R2 bucket.
+Sourcing and publishing these is a separate multi-phase workflow (research
+→ cache locally → review → upload to R2 → apply to D1, each its own
+script/step, never fetching from Wikipedia at upload time) with its own
+incident history (a full day lost to misdiagnosing Wikimedia
+rate-limiting, a missing `User-Agent`, and a `\r`-terminated manifest file
+as three different problems before finding the real ones) — see
+`docs/media-assets.md` before touching `data/research/
+cache_media_locally.sh`, `upload_media.sh`, or `apply_media_updates.sh`.
+
 #### Checklist: adding a new category
 
 Everything above this point, distilled into the actual steps — every rule
@@ -874,6 +946,64 @@ approaches them — raise deliberately, don't delete the guardrail.
 **Rule for agents:** if you add a new route or a new source of write volume
 (KV or D1), consider whether it needs its own guard the way `/api/suggest`
 did, rather than relying solely on the global daily ceiling.
+
+**Incident, 2026-09-06 — the D1 free-tier *read* ceiling has no guard at all,
+and it got hit for real.** The request-count/rate-limit guardrails above
+only bound request *volume* — nothing bounds how many rows a single query
+reads. `suggestNames()`'s alias-matching branch (`src/worker/lib/
+categories.ts`) used `WHERE alias LIKE ?3 || '%'`, which looks like an
+index-friendly prefix search but isn't reliably one through a join — SQLite's
+query planner instead drove the join from `entities` filtered by
+`entity_type` (effectively every player row) and probed `entity_aliases` per
+row. `wrangler d1 insights tenable-content --sort-by=reads` (an
+under-documented but very useful diagnostic — see its `--help`) showed this
+one query read **~73,000 rows per call, 1.47 million rows total from just 20
+calls** — about 30% of the whole 5,000,000/day D1 free-tier read limit from
+one inefficient query, not from traffic volume. This blew through the daily
+limit and put the live app in a hard-down state (every D1 read errors) until
+the next UTC day, with no guardrail in this app catching it beforehand.
+Fixed by replacing the `LIKE` with explicit `>=`/`<` range bounds against a
+computed upper bound (`prefix + "￿"`) — confirmed via `EXPLAIN QUERY
+PLAN` to produce a genuine bounded index range scan
+(`idx_entity_aliases_alias`) regardless of join shape, and confirmed
+byte-for-byte identical results against the old query across several test
+prefixes before shipping.
+
+**Rule for agents:** a request-count guardrail is not a rows-read guardrail
+— they're independent failure modes. Any new or modified query against a
+table of meaningful size (`entities`, `entity_aliases`, `entity_stats`,
+`player_career_stats`) should have its `EXPLAIN QUERY PLAN` actually looked
+at, not just "it returned the right rows in testing" — a query can be
+correct and still silently read orders of magnitude more than it returns.
+`wrangler d1 insights <db> --sort-by=reads` is the tool to catch this after
+the fact in production; reach for it if usage ever looks anomalous again.
+
+**Same day, second cause found the same way: `entity_search`'s own
+triggers.** `wrangler d1 insights` also showed a single-row `UPDATE
+entities SET image_key = ... WHERE id = <primary key>` reading ~19,364
+rows — the entire `entities` table — for what should be a one-row write.
+Cause: `entity_search_au`'s `DELETE FROM entity_search WHERE entity_id =
+OLD.id` filters on `entity_id`, declared `UNINDEXED` in that FTS5 virtual
+table — FTS5 builds no B-tree on an `UNINDEXED` column, so that `WHERE` is
+always a full scan, confirmed via `EXPLAIN QUERY PLAN`. Every `UPDATE`/
+`DELETE` on `entities` paid this as a side effect, including every badge/
+flag `image_key` write this project has ever done — at the same 2026-09-06
+incident's scale (~200 image uploads that day), this is almost certainly
+larger than the `suggestNames()` cause above, not smaller. Fixed by giving
+every `entity_search` row a `rowid` equal to its `entities.id` (set
+explicitly in all three triggers' `INSERT`s) and deleting/replacing by
+`rowid` instead — FTS5 rowid lookups are indexed by construction, unlike an
+arbitrary `UNINDEXED` column. See `data/research/
+migration_fix_entity_search_rowid.sql` for the one-off fix applied to a
+database that predates this (a fresh `db/schema.sql` install already gets
+the fixed version).
+
+**Broader rule this confirms:** it's not just *queries* that need an
+`EXPLAIN QUERY PLAN` check — a **trigger** fires invisibly on every write to
+its table, so an expensive trigger is an expensive cost hiding behind a
+completely innocuous-looking one-row `UPDATE`/`DELETE` at the call site.
+Any trigger touching an FTS5 virtual table specifically should filter on
+`rowid`, never a column declared `UNINDEXED`.
 
 ## Workers Builds cost
 

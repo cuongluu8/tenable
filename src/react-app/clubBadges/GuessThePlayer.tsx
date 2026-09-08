@@ -42,7 +42,15 @@ export function GuessThePlayer({ playerNames, onExit }: Props) {
 	const startRound = useCallback(async () => {
 		setLoadError(null);
 		try {
-			const res = await fetch("/api/club-badges/round");
+			// Dev/test-only: opening this screen with ?playerId=547 in the page
+			// URL forces the round to just that player's question instead of a
+			// random 10 -- see clubBadges.ts's /round comment. Nothing about
+			// normal play reads or sets this; it only exists to reach a specific
+			// layout case (a loan sequence, say) directly instead of clicking
+			// "give up" through questions hoping to land on it.
+			const playerId = new URLSearchParams(window.location.search).get("playerId");
+			const url = playerId ? `/api/club-badges/round?playerId=${encodeURIComponent(playerId)}` : "/api/club-badges/round";
+			const res = await fetch(url);
 			const data = (await res.json()) as RoundResponse | { error: string };
 			if (!res.ok || "error" in data || data.questions.length === 0) {
 				setLoadError("Couldn't load a round right now — try again in a moment.");
@@ -71,7 +79,12 @@ export function GuessThePlayer({ playerNames, onExit }: Props) {
 	// wrong -- see clubBadges.ts) -- but what happens to the result differs:
 	// a solo wrong guess with a life still left doesn't end the question at
 	// all (see the "wrongAttempt" branch below), everything else does.
-	async function checkQuestion(body: { guess: string } | { giveUp: true }) {
+	// `points` is whatever ClubBadgesPlay.tsx's computeScore(elapsedSeconds,
+	// hintsUsed) read at the moment the guess/give-up button was actually
+	// pressed -- not recomputed here after the fetch resolves, so the
+	// score reflects how long the player took to answer, not how long the
+	// network took to grade it.
+	async function checkQuestion(body: { guess: string } | { giveUp: true }, points: number) {
 		const question = state.questions[state.questionIndex];
 		if (!question || submitting) return;
 
@@ -106,6 +119,7 @@ export function GuessThePlayer({ playerNames, onExit }: Props) {
 				outcome: data.result,
 				gaveUp,
 				correctName: data.name,
+				points,
 			});
 		} catch {
 			// Network error mid-question: nothing to apply, player just tries again.
@@ -114,12 +128,12 @@ export function GuessThePlayer({ playerNames, onExit }: Props) {
 		}
 	}
 
-	function submitGuess(guess: string) {
-		return checkQuestion({ guess });
+	function submitGuess(guess: string, points: number) {
+		return checkQuestion({ guess }, points);
 	}
 
-	function giveUp() {
-		return checkQuestion({ giveUp: true });
+	function giveUp(points: number) {
+		return checkQuestion({ giveUp: true }, points);
 	}
 
 	function nextQuestion() {
