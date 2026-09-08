@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { normalize, collapseToAlnum, toFtsPrefixQuery } from "../lib/normalize";
 import { suggestNames } from "../lib/categories";
 import { enforceSuggestRateLimit } from "../lib/suggestRateLimit";
-import { CLUB_BADGE_SETS } from "../lib/clubBadgeSets";
+import { CLUB_BADGE_SETS, CLUB_BADGE_SET_NAMES } from "../lib/clubBadgeSets";
 
 const clubBadges = new Hono<{ Bindings: Env }>();
 
@@ -311,6 +311,11 @@ clubBadges.get("/round", async (c) => {
 	}
 
 	return c.json({
+		// Only present for a Sets-mode request -- ClubBadgeSetPlay.tsx's own
+		// display name for this round, fetched here rather than via a
+		// separate /sets lookup since this response already has to resolve
+		// setId to the same CLUB_BADGE_SETS entry anyway.
+		setName: set ? CLUB_BADGE_SET_NAMES[setIndex] : undefined,
 		questions: picked.map((q) => {
 			const transfers = transferDatesFor(q.player_id, JSON.parse(q.club_sequence));
 			return {
@@ -379,6 +384,7 @@ clubBadges.get("/sets", async (c) => {
 	return c.json({
 		sets: CLUB_BADGE_SETS.map((playerIds, i) => ({
 			id: i + 1,
+			name: CLUB_BADGE_SET_NAMES[i],
 			// .filter(Boolean) mirrors /round's own "quietly shrink, don't
 			// crash" handling of a set referencing a now-missing player.
 			questionIds: playerIds.map((playerId) => questionIdByPlayerId.get(playerId)).filter((id): id is number => id !== undefined),

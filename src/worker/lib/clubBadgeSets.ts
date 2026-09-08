@@ -36,3 +36,25 @@ export const CLUB_BADGE_SETS: number[][] = [
 	[611, 609, 612, 631, 633, 615, 616, 617, 618, 640],
 	[628, 629, 649, 553, 604, 595],
 ];
+
+// A fun display name per set, index-matched to CLUB_BADGE_SETS above --
+// "adjective + animal", the user's own naming brief (2026-09-08).
+// Deliberately doesn't reuse gold/silver/yellow/brown/grey as either
+// word: those are already state.ts's scoreBand names (the per-question
+// score chip colors), and reusing one here would read as if THIS set
+// were somehow tied to that specific score tier, which it isn't -- a
+// set's name has nothing to do with how well anyone's actually done in
+// it. "Set N" stays the stable reference everywhere that matters
+// (URLs, setsStorage.ts's keys) -- these names are display-only.
+export const CLUB_BADGE_SET_NAMES: string[] = [
+	"Crimson Falcon",
+	"Neon Panther",
+	"Velvet Wolf",
+	"Shadow Cobra",
+	"Midnight Lynx",
+	"Solar Otter",
+	"Electric Badger",
+	"Frozen Raven",
+	"Rusty Fox",
+	"Quantum Hawk",
+];

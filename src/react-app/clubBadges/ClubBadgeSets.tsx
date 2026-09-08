@@ -7,6 +7,7 @@ import { shareSetViaWhatsApp } from "./shareSet";
 
 interface SetSummary {
 	id: number;
+	name: string;
 	questionIds: number[];
 }
 
@@ -122,7 +123,9 @@ export function ClubBadgeSets({ onPlay, onBack }: Props) {
 					return (
 						<div key={set.id} className="cb-set-card">
 							<div className="cb-set-card__header">
-								<span className="cb-set-card__title">Set {set.id}</span>
+								<span className="cb-set-card__title">
+									Set {set.id}: {set.name}
+								</span>
 								{average !== null ? (
 									<span className={`cb-score cb-score--${scoreBand(average)}`}>{average} avg</span>
 								) : (
@@ -171,7 +174,7 @@ export function ClubBadgeSets({ onPlay, onBack }: Props) {
 								    once, right when a set first becomes complete, so this is
 								    the only way back to it afterward. */}
 								{average !== null && (
-									<button type="button" onClick={() => shareSetViaWhatsApp(set.id, average)}>
+									<button type="button" onClick={() => shareSetViaWhatsApp(set.id, set.name, average)}>
 										Share
 									</button>
 								)}

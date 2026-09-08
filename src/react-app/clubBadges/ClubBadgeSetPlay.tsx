@@ -7,6 +7,7 @@ import { getSetResults, recordResult } from "./setsStorage";
 import { shareSetViaWhatsApp } from "./shareSet";
 
 interface RoundResponse {
+	setName?: string;
 	questions: CbQuestion[];
 }
 
@@ -69,6 +70,12 @@ export function ClubBadgeSetPlay({ setId, onlyQuestionId, onExit }: Props) {
 	const [queue, setQueue] = useState<QueueItem[] | null>(null);
 	const [queueIndex, setQueueIndex] = useState(0);
 	const [setSize, setSetSize] = useState(0);
+	// "Crimson Falcon" etc -- clubBadgeSets.ts's display name for this set,
+	// fetched here rather than via a separate /sets call since /round?
+	// setId=N already has to resolve the same CLUB_BADGE_SETS entry.
+	// Falls back to a plain "Set N" if it's ever missing (shouldn't happen
+	// against the real server, but avoids "undefined" showing up anywhere).
+	const [setName, setSetName] = useState(`Set ${setId}`);
 	// Every question id in the WHOLE set, fixed order, regardless of
 	// what's already answered -- unlike `queue` (this session's subset),
 	// nextQuestion() needs the full list to tell "the whole set just
@@ -93,6 +100,7 @@ export function ClubBadgeSetPlay({ setId, onlyQuestionId, onExit }: Props) {
 					return;
 				}
 				setSetSize(data.questions.length);
+				if (data.setName) setSetName(data.setName);
 				setAllQuestionIds(data.questions.map((q) => q.id));
 				const done = getSetResults(setId);
 				const items: QueueItem[] = data.questions
@@ -236,10 +244,12 @@ export function ClubBadgeSetPlay({ setId, onlyQuestionId, onExit }: Props) {
 	if (completionAverage !== null) {
 		return (
 			<div className="screen">
-				<h2>Set {setId} complete!</h2>
+				<h2>
+					Set {setId}: {setName} complete!
+				</h2>
 				<p className={`cb-score cb-score--${scoreBand(completionAverage)}`}>{completionAverage} avg</p>
 				<div className="cb-set-complete__actions">
-					<button type="button" onClick={() => shareSetViaWhatsApp(setId, completionAverage)}>
+					<button type="button" onClick={() => shareSetViaWhatsApp(setId, setName, completionAverage)}>
 						Share via WhatsApp
 					</button>
 					<button type="button" className="back-link" onClick={onExit}>
@@ -282,7 +292,7 @@ export function ClubBadgeSetPlay({ setId, onlyQuestionId, onExit }: Props) {
 				onNext={nextQuestion}
 				submitting={submitting}
 				onQuit={onExit}
-				progressLabel={`Set ${setId} — Question ${current.originalIndex + 1} of ${setSize}`}
+				progressLabel={`Set ${setId}: ${setName} — Question ${current.originalIndex + 1} of ${setSize}`}
 				isLastOverride={queueIndex === queue.length - 1}
 			/>
 		</div>

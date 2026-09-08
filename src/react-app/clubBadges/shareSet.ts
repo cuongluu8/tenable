@@ -29,17 +29,17 @@ const BAND_LABEL: Record<ScoreBand, string> = {
 // server-side state at all: a fresh device visiting that URL just sees
 // an empty set (setsStorage.ts's own localStorage has nothing for it
 // yet), same as anyone starting a set for the first time.
-export function buildSetShareText(setId: number, average: number): string {
+export function buildSetShareText(setId: number, setName: string, average: number): string {
 	const label = BAND_LABEL[scoreBand(average)];
 	const url = `${window.location.origin}/single-player/club-badges/set/${setId}`;
-	return `I scored ${average} (${label}) on Set ${setId} of Guess the Player! Think you can beat me? ${url}`;
+	return `I scored ${average} (${label}) on Set ${setId}: ${setName} of Guess the Player! Think you can beat me? ${url}`;
 }
 
 // wa.me only ever PRE-FILLS WhatsApp's own compose box with this text --
 // opening it here is not the same as sending anything: the person who
 // clicked this button still has to pick a recipient and hit send
 // themselves, inside WhatsApp, same as any "share to..." button.
-export function shareSetViaWhatsApp(setId: number, average: number): void {
-	const text = buildSetShareText(setId, average);
+export function shareSetViaWhatsApp(setId: number, setName: string, average: number): void {
+	const text = buildSetShareText(setId, setName, average);
 	window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
 }
