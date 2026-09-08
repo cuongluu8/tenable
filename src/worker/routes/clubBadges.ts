@@ -186,59 +186,111 @@ clubBadges.get("/round", async (c) => {
 		// Estimate branch: player_career_stats rows for this player already
 		// come back in source (insertion) order -- group into a same-club
 		// queue per team_id so a repeat visit consumes the next stint's own
-		// year instead of every visit re-using the first one's. Not perfectly
-		// precise: build_club_badge_questions.py's insert_loan_returns can
-		// infer a return with no row of its own at all (see its doc), and
-		// when an earlier occurrence of the same club already absorbed two
-		// real rows (e.g. a loan row immediately followed by that club's own
-		// permanent one, collapsed into a single appearance), this queue has
-		// no way to know that and hands the second real row's year to the
-		// later, actually-unbacked occurrence instead of returning null for
-		// it. Rare in practice (needs both a same-club adjacent double *and*
-		// a later inferred return), and still an estimate either way -- worth
-		// a fully row-level replay of that script's logic here if it turns
-		// out to matter, not before.
+		// year instead of every visit re-using the first one's.
 		//
 		// Each queue entry also carries whether ITS OWN row was a loan (its
 		// team_name_raw starts "→ " and ends "(loan)" -- confirmed the exact,
 		// consistent format across all 60 real rows carrying it before
-		// relying on the pattern here, not just eyeballing a few). A
-		// synthetic "returned to parent" step (no row of its own -- see this
-		// function's transfers-branch comment on the same phenomenon there)
-		// naturally comes out false: the parent club's OWN row is never
-		// itself annotated "(loan)" -- returning to a permanent club isn't a
-		// loan -- so whichever entry the return step's own `.shift()` happens
-		// to consume is correctly non-loan regardless of which visit it was.
+		// relying on the pattern here, not just eyeballing a few).
+		//
+		// Two adjacent rows for the SAME club (no other team's row between
+		// them) collapse into a single queue entry, keeping the first row's
+		// year/loan -- this is exactly the shape build_club_badge_questions.
+		// py's collapse_adjacent_duplicates merges into one club_sequence
+		// tile too (most often a loan immediately followed by that club's
+		// own permanent-conversion row), so the queue and club_sequence
+		// stay in 1:1 correspondence for that club: one entry per tile, not
+		// one entry per underlying row. Skipping this step doesn't lose
+		// data -- the collapsed tile is never queried a second time -- but
+		// LEAVING the second row as its own separate entry does real harm:
+		// it sits there unconsumed until some much-later, genuinely
+		// separate visit to the same club wrongly claims it instead of its
+		// own real year. Confirmed live, 2026-09-08: Zlatan Ibrahimović's
+		// real 2019 THIRD spell at AC Milan (its own row) was showing 2011
+		// -- the leftover second half of his 2010 loan-then-signed spell
+		// there, collapsed into one tile years earlier in the same chain.
 		const yearQueueByClub = new Map<number, { year: number; loan: boolean }[]>();
+		let lastTeamId: number | null = null;
 		for (const r of pcsRows ?? []) {
 			if (r.player_id !== playerId) continue;
 			const year = leadingYear(r.years_display);
 			if (year === null) continue;
+			if (r.team_id === lastTeamId) continue;
+			lastTeamId = r.team_id;
 			const loan = /\(loan\)\s*$/.test(r.team_name_raw);
 			const queue = yearQueueByClub.get(r.team_id) ?? [];
 			queue.push({ year, loan });
 			yearQueueByClub.set(r.team_id, queue);
 		}
 
-		return clubIds.slice(1).map((toClubId, i) => {
+		// Three real bugs, all confirmed live 2026-09-08 by replaying this
+		// exact function against every club_badge_questions row, not just
+		// caught by a human happening to notice one: this per-club queue
+		// only actually reflects reality when every club_sequence position
+		// that visits a given club corresponds to exactly one of that
+		// club's own real rows, consumed in order. Three shapes break that
+		// (the adjacent-duplicate collapse above is the third; the other
+		// two follow):
+		//
+		// 1. clubIds[0]'s own row is never consumed at all -- this function
+		//    only ever computes a date for arriving at clubIds[1] onward,
+		//    so if that starting club is ever visited again later (a real,
+		//    independently-documented return -- e.g. Wayne Rooney: Everton
+		//    2002-2004, Man Utd, Everton again 2017-2018, each its own row),
+		//    the later visit's `.shift()` wrongly grabs the FIRST club's
+		//    own entry (2002) instead of skipping past it to its real one
+		//    (2017) -- everything is off by one slot for that club from
+		//    then on. Fixed by pre-consuming clubIds[0]'s own slot before
+		//    the walk starts, exactly once, since arriving there is never
+		//    dated anyway.
+		yearQueueByClub.get(clubIds[0])?.shift();
+		//
+		// 2. A synthetic "returned to parent" step (build_club_badge_
+		//    questions.py's insert_loan_returns -- the previous step was a
+		//    loan, and this one goes straight back to the exact club that
+		//    loan came from) has no backing row of its own, ever -- but
+		//    that club's queue can still hold a real, UNRELATED leftover
+		//    entry at this point, most often the "quick permanent
+		//    conversion" half of a loan-then-signed pair that collapsed
+		//    into a single tile earlier in the same chain (e.g. Casemiro:
+		//    loaned to Real Madrid in 2013, signed permanently a few months
+		//    later the same year, then later loaned OUT to Porto and back
+		//    -- that "back" step was showing 2013, the original signing,
+		//    not null). Recognized below by shape (previous step was a
+		//    loan, this one returns to exactly the club that preceded it)
+		//    rather than guessed at, and short-circuited to null before it
+		//    ever touches the queue -- not just given the right answer, but
+		//    kept from stealing a real entry meant for something else.
+		const results: { date: string | null; loan: boolean }[] = [];
+		for (let i = 0; i < clubIds.length - 1; i++) {
 			const fromClubId = clubIds[i];
+			const toClubId = clubIds[i + 1];
 			const next = playerTransfers[transferPtr];
 			if (next && next.from_club_id === fromClubId && next.to_club_id === toClubId) {
 				transferPtr++;
 				const loan = next.transfer_type === "loan";
 				const formatted = formatMonthYear(next.transfer_date);
-				if (formatted) return { date: formatted, loan };
+				if (formatted) {
+					results.push({ date: formatted, loan });
+					continue;
+				}
 				// transfer_date itself failed to format (malformed, in practice
 				// never happens against the real data) -- still fall through to
 				// the estimate below rather than losing the date hint entirely,
 				// but keep the loan classification: that came from this matched
 				// row, not from whichever estimate ends up filling the date in.
 				const entry = yearQueueByClub.get(toClubId)?.shift();
-				return { date: entry === undefined ? null : `~${entry.year}`, loan };
+				results.push({ date: entry === undefined ? null : `~${entry.year}`, loan });
+				continue;
+			}
+			if (i >= 1 && results[i - 1].loan && clubIds[i - 1] === toClubId) {
+				results.push({ date: null, loan: false });
+				continue;
 			}
 			const entry = yearQueueByClub.get(toClubId)?.shift();
-			return { date: entry === undefined ? null : `~${entry.year}`, loan: entry?.loan ?? false };
-		});
+			results.push({ date: entry === undefined ? null : `~${entry.year}`, loan: entry?.loan ?? false });
+		}
+		return results;
 	}
 
 	return c.json({
