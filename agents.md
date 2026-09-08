@@ -62,6 +62,66 @@ anyway, point the local setup at the specific doc explicitly as its first
 instruction, and verify (`npm ci && npm run lint && npm run build`) before
 trusting anything it pushes.
 
+## Verifying a visual/layout fix before claiming it's done
+
+**Incident, 2026-09-07 — declared a CSS layout bug "fixed" twice in a row
+while the actual visual result was still broken, both times because the
+verification measured one narrow number instead of looking at the whole
+picture.** Context: the club-badges "guess the player" game
+(`src/react-app/clubBadges/`) draws a loan-club detour as a small satellite
+badge plus its own arrow, inside a box (`.cb-arrow-stack`) shared with the
+main chain's arrow into whatever club came next.
+
+1. **First claim of "fixed":** the loan-run's box was still a single fixed
+   width sized for the worst case anywhere in the app (four satellites,
+   Harry Kane's data) even for a chain with only one or two loans (Kevin De
+   Bruyne's). The arrow glyph inside that oversized box was centered in the
+   middle of it instead of hugging the edge next to the tile it pointed
+   into — verified by measuring "arrow-to-target-tile distance" (~158px),
+   fixed by aligning the glyph to that edge (align-items: flex-end), then
+   re-measured the SAME distance (~15px) and reported it fixed. The user
+   then reported "nothing has changed" from their own browser — which,
+   after ruling out cache/stale-server explanations (confirmed the exact
+   running process, its cwd, a hard-reload, then incognito — all correctly
+   done, and all correctly ruled out an environment mismatch), turned out
+   to be right: **the box itself was still the old fixed worst-case width.**
+   Moving the arrow glyph to the box's right edge just relocated the dead
+   space that used to sit between the arrow and the target tile to a new
+   spot — between the loan satellites and the arrow, inside the same
+   oversized box. The single measurement I'd checked (arrow-to-tile
+   distance) genuinely had improved; the thing a human actually sees
+   (is this row visually one connected sequence, or does it still have a
+   dead gap in it somewhere) had not.
+2. **Second claim of "fixed":** even after sending the user an actual
+   screenshot as proof, I didn't re-look at that screenshot critically
+   before asserting it showed the fix — the user had to point out "that
+   screenshot you generated shows the same. how are you accepting that?"
+   before the still-oversized-box problem actually got looked at and
+   fixed properly (making the box's width a function of how many
+   satellites *that specific arrow* has, not a shared constant sized for
+   the worst case anywhere in the app).
+
+**The general, reusable lesson — not just for this component:** when a fix
+targets one symptom you can measure (a distance, a color, a count),
+that measurement can genuinely improve while the underlying cause (e.g. a
+container/box sized for a different, unrelated worst case) still produces
+a visibly broken result somewhere else in the same element. Aligning
+content to one edge of a box doesn't fix the box being the wrong size — it
+just moves where the leftover space shows up. Before reporting a visual
+fix as done:
+- Look at (or send) the actual rendered result and ask "does this read as
+  correct/connected as a whole," not just "did the one number I changed
+  move in the right direction."
+- If a fix involves a shared/fixed-size constant applied to variable
+  content (a box sized for the worst case across many different instances,
+  reused for a smaller instance), check whether the *size* itself, not
+  just the *alignment* of content within it, needs to depend on that
+  specific instance's own actual content.
+- When a user says "nothing changed" or pushes back on a screenshot you
+  already sent, don't re-assert the same measurement — re-look at the
+  whole picture with fresh eyes; they're often seeing something real that
+  a narrow, already-anchored check will keep missing.
+
 ## Stack
 
 - **Frontend**: React 19 + Vite, in `src/react-app/`
@@ -572,6 +632,18 @@ scoring vs. typeahead-only) were structurally separated — `verify-guess-
 matching.ts`'s collision check is what catches this now, and it's exactly
 why that check stayed (see below) rather than being retired alongside
 name-sync.
+
+#### Media assets (club badges, country flags)
+
+`entities.image_key` points at an object in the `tenable-media` R2 bucket.
+Sourcing and publishing these is a separate multi-phase workflow (research
+→ cache locally → review → upload to R2 → apply to D1, each its own
+script/step, never fetching from Wikipedia at upload time) with its own
+incident history (a full day lost to misdiagnosing Wikimedia
+rate-limiting, a missing `User-Agent`, and a `\r`-terminated manifest file
+as three different problems before finding the real ones) — see
+`docs/media-assets.md` before touching `data/research/
+cache_media_locally.sh`, `upload_media.sh`, or `apply_media_updates.sh`.
 
 #### Checklist: adding a new category
 

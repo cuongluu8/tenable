@@ -42,7 +42,15 @@ export function GuessThePlayer({ playerNames, onExit }: Props) {
 	const startRound = useCallback(async () => {
 		setLoadError(null);
 		try {
-			const res = await fetch("/api/club-badges/round");
+			// Dev/test-only: opening this screen with ?playerId=547 in the page
+			// URL forces the round to just that player's question instead of a
+			// random 10 -- see clubBadges.ts's /round comment. Nothing about
+			// normal play reads or sets this; it only exists to reach a specific
+			// layout case (a loan sequence, say) directly instead of clicking
+			// "give up" through questions hoping to land on it.
+			const playerId = new URLSearchParams(window.location.search).get("playerId");
+			const url = playerId ? `/api/club-badges/round?playerId=${encodeURIComponent(playerId)}` : "/api/club-badges/round";
+			const res = await fetch(url);
 			const data = (await res.json()) as RoundResponse | { error: string };
 			if (!res.ok || "error" in data || data.questions.length === 0) {
 				setLoadError("Couldn't load a round right now — try again in a moment.");

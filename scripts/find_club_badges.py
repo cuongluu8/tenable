@@ -174,6 +174,38 @@ def candidate_pages(session: requests.Session, name: str, country: str):
             yield from try_title(hit, trusted=False)
 
 
+
+# 2026-09-06: even a `trusted=True` candidate (direct title, or a
+# country-scoped search) is not safe on its own -- found via a manual
+# spot-check of the 444-row approved manifest, which turned up clubs
+# assigned another club's crest ("Cerro" (Uruguay) got "Cerro Largo
+# F.C."'s image; "Cumbaya" (Ecuador) got "Club Sport Emelec"'s; "Guarani"
+# (Brazil) got the Paraguayan "Guarani"'s, via a Wikipedia redirect that
+# always lands on the more notable of two identically-named clubs).
+#
+# Two name-similarity heuristics were tried here and reverted the same
+# day, in order:
+#   1. "every word in the resolved title must also be in the search name"
+#      -- correctly caught Cerro/Cerro Largo, but wrongly flagged huge
+#      numbers of genuinely correct matches that add a real word or an
+#      abbreviation no wordlist could fully enumerate ("Anderlecht" ->
+#      "RSC Anderlecht", "Antwerp" -> "Royal Antwerp FC", "San Lorenzo"
+#      -> "San Lorenzo de Almagro").
+#   2. A much looser "the two names share at least one word" -- still
+#      produced false positives from ordinary morphology a wordlist can't
+#      fix: "Brest" -> "Stade Brestois 29" (adjectival form), "Chievo
+#      Verona" -> "AC ChievoVerona" (merged into one word), "Hearts" ->
+#      "Heart of Midlothian F.C." (singular/plural nickname), "Kasimpasa"
+#      -> "Kasımpaşa S.K." (Turkish ı/ş aren't accented Latin letters, so
+#      accent-stripping doesn't normalize them).
+# Both attempts confirm there is no mechanical, no-assumptions way to
+# tell "extra content = harmless variant of the same club" from "extra
+# content = a genuinely different club" from the name text alone -- it
+# needs world knowledge, i.e. a human. The one check that DOES reliably
+# catch this bug class with zero false positives is mechanical rather
+# than fuzzy: the duplicate-image check in main() below (two different
+# real clubs essentially never legitimately share one crest file). Rely
+# on that instead, plus the existing trust tier below.
 def find_club_infobox(wikitext: str):
     # Word-order-independent: most articles use "Infobox football club",
     # but some (Anzoátegui F.C., 2026-09-06) use "Football club infobox"
@@ -294,6 +326,28 @@ def main():
 
     found = [r for r in results if r["status"] == "found"]
     review = [r for r in results if r["status"] != "found"]
+
+    # 2026-09-06: found the hard way that even a fully "trusted" candidate
+    # can land on the wrong club when two real clubs share the exact same
+    # bare name in different countries ("Guarani" -- Brazil and Paraguay
+    # both have one) and Wikipedia's own redirect for the ambiguous title
+    # always resolves to just one of them. The name-similarity check above
+    # can't catch this (the names ARE identical, not just similar-looking).
+    # Two genuinely different real clubs essentially never legitimately
+    # share one crest image, so any resolved filename claimed by more than
+    # one entity_id in this batch is demoted to review instead of silently
+    # letting all-but-one of them be wrong.
+    by_filename: dict[str, list[dict]] = {}
+    for r in found:
+        by_filename.setdefault(r["filename"], []).append(r)
+    demoted = [r for rows in by_filename.values() if len(rows) > 1 for r in rows]
+    if demoted:
+        demoted_ids = {r["entity_id"] for r in demoted}
+        for r in demoted:
+            others = ", ".join(f"entity_id {o['entity_id']} ({o['name']}, {o['country']})" for o in by_filename[r["filename"]] if o["entity_id"] != r["entity_id"])
+            r["reason"] = f'resolved to "{r["wiki_title"]}" / {r["filename"]}, but that exact same image was ALSO resolved for {others} -- two different clubs cannot legitimately share one crest, so at most one of these is right (verify by hand)'
+        found = [r for r in found if r["entity_id"] not in demoted_ids]
+        review = review + demoted
 
     with open(args.out_manifest, "w", encoding="utf-8") as f:
         for r in found:

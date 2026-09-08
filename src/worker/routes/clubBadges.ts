@@ -54,16 +54,31 @@ clubBadges.get("/round", async (c) => {
 		.prepare("SELECT id, player_id, club_sequence FROM club_badge_questions")
 		.all<QuestionRow>();
 
-	const eligible = (questions ?? []).filter((q) => (JSON.parse(q.club_sequence) as number[]).length >= MIN_CLUBS_FOR_QUESTION);
-
-	// Fisher-Yates, take the first N -- fine at this scale (~107 rows) and
-	// avoids ORDER BY RANDOM() in SQL.
-	const shuffled = [...eligible];
-	for (let i = shuffled.length - 1; i > 0; i--) {
-		const j = Math.floor(Math.random() * (i + 1));
-		[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+	// Dev/test-only override -- the real client never sends this (see
+	// GuessThePlayer.tsx, which only appends it when the *page* was opened
+	// with ?playerId=... in the first place), so normal play is exactly as
+	// random as ever. Forces the round to just that one player's question
+	// instead of a random 10, so a specific layout case (a loan sequence,
+	// say) can be reached directly instead of clicking "give up" through
+	// questions hoping to land on it. Bypasses MIN_CLUBS_FOR_QUESTION on
+	// purpose -- wanting to look at a short/edge-case sequence is exactly
+	// when this gets used.
+	const rawPlayerId = c.req.query("playerId");
+	const debugPlayerId = rawPlayerId ? Number(rawPlayerId) : NaN;
+	let picked: QuestionRow[];
+	if (Number.isInteger(debugPlayerId)) {
+		picked = (questions ?? []).filter((q) => q.player_id === debugPlayerId);
+	} else {
+		const eligible = (questions ?? []).filter((q) => (JSON.parse(q.club_sequence) as number[]).length >= MIN_CLUBS_FOR_QUESTION);
+		// Fisher-Yates, take the first N -- fine at this scale (~107 rows) and
+		// avoids ORDER BY RANDOM() in SQL.
+		const shuffled = [...eligible];
+		for (let i = shuffled.length - 1; i > 0; i--) {
+			const j = Math.floor(Math.random() * (i + 1));
+			[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+		}
+		picked = shuffled.slice(0, QUESTIONS_PER_ROUND);
 	}
-	const picked = shuffled.slice(0, QUESTIONS_PER_ROUND);
 
 	if (picked.length === 0) {
 		return c.json({ questions: [] });
