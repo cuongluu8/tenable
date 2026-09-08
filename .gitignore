@@ -201,3 +201,11 @@ dist
 .idea
 __pycache__/
 *.pyc
+
+### Media sourcing cache ###
+# data/research/cache_media_locally.sh's local download cache -- disposable
+# by design (docs/media-assets.md: "safe to re-run, re-downloads to the
+# same local path"). Once upload_media.sh has pushed it to R2 (the actual
+# source of truth for serving), there's nothing here worth durably
+# recording -- the manifest/SQL files alongside it already are.
+data/research/media_cache/
