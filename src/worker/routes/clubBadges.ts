@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { normalize, collapseToAlnum, toFtsPrefixQuery } from "../lib/normalize";
 import { suggestNames } from "../lib/categories";
 import { enforceSuggestRateLimit } from "../lib/suggestRateLimit";
+import { CLUB_BADGE_SETS } from "../lib/clubBadgeSets";
 
 const clubBadges = new Hono<{ Bindings: Env }>();
 
@@ -65,8 +66,24 @@ clubBadges.get("/round", async (c) => {
 	// when this gets used.
 	const rawPlayerId = c.req.query("playerId");
 	const debugPlayerId = rawPlayerId ? Number(rawPlayerId) : NaN;
+	// Sets mode (single player, ClubBadgeSets.tsx/ClubBadgeSetPlay.tsx) --
+	// a real feature, not a debug override: hands back exactly one curated
+	// set's players (see clubBadgeSets.ts), in that FIXED order rather than
+	// shuffled, so "Set 3" means the same ten questions every time a player
+	// opens it, not a fresh random draw. 1-indexed to match the "Set 1"/
+	// "Set 2" labels shown in the UI.
+	const rawSetId = c.req.query("setId");
+	const setIndex = rawSetId ? Number(rawSetId) - 1 : NaN;
+	const set = Number.isInteger(setIndex) ? CLUB_BADGE_SETS[setIndex] : undefined;
 	let picked: QuestionRow[];
-	if (Number.isInteger(debugPlayerId)) {
+	if (set) {
+		const byPlayerId = new Map((questions ?? []).map((q) => [q.player_id, q]));
+		// .filter(Boolean) rather than assuming every id resolves -- a set
+		// referencing a player whose club_badge_questions row got deleted
+		// out from under it should just quietly shrink that set by one
+		// question, not 500 the whole page.
+		picked = set.map((playerId) => byPlayerId.get(playerId)).filter((q): q is QuestionRow => q !== undefined);
+	} else if (Number.isInteger(debugPlayerId)) {
 		picked = (questions ?? []).filter((q) => q.player_id === debugPlayerId);
 	} else {
 		const eligible = (questions ?? []).filter((q) => (JSON.parse(q.club_sequence) as number[]).length >= MIN_CLUBS_FOR_QUESTION);
@@ -339,6 +356,33 @@ clubBadges.get("/round", async (c) => {
 				loanMoves: transfers.map((t) => t.loan),
 			};
 		}),
+	});
+});
+
+// Sets mode's own index -- ClubBadgeSets.tsx (the set-picker page) calls
+// this once to learn how many sets exist and which club_badge_questions.
+// id belongs to each slot, so it can compute "7/10 done" and a completed
+// set's average score purely from localStorage (setsStorage.ts) without
+// a network round-trip per set. questionIds only -- never a player id or
+// name -- same non-spoiler reasoning as CbQuestion.id itself: which
+// opaque row a slot maps to isn't the answer, and Sets mode's whole
+// pitch (a stable "Set 3" you can return to) requires the client to know
+// that mapping up front anyway.
+clubBadges.get("/sets", async (c) => {
+	const allPlayerIds = [...new Set(CLUB_BADGE_SETS.flat())];
+	const { results } = await c.env.DB
+		.prepare(`SELECT id, player_id FROM club_badge_questions WHERE player_id IN (${allPlayerIds.map(() => "?").join(",")})`)
+		.bind(...allPlayerIds)
+		.all<{ id: number; player_id: number }>();
+	const questionIdByPlayerId = new Map((results ?? []).map((r) => [r.player_id, r.id]));
+
+	return c.json({
+		sets: CLUB_BADGE_SETS.map((playerIds, i) => ({
+			id: i + 1,
+			// .filter(Boolean) mirrors /round's own "quietly shrink, don't
+			// crash" handling of a set referencing a now-missing player.
+			questionIds: playerIds.map((playerId) => questionIdByPlayerId.get(playerId)).filter((id): id is number => id !== undefined),
+		})),
 	});
 });
 

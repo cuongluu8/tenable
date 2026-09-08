@@ -3,7 +3,8 @@ import "./App.css";
 import { CategoryList } from "./components/CategoryList";
 import { Logo } from "./components/Logo";
 import { PlayScreen } from "./components/PlayScreen";
-import { GuessThePlayer } from "./clubBadges/GuessThePlayer";
+import { ClubBadgeSetPlay } from "./clubBadges/ClubBadgeSetPlay";
+import { ClubBadgeSets } from "./clubBadges/ClubBadgeSets";
 import { Multiplayer } from "./multiplayer/Multiplayer";
 import type { CategoriesResponse, Category } from "./types";
 
@@ -40,18 +41,37 @@ function isMultiplayerPath(): boolean {
 // Multiplayer's internal game-type picker plays for the multiplayer side
 // (see Multiplayer.tsx) but as its own route here since single-player's two
 // modes are otherwise-unrelated top-level screens (PlayScreen vs
-// GuessThePlayer), not steps of one shared flow the way multiplayer's
+// ClubBadgeSets), not steps of one shared flow the way multiplayer's
 // roster is.
 function isSinglePlayerHomePath(): boolean {
 	return window.location.pathname === "/single-player";
 }
 
-// Solo "guess the player" -- one level under the single-player picker, no
-// slug of its own for the same reason multiplayer never had one for its
-// game (a round is always a fresh random draw, never a specific one you'd
-// link back to).
-function isSoloClubBadgesPath(): boolean {
+// Solo "guess the player" -- one level under the single-player picker.
+// Unlike multiplayer's own instance of this game (still a fresh random
+// draw every time, see GuessThePlayer.tsx), single player's now shows the
+// Sets picker (ClubBadgeSets.tsx, 2026-09-08) instead of jumping straight
+// into a round -- ten curated, nameable rounds a player returns to and
+// completes at their own pace, not a slug-worthy "session" of its own
+// either, same reasoning as before.
+function isClubBadgeSetsPath(): boolean {
 	return window.location.pathname === "/single-player/club-badges";
+}
+
+// One level under the Sets picker -- actually playing a specific set.
+// Slugged by number (not a name) since CLUB_BADGE_SETS itself is 1-indexed
+// and unnamed beyond "Set N" (clubBadgeSets.ts). ?retry=<questionId>
+// narrows the session to replaying just that one already-answered
+// question (ClubBadgeSets.tsx's per-question retry) instead of whatever
+// else in the set is still unanswered.
+function clubBadgeSetIdFromPath(): number | null {
+	const match = /^\/single-player\/club-badges\/set\/(\d+)$/.exec(window.location.pathname);
+	return match ? Number(match[1]) : null;
+}
+function clubBadgeSetRetryQuestionId(): number | undefined {
+	const raw = new URLSearchParams(window.location.search).get("retry");
+	const parsed = raw ? Number(raw) : NaN;
+	return Number.isInteger(parsed) ? parsed : undefined;
 }
 
 function App() {
@@ -60,7 +80,9 @@ function App() {
 	const [categoryListActive, setCategoryListActive] = useState<boolean>(() => isCategoryListPath());
 	const [multiplayerActive, setMultiplayerActive] = useState<boolean>(() => isMultiplayerPath());
 	const [singlePlayerHomeActive, setSinglePlayerHomeActive] = useState<boolean>(() => isSinglePlayerHomePath());
-	const [soloClubBadgesActive, setSoloClubBadgesActive] = useState<boolean>(() => isSoloClubBadgesPath());
+	const [clubBadgeSetsActive, setClubBadgeSetsActive] = useState<boolean>(() => isClubBadgeSetsPath());
+	const [clubBadgeSetId, setClubBadgeSetId] = useState<number | null>(() => clubBadgeSetIdFromPath());
+	const [clubBadgeSetRetryId, setClubBadgeSetRetryId] = useState<number | undefined>(() => clubBadgeSetRetryQuestionId());
 
 	const loadCategories = useCallback(() => {
 		fetch("/api/categories")
@@ -93,7 +115,9 @@ function App() {
 			setCategoryListActive(isCategoryListPath());
 			setMultiplayerActive(isMultiplayerPath());
 			setSinglePlayerHomeActive(isSinglePlayerHomePath());
-			setSoloClubBadgesActive(isSoloClubBadgesPath());
+			setClubBadgeSetsActive(isClubBadgeSetsPath());
+			setClubBadgeSetId(clubBadgeSetIdFromPath());
+			setClubBadgeSetRetryId(clubBadgeSetRetryQuestionId());
 		}
 		window.addEventListener("popstate", handlePopState);
 		return () => window.removeEventListener("popstate", handlePopState);
@@ -118,7 +142,27 @@ function App() {
 	function handleSoloClubBadgesSelect() {
 		window.history.pushState(null, "", "/single-player/club-badges");
 		setSinglePlayerHomeActive(false);
-		setSoloClubBadgesActive(true);
+		setClubBadgeSetsActive(true);
+	}
+
+	// Enters a specific set's play view -- ClubBadgeSets.tsx's "Play"/
+	// "Resume" (no questionId) or its per-question "Retry" (with one).
+	function handlePlayClubBadgeSet(setId: number, onlyQuestionId?: number) {
+		const query = onlyQuestionId ? `?retry=${onlyQuestionId}` : "";
+		window.history.pushState(null, "", `/single-player/club-badges/set/${setId}${query}`);
+		setClubBadgeSetsActive(false);
+		setClubBadgeSetId(setId);
+		setClubBadgeSetRetryId(onlyQuestionId);
+	}
+
+	// Back from a set's play view to the Sets picker -- one level up, not
+	// all the way to the single-player mode picker, same "back goes up one
+	// step" reasoning as handleBackToCategoryList/handleBackToSinglePlayerHome.
+	function handleExitClubBadgeSetPlay() {
+		window.history.pushState(null, "", "/single-player/club-badges");
+		setClubBadgeSetId(null);
+		setClubBadgeSetRetryId(undefined);
+		setClubBadgeSetsActive(true);
 	}
 
 	function handleSelect(cat: Category) {
@@ -138,7 +182,9 @@ function App() {
 	function handleBackToSinglePlayerHome() {
 		window.history.pushState(null, "", "/single-player");
 		setCategoryListActive(false);
-		setSoloClubBadgesActive(false);
+		setClubBadgeSetsActive(false);
+		setClubBadgeSetId(null);
+		setClubBadgeSetRetryId(undefined);
 		setSinglePlayerHomeActive(true);
 	}
 
@@ -148,7 +194,9 @@ function App() {
 		setCategoryListActive(false);
 		setMultiplayerActive(false);
 		setSinglePlayerHomeActive(false);
-		setSoloClubBadgesActive(false);
+		setClubBadgeSetsActive(false);
+		setClubBadgeSetId(null);
+		setClubBadgeSetRetryId(undefined);
 	}
 
 	if (activeSlug) {
@@ -159,8 +207,18 @@ function App() {
 		return <Multiplayer onBack={handleBackToHome} />;
 	}
 
-	if (soloClubBadgesActive) {
-		return <GuessThePlayer playerNames={["You"]} onExit={handleBackToSinglePlayerHome} />;
+	if (clubBadgeSetId !== null) {
+		return (
+			<ClubBadgeSetPlay
+				setId={clubBadgeSetId}
+				onlyQuestionId={clubBadgeSetRetryId}
+				onExit={handleExitClubBadgeSetPlay}
+			/>
+		);
+	}
+
+	if (clubBadgeSetsActive) {
+		return <ClubBadgeSets onPlay={handlePlayClubBadgeSet} onBack={handleBackToSinglePlayerHome} />;
 	}
 
 	if (categoryListActive) {

@@ -128,13 +128,34 @@ interface Props {
 	onNext: () => void;
 	submitting: boolean;
 	onQuit: () => void;
+	// Both optional, both default to the normal state-derived behavior
+	// below when omitted -- solo/multiplayer's own real multi-question
+	// rounds are completely unaffected. Exist for Sets mode
+	// (ClubBadgeSetPlay.tsx), which drives this component with a
+	// single-question "mini-round" per question (so state.ts's lives/
+	// retry mechanics -- built around one round's own wrongCount, not an
+	// individual question's -- naturally scope to just the one being
+	// played, no changes needed there at all). Without these two
+	// overrides that approach would show "Question 1 of 1" for every
+	// question and treat every reveal as the round's last one.
+	progressLabel?: string;
+	isLastOverride?: boolean;
 }
 
 // Active-round screen. Two sub-views depending on state.lastResult: the
 // guess box (nothing answered yet this question) or the reveal (answered,
 // waiting for "Next" to hand the device to the next player) -- see
 // state.ts's doc on why that's what lastResult's presence means.
-export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, onQuit }: Props) {
+export function ClubBadgesPlay({
+	state,
+	onGuess,
+	onGiveUp,
+	onNext,
+	submitting,
+	onQuit,
+	progressLabel,
+	isLastOverride,
+}: Props) {
 	const [guessInput, setGuessInput] = useState("");
 	// Same "confirm before it costs you" pattern as single-player's give-up
 	// (PlayScreen.tsx) -- a stray tap here loses a point on this question
@@ -242,7 +263,7 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 	// can produce several non-final reveals (one per player) before this
 	// becomes true, unlike the old isLastQuestion this replaces, which
 	// used to be able to assume every reveal was the question's only one.
-	const isRoundOver = (isLastQuestionOverall && isLastPlayerForQuestion) || outOfLives;
+	const isRoundOver = isLastOverride ?? ((isLastQuestionOverall && isLastPlayerForQuestion) || outOfLives);
 
 	function pick(name: string) {
 		setGuessInput(name);
@@ -266,9 +287,7 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 				← New game
 			</button>
 
-			<p className="cb-progress">
-				Question {state.questionIndex + 1} of {state.questions.length}
-			</p>
+			<p className="cb-progress">{progressLabel ?? `Question ${state.questionIndex + 1} of ${state.questions.length}`}</p>
 
 			{/* Same 5-life budget shown for both modes since 2026-09-08, but
 			    what running out means differs (state.ts's MAX_WRONG_LIVES doc):
