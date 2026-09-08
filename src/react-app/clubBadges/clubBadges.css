@@ -656,6 +656,28 @@
 	flex-wrap: wrap;
 }
 
+/* Multiplayer's set picker (MultiplayerSetPick.tsx) reuses the same card
+   look as the list above, but each card IS the clickable control (a
+   <button>, not a <div> wrapping separate action buttons the way
+   ClubBadgeSets.tsx's cards do) -- undoing the browser's own button chrome
+   so it still reads as the same card, plus a selected state none of
+   ClubBadgeSets.tsx's own cards need (that page has no concept of "the
+   current pick", every card there just stands on its own). */
+.cb-set-card--pickable {
+	width: 100%;
+	text-align: left;
+	font: inherit;
+	color: inherit;
+	cursor: pointer;
+}
+.cb-set-card--pickable:hover {
+	border-color: #6b7280;
+}
+.cb-set-card--selected {
+	border-color: #22c55e;
+	background: #14532d;
+}
+
 /* Set-complete screen (ClubBadgeSetPlay.tsx) -- shown once, right when a
    set becomes fully answered, not just an updated card back on the list. */
 .cb-set-complete__actions {

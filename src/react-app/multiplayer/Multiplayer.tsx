@@ -3,6 +3,7 @@ import "./multiplayer.css";
 import { MultiplayerPlayers } from "./MultiplayerPlayers";
 import { MultiplayerGameTypePick, type MpGameType } from "./MultiplayerGameTypePick";
 import { MultiplayerCategoryPick } from "./MultiplayerCategoryPick";
+import { MultiplayerSetPick } from "./MultiplayerSetPick";
 import { MultiplayerPlay } from "./MultiplayerPlay";
 import { MultiplayerResult } from "./MultiplayerResult";
 import { multiplayerReducer, initialMpState, type MpCategory } from "./state";
@@ -33,17 +34,19 @@ export function Multiplayer({ onBack }: Props) {
 	// resolves (or if it fails); the result screen just shows found answers
 	// only in that case, same as it did before this existed.
 	const [revealed, setRevealed] = useState<RevealAnswer[] | null>(null);
-	// Three-step setup wizard, ahead of the reducer's own "setup" phase: null
-	// means still on the roster step (MultiplayerPlayers.tsx); once a roster
-	// is confirmed, gameType is chosen next (MultiplayerGameTypePick.tsx);
-	// only once that's "categories" does the category step
-	// (MultiplayerCategoryPick.tsx) take over -- "club-badges" instead skips
-	// straight to GuessThePlayer, which has no further picking of its own (a
-	// round is always a random draw). Kept here rather than in any child so
-	// a "Back" from a later step can return to an earlier one with its
-	// choices still filled in.
+	// Setup wizard, ahead of the reducer's own "setup" phase: null means
+	// still on the roster step (MultiplayerPlayers.tsx); once a roster is
+	// confirmed, gameType is chosen next (MultiplayerGameTypePick.tsx); from
+	// there "categories" goes to the category step
+	// (MultiplayerCategoryPick.tsx), while "club-badges" goes to the set
+	// step (MultiplayerSetPick.tsx) -- undefined there means "not chosen
+	// yet", distinct from clubBadgeSetId's own null ("Random round" was
+	// chosen, same behavior GuessThePlayer always had before this step
+	// existed). Kept here rather than in any child so a "Back" from a later
+	// step can return to an earlier one with its choices still filled in.
 	const [rosterNames, setRosterNames] = useState<string[] | null>(null);
 	const [gameType, setGameType] = useState<MpGameType | null>(null);
+	const [clubBadgeSetId, setClubBadgeSetId] = useState<number | null | undefined>(undefined);
 
 	function startGame(category: MpCategory) {
 		if (!rosterNames) return; // can't happen — the category step never renders without one
@@ -120,11 +123,14 @@ export function Multiplayer({ onBack }: Props) {
 		setRevealed(null);
 		setRosterNames(null);
 		setGameType(null);
+		setClubBadgeSetId(undefined);
 		dispatch({ type: "reset" });
 	}
 
-	if (gameType === "club-badges" && rosterNames) {
-		return <GuessThePlayer playerNames={rosterNames} onExit={resetGame} />;
+	if (gameType === "club-badges" && rosterNames && clubBadgeSetId !== undefined) {
+		return (
+			<GuessThePlayer playerNames={rosterNames} setId={clubBadgeSetId ?? undefined} onExit={resetGame} />
+		);
 	}
 
 	return (
@@ -134,6 +140,8 @@ export function Multiplayer({ onBack }: Props) {
 					<MultiplayerPlayers onNext={setRosterNames} onBack={onBack} />
 				) : gameType === null ? (
 					<MultiplayerGameTypePick onStart={setGameType} onBack={() => setRosterNames(null)} />
+				) : gameType === "club-badges" ? (
+					<MultiplayerSetPick onStart={setClubBadgeSetId} onBack={() => setGameType(null)} />
 				) : (
 					<MultiplayerCategoryPick onStart={startGame} onBack={() => setGameType(null)} />
 				))}
