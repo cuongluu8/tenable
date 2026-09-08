@@ -286,6 +286,16 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 							// their own 64px wrap, so it doesn't read as cramped
 							// against its left neighbor the way this one does.
 							const isEnteringLoan = !isRowFirst && tile.isLoan && !row[posInRow - 1].isLoan;
+							// The mirror case: leaving a loan club to enter a
+							// permanent one. That arrow doesn't really originate
+							// from the loan club at all -- the player actually
+							// returned to the parent first (see db/schema.sql's
+							// club_sequence comment), the loan tile just happens
+							// to be the nearest thing drawn next to it. Lowering
+							// it to the loan tile's own lower half (rather than
+							// the row's vertical center) reads as "this comes
+							// from underneath/behind the loan step, not from it."
+							const isLeavingLoan = !isRowFirst && !tile.isLoan && row[posInRow - 1].isLoan;
 							const arrowDate =
 								!isRowFirst && revealedHints.has("transferDate")
 									? question.transferDates[tile.originalIndex - 1]
@@ -298,6 +308,7 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 												"cb-arrow-stack",
 												tile.isLoan && "cb-arrow-stack--loan-target",
 												isEnteringLoan && "cb-arrow-stack--entering-loan",
+												isLeavingLoan && "cb-arrow-stack--leaving-loan",
 											]
 												.filter(Boolean)
 												.join(" ")}

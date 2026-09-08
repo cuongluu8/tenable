@@ -149,6 +149,19 @@
 	height: 48px;
 }
 
+/* The mirror case: an arrow leaving a loan tile to enter a permanent one.
+   That move doesn't actually originate from the loan club -- the player
+   returned to the parent club first (db/schema.sql's club_sequence
+   comment) -- so this is pinned to the row's own BOTTOM edge instead of
+   its top, reading as "coming from underneath/behind the loan step" the
+   same way .cb-arrow-stack--loan-target reads as "pointing at the loan
+   step's own image" for the entering case. No fixed height to match here
+   (unlike --loan-target) -- this arrow isn't centered against a specific
+   image, just pushed to the row's bottom edge with its own natural size. */
+.cb-arrow-stack--leaving-loan {
+	align-self: end;
+}
+
 /* The one loan-target arrow that visually reads as too close to its left
    neighbor -- leaving a full 64px permanent tile to start a loan spell.
    A loan-to-loan arrow doesn't get this: both its neighbors are already
