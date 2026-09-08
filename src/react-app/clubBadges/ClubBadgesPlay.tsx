@@ -282,10 +282,13 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 
 			{/* Live countdown pressure on the 100-point budget above --
 			    tabular-nums (clubBadges.css) so the digits don't jitter the
-			    layout as they change. Hidden once answered: the reveal below
-			    shows the score that timer produced instead, not the timer
-			    itself still ticking toward nothing. */}
-			{!state.lastResult && <p className="cb-timer">⏱ {formatElapsed(elapsedSeconds)}</p>}
+			    layout as they change. Stays on screen through the reveal
+			    rather than disappearing -- the ticking effect above already
+			    stops the instant state.lastResult is set, so this just shows
+			    whatever the clock read at the moment the score (below) was
+			    actually earned, instead of vanishing right when it'd be most
+			    useful to see. */}
+			<p className="cb-timer">⏱ {formatElapsed(elapsedSeconds)}</p>
 
 			{/* useGridColumns computes how many tiles fit per row; chunking
 			    chainTiles into rows of that many (clubBadges.css's
