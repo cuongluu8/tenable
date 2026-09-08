@@ -3,6 +3,7 @@ import "../multiplayer/multiplayer.css";
 import "./clubBadges.css";
 import { scoreBand } from "./state";
 import { getSetResults, resetQuestion, resetSet, type SetQuestionResult } from "./setsStorage";
+import { shareSetViaWhatsApp } from "./shareSet";
 
 interface SetSummary {
 	id: number;
@@ -163,6 +164,15 @@ export function ClubBadgeSets({ onPlay, onBack }: Props) {
 								{!isComplete && (
 									<button type="button" onClick={() => onPlay(set.id)}>
 										{answeredCount === 0 ? "Play" : "Resume"}
+									</button>
+								)}
+								{/* Re-share for a set completed in an earlier session --
+								    ClubBadgeSetPlay.tsx's own share button only ever shows
+								    once, right when a set first becomes complete, so this is
+								    the only way back to it afterward. */}
+								{average !== null && (
+									<button type="button" onClick={() => shareSetViaWhatsApp(set.id, average)}>
+										Share
 									</button>
 								)}
 								{confirmingResetSetId === set.id ? (

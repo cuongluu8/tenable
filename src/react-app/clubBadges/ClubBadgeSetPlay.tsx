@@ -2,8 +2,9 @@ import { useEffect, useReducer, useState } from "react";
 import "../multiplayer/multiplayer.css";
 import "./clubBadges.css";
 import { ClubBadgesPlay } from "./ClubBadgesPlay";
-import { clubBadgesReducer, initialCbState, MAX_WRONG_LIVES, type CbQuestion } from "./state";
+import { clubBadgesReducer, initialCbState, MAX_WRONG_LIVES, scoreBand, type CbQuestion } from "./state";
 import { getSetResults, recordResult } from "./setsStorage";
+import { shareSetViaWhatsApp } from "./shareSet";
 
 interface RoundResponse {
 	questions: CbQuestion[];
@@ -68,6 +69,17 @@ export function ClubBadgeSetPlay({ setId, onlyQuestionId, onExit }: Props) {
 	const [queue, setQueue] = useState<QueueItem[] | null>(null);
 	const [queueIndex, setQueueIndex] = useState(0);
 	const [setSize, setSetSize] = useState(0);
+	// Every question id in the WHOLE set, fixed order, regardless of
+	// what's already answered -- unlike `queue` (this session's subset),
+	// nextQuestion() needs the full list to tell "the whole set just
+	// became fully answered" apart from "just this session's queue ran
+	// out" (e.g. resuming a partially-done set, or retrying one already-
+	// answered question -- neither means the SET is done).
+	const [allQuestionIds, setAllQuestionIds] = useState<number[] | null>(null);
+	// Set once the set (all of it, not just this session) is fully
+	// answered -- non-null switches the render below from the guessing
+	// screen to the share/complete screen.
+	const [completionAverage, setCompletionAverage] = useState<number | null>(null);
 
 	useEffect(() => {
 		let cancelled = false;
@@ -81,6 +93,7 @@ export function ClubBadgeSetPlay({ setId, onlyQuestionId, onExit }: Props) {
 					return;
 				}
 				setSetSize(data.questions.length);
+				setAllQuestionIds(data.questions.map((q) => q.id));
 				const done = getSetResults(setId);
 				const items: QueueItem[] = data.questions
 					.map((question, originalIndex) => ({ question, originalIndex }))
@@ -183,9 +196,25 @@ export function ClubBadgeSetPlay({ setId, onlyQuestionId, onExit }: Props) {
 		if (nextIndex < queue.length) {
 			setQueueIndex(nextIndex);
 			dispatch({ type: "start", playerNames: ["You"], questions: [queue[nextIndex].question] });
-		} else {
-			onExit();
+			return;
 		}
+		// This session's own queue is done -- but that's not necessarily the
+		// whole SET (resuming a partial set, or retrying one already-
+		// answered question, both end here without the set itself being
+		// newly complete). Re-read localStorage fresh: recordResult above
+		// already wrote synchronously, so it reflects this question too.
+		if (allQuestionIds) {
+			const results = getSetResults(setId);
+			const isFullSetComplete = allQuestionIds.every((id) => id in results);
+			if (isFullSetComplete) {
+				const average = Math.round(
+					allQuestionIds.reduce((sum, id) => sum + (results[id]?.points ?? 0), 0) / allQuestionIds.length,
+				);
+				setCompletionAverage(average);
+				return;
+			}
+		}
+		onExit();
 	}
 
 	if (loadError) {
@@ -195,6 +224,28 @@ export function ClubBadgeSetPlay({ setId, onlyQuestionId, onExit }: Props) {
 					← Back
 				</button>
 				<p className="mp-setup__error">{loadError}</p>
+			</div>
+		);
+	}
+
+	// The whole set (not just this session) just became fully answered --
+	// see nextQuestion's own doc on exactly when this fires. Shown instead
+	// of silently dropping back to ClubBadgeSets.tsx so there's an actual
+	// "you did it" moment to share from, not just an updated card the
+	// player has to notice on the list.
+	if (completionAverage !== null) {
+		return (
+			<div className="screen">
+				<h2>Set {setId} complete!</h2>
+				<p className={`cb-score cb-score--${scoreBand(completionAverage)}`}>{completionAverage} avg</p>
+				<div className="cb-set-complete__actions">
+					<button type="button" onClick={() => shareSetViaWhatsApp(setId, completionAverage)}>
+						Share via WhatsApp
+					</button>
+					<button type="button" className="back-link" onClick={onExit}>
+						← Back to Sets
+					</button>
+				</div>
 			</div>
 		);
 	}
