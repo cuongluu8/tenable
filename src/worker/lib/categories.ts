@@ -260,10 +260,21 @@ export async function suggestNames(
 	// driving the join from `entities` filtered by entity_type -- effectively
 	// every player row -- and probing entity_aliases per row, rather than the
 	// other way round. Explicit `>=`/`<` bounds against a computed upper bound
-	// are unambiguous to the planner regardless of join shape, and verified
-	// (same EXPLAIN) to produce a genuine `SEARCH ... USING INDEX
-	// idx_entity_aliases_alias (alias>? AND alias<?)` — an actual bounded
-	// range scan, not a scan of every aliased row let alone every entity.
+	// were supposed to make that plan unambiguous regardless of join shape,
+	// and were verified via that same EXPLAIN at the time -- but a second
+	// incident (2026-09-08: D1's whole daily quota exhausted, confirmed via a
+	// fresh EXPLAIN QUERY PLAN against this exact query showing the planner
+	// had drifted right back to `SEARCH e USING INDEX idx_entities_type` +
+	// `SEARCH al USING INDEX idx_entity_aliases_entity` -- the same bad plan
+	// as before) showed bounds alone don't reliably keep the planner pinned
+	// there either -- SQLite is still free to re-cost the join as row counts
+	// on either side change, with no error or warning when it picks the
+	// worse side again. `INDEXED BY` below removes that choice entirely: it
+	// forces this branch through `idx_entity_aliases_alias` unconditionally,
+	// so a genuine bounded range scan is the ONLY plan SQLite can produce
+	// here — and if that index is ever dropped or renamed, this query fails
+	// outright (a loud, obvious break) instead of silently degrading into
+	// another multi-day quota drain nobody notices until it's an outage.
 	const prefixUpperBound = normalizedPrefix + "￿";
 
 	const result = await db
@@ -291,7 +302,7 @@ export async function suggestNames(
 					           WHEN ?4 IS NOT NULL AND e.scope = ?4 THEN 1
 					           ELSE 2
 					       END AS priority
-					FROM entity_aliases al
+					FROM entity_aliases al INDEXED BY idx_entity_aliases_alias
 					JOIN entities e ON al.entity_id = e.id
 					WHERE al.alias >= ?3 AND al.alias < ?6 AND e.entity_type = ?2
 				 )
