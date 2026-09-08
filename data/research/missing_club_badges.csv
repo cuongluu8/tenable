@@ -1,14 +1,14 @@
-entity_id,canonical_name,scope,tier
-19384,Bong Range United,Liberia,obscure/historical
-19389,Buffalo Stallions,United States,obscure/historical
-55,Deportes La Serena,Chile,obscure/historical
-19405,Jewish Guild,South Africa,obscure/historical
-19409,Lanceros Boyacá,Colombia,obscure/historical
-19418,New Jersey Americans,United States,obscure/historical
-19420,Newcastle KB United,Australia,obscure/historical
-19429,Sacrofano,Italy,obscure/historical
-385,Salop United,England,obscure/historical
-19431,Sea Bee,Hong Kong,obscure/historical
-168,Universidad de Vinto,Bolivia,obscure/historical
-19440,União de Tomar,Portugal,obscure/historical
-19444,Young Survivors,Liberia,obscure/historical
+entity_id,canonical_name,scope,tier,status,reason
+19384,Bong Range United,Liberia,obscure/historical,no-crest-available,Real club (confirmed) but no logo found on Wikipedia or Commons -- checked 2026-09-08
+19389,Buffalo Stallions,United States,obscure/historical,no-crest-available,Original 1979-84 MISL club's own Wikipedia page has no infobox image; a modern NPSL team reuses the name but is a different, later club -- checked 2026-09-08
+55,Deportes La Serena,Chile,obscure/historical,no-crest-available,Wikipedia infobox has no image field set (real crest likely exists off-wiki, not sourced here) -- checked 2026-09-08
+19405,Jewish Guild,South Africa,obscure/historical,no-crest-available,Wikipedia infobox has no image field set -- checked 2026-09-08
+19409,Lanceros Boyacá,Colombia,obscure/historical,no-crest-available,Own Wikipedia page has no image field; no confirmed rename/lineage link to Patriotas Boyacá (different founding dates, not verified as the same club) -- checked 2026-09-08
+19418,New Jersey Americans,United States,obscure/historical,no-crest-available,No logo found on Wikipedia or Commons -- checked 2026-09-08
+19420,Newcastle KB United,Australia,obscure/historical,no-crest-available,Wikipedia infobox has no image field set -- checked 2026-09-08
+19429,Sacrofano,Italy,obscure/historical,no-crest-available,No Wikipedia article exists for this club at all -- checked 2026-09-08
+385,Salop United,England,obscure/historical,no-crest-available,No Wikipedia article found for this club at all -- checked 2026-09-08
+19431,Sea Bee,Hong Kong,obscure/historical,no-crest-available,Wikipedia infobox has no image field set -- checked 2026-09-08
+168,Universidad de Vinto,Bolivia,obscure/historical,no-crest-available,"A Commons file named for this club exists, but its actual image content is Universitario de Deportes (Peru)'s crest -- mislabeled/wrong club, not usable -- checked 2026-09-08"
+19440,União de Tomar,Portugal,obscure/historical,no-crest-available,Wikipedia infobox (U.F.C.I. Tomar) has no image field set -- checked 2026-09-08
+19444,Young Survivors,Liberia,obscure/historical,no-crest-available,Real club (George Weah's youth club) but no logo found on Wikipedia or Commons -- checked 2026-09-08
