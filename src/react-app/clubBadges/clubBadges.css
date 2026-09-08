@@ -160,6 +160,12 @@
    image, just pushed to the row's bottom edge with its own natural size. */
 .cb-arrow-stack--leaving-loan {
 	align-self: end;
+	/* Pulled back up from the row's true bottom edge -- flush against it
+	   read as too low (confirmed the hard way, 2026-09-08). This lands it
+	   closer to just below the loan image's own bottom edge (the loan
+	   image ends at 48px into a 64px-tall row) instead of the row's full
+	   64px edge. */
+	margin-bottom: 12px;
 }
 
 /* The one loan-target arrow that visually reads as too close to its left
