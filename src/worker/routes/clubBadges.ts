@@ -6,6 +6,9 @@ import { CLUB_BADGE_SETS, CLUB_BADGE_SET_NAMES } from "../lib/clubBadgeSets";
 
 const clubBadges = new Hono<{ Bindings: Env }>();
 
+// A full round's size -- doubles as Sets mode's own "is this set actually
+// complete" threshold below (/sets), since both concepts mean the same
+// thing: ten questions, not nine or eleven.
 const QUESTIONS_PER_ROUND = 10;
 // A 2-club sequence ("played for A, then B") reads as barely a career --
 // this keeps the pool to players with a real path to trace. 92 of the 107
@@ -373,6 +376,20 @@ clubBadges.get("/round", async (c) => {
 // opaque row a slot maps to isn't the answer, and Sets mode's whole
 // pitch (a stable "Set 3" you can return to) requires the client to know
 // that mapping up front anyway.
+//
+// Only ever returns sets that resolve to exactly 10 questions -- per
+// explicit instruction, 2026-09-08: CLUB_BADGE_SETS' last entry is only
+// 6 (96 eligible players doesn't divide evenly by 10, see that file's
+// own doc), and a short set shouldn't show up in the picker at all
+// rather than display as an odd "0/6 answered" card. Checked against
+// the ACTUAL resolved count (after the questionIdByPlayerId lookup
+// below), not just CLUB_BADGE_SETS[i].length, so a future set that
+// drops below 10 for some other reason (a referenced player's
+// club_badge_questions row deleted, say) gets hidden the same way
+// without needing a second, separate check for that case. The route a
+// set's own play view uses (/round?setId=N above) is unaffected --
+// this only controls what the LIST shows, not whether a set can still
+// be played directly if something already links to it.
 clubBadges.get("/sets", async (c) => {
 	const allPlayerIds = [...new Set(CLUB_BADGE_SETS.flat())];
 	const { results } = await c.env.DB
@@ -381,15 +398,15 @@ clubBadges.get("/sets", async (c) => {
 		.all<{ id: number; player_id: number }>();
 	const questionIdByPlayerId = new Map((results ?? []).map((r) => [r.player_id, r.id]));
 
-	return c.json({
-		sets: CLUB_BADGE_SETS.map((playerIds, i) => ({
-			id: i + 1,
-			name: CLUB_BADGE_SET_NAMES[i],
-			// .filter(Boolean) mirrors /round's own "quietly shrink, don't
-			// crash" handling of a set referencing a now-missing player.
-			questionIds: playerIds.map((playerId) => questionIdByPlayerId.get(playerId)).filter((id): id is number => id !== undefined),
-		})),
-	});
+	const sets = CLUB_BADGE_SETS.map((playerIds, i) => ({
+		id: i + 1,
+		name: CLUB_BADGE_SET_NAMES[i],
+		// .filter(Boolean) mirrors /round's own "quietly shrink, don't
+		// crash" handling of a set referencing a now-missing player.
+		questionIds: playerIds.map((playerId) => questionIdByPlayerId.get(playerId)).filter((id): id is number => id !== undefined),
+	})).filter((set) => set.questionIds.length === QUESTIONS_PER_ROUND);
+
+	return c.json({ sets });
 });
 
 interface CheckGuessBody {
