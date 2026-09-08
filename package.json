@@ -1,5 +1,5 @@
 {
-	"name": "tenable",
+	"name": "top-10-tension",
 	"description": "A template for building a React application with Vite, Hono, and Cloudflare Workers",
 	"cloudflare": {
 		"label": "Vite React Template",

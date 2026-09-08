@@ -278,7 +278,7 @@ function App() {
 		<div className="screen">
 			<header className="header">
 				<Logo className="logo" />
-				<h1>Tenable</h1>
+				<h1>Top-10 Tension</h1>
 				<p className="subtitle">Top 10 football trivia</p>
 			</header>
 

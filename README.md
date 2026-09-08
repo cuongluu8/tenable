@@ -1,4 +1,4 @@
-# Tenable
+# Top-10 Tension
 
 A daily-playable "Top 10" football trivia game (inspired by
 [Football Tenable](https://playfootball.games/football-tenable/) / the ITV
@@ -6,7 +6,7 @@ show *Tenable*). Browse a library of categories (e.g. "Top 10 Champions
 League winners by club") and guess entries in Classic (unlimited guesses) or
 Tension (5 lives) mode.
 
-- **Live**: https://tenable.cuong-luu.workers.dev
+- **Live**: https://top-10-tension.cuong-luu.workers.dev
 
 **For architecture, data model, deployment, and Cloudflare cost details, see
 [`agents.md`](./agents.md)** — that's the maintained source of truth for how
@@ -46,7 +46,9 @@ npx wrangler d1 execute tenable-content --local --file=./db/seed.sql
 npx wrangler dev --port 8787   # http://localhost:8787
 ```
 
-`wrangler dev` here runs against a prebuilt bundle (`dist/tenable/wrangler.json`),
+`wrangler dev` here runs against a prebuilt bundle (`dist/top_10_tension/wrangler.json`
+— underscores, not hyphens: Vite's own environment-name rules, derived from
+`wrangler.json`'s `name` field, don't allow hyphens),
 not `src/worker/` directly — always run `npm run build` before testing a
 worker-code change locally, or you'll silently get the stale bundle.
 

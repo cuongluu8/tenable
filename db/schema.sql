@@ -1,4 +1,4 @@
--- Tenable content schema
+-- Top-10 Tension content schema
 --
 -- Rebuilt (2026-08-31) around a single source of truth for identity. The
 -- previous schema kept a category's answer names (`answers.canonical_name`)

@@ -380,5 +380,5 @@ function buildShareText(progress: Progress, category: Category): string {
 		progress.foundRanks.includes(i + 1) ? "🟩" : "⬜",
 	).join("");
 	const modeLabel = progress.mode === "tension" ? "Tension" : "Classic";
-	return `Tenable — ${category.title}\n${modeLabel}: ${progress.foundRanks.length}/${category.answerCount}\n${grid}`;
+	return `Top-10 Tension — ${category.title}\n${modeLabel}: ${progress.foundRanks.length}/${category.answerCount}\n${grid}`;
 }

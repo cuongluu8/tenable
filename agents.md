@@ -8,14 +8,19 @@ no docs.
 
 ## What this is
 
-Tenable is a daily-playable "Top 10" football trivia game (inspired by
+Top-10 Tension is a daily-playable "Top 10" football trivia game (inspired by
 [Football Tenable](https://playfootball.games/football-tenable/) / the ITV
-show *Tenable*). Players browse a library of categories (e.g. "Top 10
-Champions League winners by club") and guess entries in Classic (unlimited
-guesses) or Tension (5 lives) mode.
+show *Tenable*) -- renamed from "Tenable" on 2026-09-08 to avoid colliding
+with that show's/site's own name. Players browse a library of categories
+(e.g. "Top 10 Champions League winners by club") and guess entries in
+Classic (unlimited guesses) or Tension (5 lives) mode.
 
-- **Live**: https://tenable.cuong-luu.workers.dev
-- **Repo**: cuongluu8/tenable, default branch `main`
+- **Live**: https://top-10-tension.cuong-luu.workers.dev
+- **Repo**: cuongluu8/tenable, default branch `main` -- the GitHub repo slug
+  itself was deliberately left as-is in this rename (a repo rename is a
+  bigger, separate call -- it changes clone URLs for anyone with the old one
+  -- and wasn't asked for); only the product name, Worker, and user-facing
+  copy changed.
 
 ## Working with Claude on this repo — token cost awareness
 
@@ -782,21 +787,24 @@ locally first is what keeps that gate from turning red after you've already push
 server still comes up.
 
 `wrangler dev` here runs against a **redirected config pointing at
-`dist/tenable/wrangler.json`**, i.e. a prebuilt bundle, not `src/worker/`
-directly — editing worker source and restarting `wrangler dev` without
-first running `npm run build` serves the *stale* bundle with no error or
-warning. Always `npm run build` before testing a worker-code change locally.
+`dist/top_10_tension/wrangler.json`**, i.e. a prebuilt bundle, not
+`src/worker/` directly — editing worker source and restarting `wrangler dev`
+without first running `npm run build` serves the *stale* bundle with no
+error or warning. Always `npm run build` before testing a worker-code change
+locally. (This directory is named after `wrangler.json`'s own `name` field,
+with underscores in place of hyphens — Vite's environment-name rules don't
+allow hyphens. It was `dist/tenable/` before the 2026-09-08 rename below.)
 
 ## Deployment
 
-Deploys happen via **Cloudflare Workers Builds** — Cloudflare's own Git
-integration, connected directly to this repo through the Cloudflare
-dashboard (Workers & Pages → tenable → Settings → Builds), most likely set up
-by the original "Deploy to Cloudflare" template button. Every push to `main`
-is automatically built and deployed by Cloudflare's own infrastructure —
-**no GitHub Actions workflow is involved, and none should be added for
-this.** Build/deploy status and logs are visible in the Cloudflare dashboard
-under that Worker's **Deployments** tab, not in the repo's Actions tab.
+Deploys have historically happened via **Cloudflare Workers Builds** —
+Cloudflare's own Git integration, connected directly to this repo through
+the Cloudflare dashboard, most likely set up by the original "Deploy to
+Cloudflare" template button. Every push to `main` was automatically built
+and deployed by Cloudflare's own infrastructure — **no GitHub Actions
+workflow is involved, and none should be added for this.** Build/deploy
+status and logs are visible in the Cloudflare dashboard under that Worker's
+**Deployments** tab, not in the repo's Actions tab.
 
 An earlier version of this project *did* have a custom
 `.github/workflows/deploy.yml` (`wrangler deploy` via `cloudflare/wrangler-action`)
@@ -810,28 +818,39 @@ replaced (e.g. moving to a different Cloudflare account with no Git
 integration configured) — check the dashboard's Builds tab first if deploys
 ever seem to stop working, before assuming a new CI workflow is the fix.
 
-This sandbox has no `wrangler` auth of its own (no `CLOUDFLARE_API_TOKEN` env
-var), so an agent working from here **cannot** `wrangler deploy` directly —
-there is no way to trigger or force a deploy from this environment. Pushing
-(and merging) to `main` is what triggers a real deploy, handled entirely by
-Cloudflare outside of anything in this repo or session. The Cloudflare
-Developer Platform MCP tools available here can create/query D1, KV, and R2
-*data/resources*, but cannot deploy Worker code or inspect Workers Builds
-build status.
+**2026-09-08 rename note:** Cloudflare doesn't support renaming a Worker in
+place, and a Git-connected Worker's dashboard identity has to match
+`wrangler.json`'s own `name` — so changing that field (`tenable` →
+`top-10-tension`, done in this rename) breaks the existing Workers Builds
+Git integration, which is still wired to the old `tenable` Worker. The new
+`top-10-tension` Worker was deployed directly via `wrangler deploy` (this
+environment does in fact have working `wrangler` auth, contrary to what an
+earlier version of this section claimed — that claim was simply wrong/stale,
+not a rule to preserve). Restoring push-to-deploy on `main` requires a
+one-time **manual dashboard step**, not done as part of this rename: delete
+the old `tenable` Worker (or at least its Git integration/route), then
+connect a new Worker named `top-10-tension` to this repo via Workers Builds.
+Until that's done, deploy manually with `npm run deploy`
+(`wrangler deploy`) after every push that needs to go live.
 
 ## Cloudflare resources
 
 | Resource | Name | ID |
 |---|---|---|
-| Worker | `tenable` | — |
+| Worker | `top-10-tension` | — |
 | D1 database | `tenable-content` | `a87ef250-cc94-4765-a821-785acbcd71a4` |
 | KV namespace | `tenable-progress` | `f04cfb81bc8e4ba783cd3157d59e2734` |
 
-Both are bound in `wrangler.json` (`DB`, `PROGRESS`). **This Cloudflare
+The D1 database and KV namespace keep their pre-rename names deliberately —
+they're internal Cloudflare-dashboard labels, referenced everywhere in code
+by binding/ID rather than by name, never shown to a player, and neither D1
+nor R2 supports an in-place rename anyway (only delete-and-recreate, a real
+data-loss risk for zero visible benefit). Both are bound in `wrangler.json`
+(`DB`, `PROGRESS`). **This Cloudflare
 account is shared with other, unrelated projects**
 (`nero-perk-scheduler`, `deal-or-no-deal-api`, plus R2 buckets `bingo-caller`
 and `deal-or-no-deal`) — the free-tier quotas below are account-wide, not
-per-Worker, so tenable's real headroom depends on what else is running on
+per-Worker, so top-10-tension's real headroom depends on what else is running on
 this account at any given time.
 
 ## Cost: designed for zero cost, but verify the account plan
@@ -872,10 +891,10 @@ payment methods, or spend.
    https://dash.cloudflare.com/?to=/:account/workers/plans — if it's ever
    upgraded to Workers Paid (deliberately or by accident), the "errors
    instead of charges" safety net above no longer applies for any project on
-   this account, not just tenable.
+   this account, not just top-10-tension.
 2. There's no programmatic hard spend-cap for Workers/D1/KV free-tier usage.
    The closest thing available is checking usage under **Workers & Pages →
-   tenable → Metrics** (and the D1/KV dashboards) periodically, or setting up
+   top-10-tension → Metrics** (and the D1/KV dashboards) periodically, or setting up
    a Cloudflare billing notification under **Notifications** in the dashboard
    if one is offered for your account type.
 
@@ -896,12 +915,12 @@ usage grows.
 **Update, 2026-08-27 — the account already has billing capability.** Checked
 the dashboard: Workers itself is confirmed on "Workers Free", but **R2 is on
 a Paid plan (Active)** on this same account — meaning a payment method is
-already on file, for a different project's R2 usage, not for tenable. This
+already on file, for a different project's R2 usage, not for top-10-tension. This
 matters because it means "no card exists on the account" can no longer be
-assumed as tenable's safety net. What still holds, confirmed against current
+assumed as top-10-tension's safety net. What still holds, confirmed against current
 Cloudflare pricing docs: Worker requests/CPU, D1, and KV overage billing are
 gated specifically by **upgrading the Worker's own plan to Workers Paid**,
-not by whether a card exists elsewhere on the account for R2 — so tenable
+not by whether a card exists elsewhere on the account for R2 — so top-10-tension
 stays free as long as its Worker specifically is never upgraded, regardless
 of R2. There is still no Cloudflare-wide hard spend cap for Workers/D1/KV
 (only Budget Alerts, which are informational-only, not a block).
