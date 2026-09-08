@@ -19445,6 +19445,8 @@ INSERT INTO "entities" ("id","canonical_name","entity_type","scope","image_key")
 INSERT INTO "entities" ("id","canonical_name","entity_type","scope","image_key") VALUES(19362,'Joseph Ujlaki','player',NULL,NULL);
 INSERT INTO "entities" ("id","canonical_name","entity_type","scope","image_key") VALUES(19363,'Fleury Di Nallo','player',NULL,NULL);
 INSERT INTO "entities" ("id","canonical_name","entity_type","scope","image_key") VALUES(19364,'Carlos Bianchi','player',NULL,NULL);
+INSERT INTO "entities" ("id","canonical_name","entity_type","scope","image_key") VALUES(19365,'Al Mokawloon','club','Egypt',NULL);
+INSERT INTO "entities" ("id","canonical_name","entity_type","scope","image_key") VALUES(19366,'Basel','club','Switzerland',NULL);
 INSERT INTO "entity_aliases" ("id","entity_id","alias") VALUES(1,9904,'david silva');
 INSERT INTO "entity_aliases" ("id","entity_id","alias") VALUES(2,9904,'silva');
 INSERT INTO "entity_aliases" ("id","entity_id","alias") VALUES(3,10183,'james milner');
@@ -58659,8 +58661,8 @@ INSERT INTO "transfers" ("id","player_id","from_club_id","to_club_id","transfer_
 INSERT INTO "transfers" ("id","player_id","from_club_id","to_club_id","transfer_date","transfer_type","fee_eur_value","fee_gbp_value","display_value","source","verified_at") VALUES(46,541,189,256,'2014-01-18','permanent',22000000,18000000,'€22.0m (£18m)','Wikipedia','2026-08-31');
 INSERT INTO "transfers" ("id","player_id","from_club_id","to_club_id","transfer_date","transfer_type","fee_eur_value","fee_gbp_value","display_value","source","verified_at") VALUES(47,541,256,195,'2015-08-30','permanent',76000000,54000000,'€76.0m (£54m)','Sky Sports/SI','2026-08-31');
 INSERT INTO "transfers" ("id","player_id","from_club_id","to_club_id","transfer_date","transfer_type","fee_eur_value","fee_gbp_value","display_value","source","verified_at") VALUES(48,541,195,236,'2025-07-01','free',NULL,NULL,'Free transfer','Wikipedia','2026-08-31');
-INSERT INTO "transfers" ("id","player_id","from_club_id","to_club_id","transfer_date","transfer_type","fee_eur_value","fee_gbp_value","display_value","source","verified_at") VALUES(49,542,NULL,NULL,'2012-01-01','permanent',NULL,NULL,'Fee not confidently sourced [Al-Mokawloon, Basel not found in local club pool]','Wikipedia','2026-08-31');
-INSERT INTO "transfers" ("id","player_id","from_club_id","to_club_id","transfer_date","transfer_type","fee_eur_value","fee_gbp_value","display_value","source","verified_at") VALUES(50,542,NULL,189,'2014-01-23','permanent',13600000,11000000,'£11m (~€13.6m, approx.) [Basel not found in local club pool]','This Is Anfield','2026-08-31');
+INSERT INTO "transfers" ("id","player_id","from_club_id","to_club_id","transfer_date","transfer_type","fee_eur_value","fee_gbp_value","display_value","source","verified_at") VALUES(49,542,19365,19366,'2012-01-01','permanent',NULL,NULL,'Fee not confidently sourced [Al-Mokawloon, Basel not found in local club pool]','Wikipedia','2026-08-31');
+INSERT INTO "transfers" ("id","player_id","from_club_id","to_club_id","transfer_date","transfer_type","fee_eur_value","fee_gbp_value","display_value","source","verified_at") VALUES(50,542,19366,189,'2014-01-23','permanent',13600000,11000000,'£11m (~€13.6m, approx.) [Basel not found in local club pool]','This Is Anfield','2026-08-31');
 INSERT INTO "transfers" ("id","player_id","from_club_id","to_club_id","transfer_date","transfer_type","fee_eur_value","fee_gbp_value","display_value","source","verified_at") VALUES(51,542,189,228,'2015-02-02','loan',NULL,NULL,'Loan','Wikipedia','2026-08-31');
 INSERT INTO "transfers" ("id","player_id","from_club_id","to_club_id","transfer_date","transfer_type","fee_eur_value","fee_gbp_value","display_value","source","verified_at") VALUES(52,542,189,239,'2016-06-15','permanent',15000000,12200000,'€15m (~£12.2m, approx.)','This Is Anfield','2026-08-31');
 INSERT INTO "transfers" ("id","player_id","from_club_id","to_club_id","transfer_date","transfer_type","fee_eur_value","fee_gbp_value","display_value","source","verified_at") VALUES(53,542,239,194,'2017-06-22','permanent',41900000,36900000,'£36.9m base (~€41.9m, approx.); further £7m in add-ons reported','This Is Anfield','2026-08-31');
@@ -60645,12 +60647,12 @@ INSERT INTO "club_badge_questions" ("id","player_id","club_sequence","source") V
 INSERT INTO "club_badge_questions" ("id","player_id","club_sequence","source") VALUES(10,539,'[263, 217, 329, 328]','transfers');
 INSERT INTO "club_badge_questions" ("id","player_id","club_sequence","source") VALUES(11,540,'[300, 200, 217, 235]','transfers');
 INSERT INTO "club_badge_questions" ("id","player_id","club_sequence","source") VALUES(12,541,'[18996, 189, 18996, 189, 255, 189, 256, 195, 236]','transfers');
-INSERT INTO "club_badge_questions" ("id","player_id","club_sequence","source") VALUES(13,542,'[189, 228, 189, 239, 194]','transfers');
+INSERT INTO "club_badge_questions" ("id","player_id","club_sequence","source") VALUES(13,542,'[19365, 19366, 189, 228, 189, 239, 194]','transfers');
 INSERT INTO "club_badge_questions" ("id","player_id","club_sequence","source") VALUES(14,543,'[276, 294, 306, 194, 243, 327]','transfers');
 INSERT INTO "club_badge_questions" ("id","player_id","club_sequence","source") VALUES(15,544,'[200, 352, 200, 342, 200, 310, 200, 305, 200, 243]','transfers');
 INSERT INTO "club_badge_questions" ("id","player_id","club_sequence","source") VALUES(16,545,'[264, 232, 183, 206, 19032, 183]','transfers');
 INSERT INTO "club_badge_questions" ("id","player_id","club_sequence","source") VALUES(17,546,'[19123, 262, 189, 289, 189, 19050]','transfers');
-INSERT INTO "club_badge_questions" ("id","player_id","club_sequence","source") VALUES(18,547,'[217, 412, 217, 209, 217, 213, 217, 213, 206, 231, 189, 191, 19053]','transfers');
+INSERT INTO "club_badge_questions" ("id","player_id","club_sequence","source") VALUES(18,547,'[217, 412, 209, 213, 206, 231, 189, 191, 19053]','transfers');
 INSERT INTO "club_badge_questions" ("id","player_id","club_sequence","source") VALUES(19,548,'[264, 261, 235, 189, 195, 262]','player_career_stats');
 INSERT INTO "club_badge_questions" ("id","player_id","club_sequence","source") VALUES(20,549,'[19084, 228, 232, 235, 224, 231, 19056]','player_career_stats');
 INSERT INTO "club_badge_questions" ("id","player_id","club_sequence","source") VALUES(21,550,'[194, 217, 197, 196, 314]','player_career_stats');
