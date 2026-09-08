@@ -116,12 +116,15 @@ clubBadges.get("/round", async (c) => {
 			.all<{ player_id: number; from_club_id: number | null; to_club_id: number | null; transfer_date: string; transfer_type: string }>(),
 		// Fallback for every player not covered above: a year-only estimate
 		// from player_career_stats.years_display (see leadingYear's comment).
+		// team_name_raw is fetched too -- see yearQueueByClub's own comment on
+		// why this is no longer the loan-blind source transferDatesFor's doc
+		// used to describe it as.
 		c.env.DB
 			.prepare(
-				`SELECT player_id, team_id, years_display FROM player_career_stats WHERE player_id IN (${playerPlaceholders}) AND competition_type = 'club' AND team_id IS NOT NULL AND years_display IS NOT NULL`,
+				`SELECT player_id, team_id, years_display, team_name_raw FROM player_career_stats WHERE player_id IN (${playerPlaceholders}) AND competition_type = 'club' AND team_id IS NOT NULL AND years_display IS NOT NULL`,
 			)
 			.bind(...playerIds)
-			.all<{ player_id: number; team_id: number; years_display: string }>(),
+			.all<{ player_id: number; team_id: number; years_display: string; team_name_raw: string }>(),
 	]);
 	const clubById = new Map((clubRows ?? []).map((r) => [r.id, r]));
 	const playerScopeById = new Map((playerRows ?? []).map((r) => [r.id, r.scope]));
@@ -131,11 +134,17 @@ clubBadges.get("/round", async (c) => {
 	// "~YYYY" estimate from a coarser year-only source when it isn't, or
 	// null when neither has anything usable for that step -- same
 	// graceful-skip the nationality hint already uses for missing data,
-	// just per-transfer instead of per-question. `loan` is true only when
-	// this exact step is a transfers row with transfer_type='loan' --
-	// player_career_stats has no equivalent per-move classification (just
-	// stint records), so every step derived from it is always false rather
-	// than guessed at (same graceful-degrade as the rest of this file).
+	// just per-transfer instead of per-question. `loan` is true when this
+	// exact step is a transfers row with transfer_type='loan', OR (fixed
+	// 2026-09-08 -- confirmed live, John Terry's real 2000 loan to
+	// Nottingham Forest was showing as a plain permanent move) the
+	// player_career_stats row for the destination club has a
+	// "→ <Club> (loan)" team_name_raw -- see yearQueueByClub's own doc.
+	// This file used to claim player_career_stats had no per-move
+	// classification at all to draw a loan flag from; that was wrong --
+	// the sourcing convention already writes it as literal text in that
+	// exact, consistent format (confirmed against all 60 rows carrying it
+	// in production before relying on it here), it just wasn't being read.
 	//
 	// club_sequence can now repeat a club (a genuine return, most often
 	// after a loan -- see db/schema.sql's comment on club_sequence), so a
@@ -189,13 +198,25 @@ clubBadges.get("/round", async (c) => {
 		// a later inferred return), and still an estimate either way -- worth
 		// a fully row-level replay of that script's logic here if it turns
 		// out to matter, not before.
-		const yearQueueByClub = new Map<number, number[]>();
+		//
+		// Each queue entry also carries whether ITS OWN row was a loan (its
+		// team_name_raw starts "→ " and ends "(loan)" -- confirmed the exact,
+		// consistent format across all 60 real rows carrying it before
+		// relying on the pattern here, not just eyeballing a few). A
+		// synthetic "returned to parent" step (no row of its own -- see this
+		// function's transfers-branch comment on the same phenomenon there)
+		// naturally comes out false: the parent club's OWN row is never
+		// itself annotated "(loan)" -- returning to a permanent club isn't a
+		// loan -- so whichever entry the return step's own `.shift()` happens
+		// to consume is correctly non-loan regardless of which visit it was.
+		const yearQueueByClub = new Map<number, { year: number; loan: boolean }[]>();
 		for (const r of pcsRows ?? []) {
 			if (r.player_id !== playerId) continue;
 			const year = leadingYear(r.years_display);
 			if (year === null) continue;
+			const loan = /\(loan\)\s*$/.test(r.team_name_raw);
 			const queue = yearQueueByClub.get(r.team_id) ?? [];
-			queue.push(year);
+			queue.push({ year, loan });
 			yearQueueByClub.set(r.team_id, queue);
 		}
 
@@ -212,13 +233,11 @@ clubBadges.get("/round", async (c) => {
 				// the estimate below rather than losing the date hint entirely,
 				// but keep the loan classification: that came from this matched
 				// row, not from whichever estimate ends up filling the date in.
-				const queue = yearQueueByClub.get(toClubId);
-				const year = queue?.shift();
-				return { date: year === undefined ? null : `~${year}`, loan };
+				const entry = yearQueueByClub.get(toClubId)?.shift();
+				return { date: entry === undefined ? null : `~${entry.year}`, loan };
 			}
-			const queue = yearQueueByClub.get(toClubId);
-			const year = queue?.shift();
-			return { date: year === undefined ? null : `~${year}`, loan: false };
+			const entry = yearQueueByClub.get(toClubId)?.shift();
+			return { date: entry === undefined ? null : `~${entry.year}`, loan: entry?.loan ?? false };
 		});
 	}
 
