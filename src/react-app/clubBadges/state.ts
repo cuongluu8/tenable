@@ -83,6 +83,16 @@ export interface CbResult {
 	outcome: "correct" | "wrong";
 	gaveUp: boolean;
 	correctName: string;
+	// This question's score (see computeScore below), captured by
+	// ClubBadgesPlay.tsx at the moment the guess/give-up was actually
+	// submitted -- not recomputed here or on the tick after the server
+	// responds, so a slow network doesn't cost extra points on top of
+	// however long the player actually took to answer. Always populated
+	// (even for a wrong guess/give-up), but only ever displayed for a
+	// correct outcome -- ClubBadgesPlay.tsx's reveal branch -- per the
+	// spec this shipped against: points are something you "got" for a
+	// correct answer, not a consolation number for a wrong one.
+	points: number;
 }
 
 // Solo lives, matching the single-player categories game's tension mode
@@ -93,6 +103,43 @@ export interface CbResult {
 // call sites): a shared or per-player life count doesn't map onto
 // pass-and-play the way it does for one person playing alone.
 export const MAX_WRONG_LIVES = 5;
+
+// Per-question scoring. Starts at SCORE_START and decays two ways as the
+// question stays open -- SCORE_TIME_PENALTY every SCORE_TIME_INTERVAL_
+// SECONDS of wall-clock time (ClubBadgesPlay.tsx's own ticking timer,
+// not anything the server tracks -- see clubBadges.ts's /check-guess,
+// which has never known or cared how long a question took), and
+// SCORE_HINT_PENALTY per hint revealed (HINT_KEYS above). Deliberately
+// not clamped to zero -- a very slow, very hint-heavy answer can and
+// does go negative (see scoreBand's "grey" band below, which only
+// exists to color a negative score).
+export const SCORE_START = 100;
+export const SCORE_TIME_PENALTY = 10;
+export const SCORE_TIME_INTERVAL_SECONDS = 30;
+export const SCORE_HINT_PENALTY = 15;
+
+export function computeScore(elapsedSeconds: number, hintsUsed: number): number {
+	const timePenalty = Math.floor(elapsedSeconds / SCORE_TIME_INTERVAL_SECONDS) * SCORE_TIME_PENALTY;
+	const hintPenalty = hintsUsed * SCORE_HINT_PENALTY;
+	return SCORE_START - timePenalty - hintPenalty;
+}
+
+// Which color chip a score gets on the reveal (ClubBadgesPlay.tsx/
+// clubBadges.css's .cb-score--*), per the exact bands specified: more
+// than 80 is gold, 50-79 silver, 30-49 yellow, 0-29 brown, less than 0
+// grey. Those five phrases leave a single-point gap at exactly 80
+// (neither "more than 80" nor "50-79" covers it) -- resolved here by
+// folding it into silver, the band it sits at the top edge of, rather
+// than leaving an integer score with no defined color.
+export type ScoreBand = "gold" | "silver" | "yellow" | "brown" | "grey";
+
+export function scoreBand(score: number): ScoreBand {
+	if (score > 80) return "gold";
+	if (score >= 50) return "silver";
+	if (score >= 30) return "yellow";
+	if (score >= 0) return "brown";
+	return "grey";
+}
 
 export interface CbState {
 	phase: CbPhase;
@@ -158,6 +205,7 @@ export type CbAction =
 			outcome: "correct" | "wrong";
 			gaveUp: boolean;
 			correctName: string;
+			points: number;
 	  }
 	| { type: "next" }
 	| { type: "reset" };
@@ -206,6 +254,7 @@ export function clubBadgesReducer(state: CbState, action: CbAction): CbState {
 					outcome: action.outcome,
 					gaveUp: action.gaveUp,
 					correctName: action.correctName,
+					points: action.points,
 				},
 			};
 		}

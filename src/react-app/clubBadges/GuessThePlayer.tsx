@@ -79,7 +79,12 @@ export function GuessThePlayer({ playerNames, onExit }: Props) {
 	// wrong -- see clubBadges.ts) -- but what happens to the result differs:
 	// a solo wrong guess with a life still left doesn't end the question at
 	// all (see the "wrongAttempt" branch below), everything else does.
-	async function checkQuestion(body: { guess: string } | { giveUp: true }) {
+	// `points` is whatever ClubBadgesPlay.tsx's computeScore(elapsedSeconds,
+	// hintsUsed) read at the moment the guess/give-up button was actually
+	// pressed -- not recomputed here after the fetch resolves, so the
+	// score reflects how long the player took to answer, not how long the
+	// network took to grade it.
+	async function checkQuestion(body: { guess: string } | { giveUp: true }, points: number) {
 		const question = state.questions[state.questionIndex];
 		if (!question || submitting) return;
 
@@ -114,6 +119,7 @@ export function GuessThePlayer({ playerNames, onExit }: Props) {
 				outcome: data.result,
 				gaveUp,
 				correctName: data.name,
+				points,
 			});
 		} catch {
 			// Network error mid-question: nothing to apply, player just tries again.
@@ -122,12 +128,12 @@ export function GuessThePlayer({ playerNames, onExit }: Props) {
 		}
 	}
 
-	function submitGuess(guess: string) {
-		return checkQuestion({ guess });
+	function submitGuess(guess: string, points: number) {
+		return checkQuestion({ guess }, points);
 	}
 
-	function giveUp() {
-		return checkQuestion({ giveUp: true });
+	function giveUp(points: number) {
+		return checkQuestion({ giveUp: true }, points);
 	}
 
 	function nextQuestion() {

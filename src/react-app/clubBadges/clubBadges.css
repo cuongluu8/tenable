@@ -479,6 +479,57 @@
 	margin-top: 0.5rem;
 }
 
+/* Live per-question countdown (ClubBadgesPlay.tsx's ticking elapsedSeconds)
+   -- same muted treatment as .cb-progress above it, since it's ambient
+   status, not something to draw the eye the way the turn banner does.
+   tabular-nums keeps every digit the same width so the line doesn't
+   jitter/reflow once a second as the seconds tick over. */
+.cb-timer {
+	margin: 0;
+	text-align: center;
+	color: #9ca3af;
+	font-size: 0.9rem;
+	font-variant-numeric: tabular-nums;
+}
+
+/* This question's score (state.ts's computeScore), shown only on a
+   correct guess -- see ClubBadgesPlay.tsx. A pill like .cb-hint-button
+   rather than plain text so the color-coded band (below) actually reads
+   as a distinct "result" chip instead of another line of body text. */
+.cb-score {
+	align-self: center;
+	margin: 0;
+	padding: 0.3em 1em;
+	border-radius: 999px;
+	font-size: 1.1rem;
+	font-weight: 700;
+}
+
+/* Five bands, exactly as specified: >80 gold, 50-79 silver, 30-49
+   yellow, 0-29 brown, <0 grey (scoreBand's own doc covers the one-point
+   gap at exactly 80). Dark text on the three lighter chips, light text
+   on the two darker ones, for contrast either way. */
+.cb-score--gold {
+	background: #d4af37;
+	color: #1f2937;
+}
+.cb-score--silver {
+	background: #c0c0c0;
+	color: #1f2937;
+}
+.cb-score--yellow {
+	background: #eab308;
+	color: #1f2937;
+}
+.cb-score--brown {
+	background: #92400e;
+	color: #f3f4f6;
+}
+.cb-score--grey {
+	background: #6b7280;
+	color: #f3f4f6;
+}
+
 /* Explains a shorter-than-10 round on the result screen (see
    ClubBadgesResult.tsx's outOfLives) -- muted, same treatment as
    .cb-disclaimer, since it's a footnote about why the score looks the way

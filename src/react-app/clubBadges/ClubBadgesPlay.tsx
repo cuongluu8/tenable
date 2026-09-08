@@ -1,11 +1,13 @@
-import { Fragment, useCallback, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { GuessInput } from "../components/GuessInput";
 import { LivesIndicator } from "../components/LivesIndicator";
 import { BadgeTile } from "./BadgeTile";
 import {
+	computeScore,
 	currentTurnIndex,
 	HINT_KEYS,
 	MAX_WRONG_LIVES,
+	scoreBand,
 	type CbBadge,
 	type CbState,
 	type HintKey,
@@ -61,6 +63,15 @@ function buildChainTiles(badges: CbBadge[], loanMoves: boolean[]): ChainTile[] {
 const TILE_WIDTH = 64;
 const ARROW_WIDTH = 48;
 
+// m:ss, for the running per-question timer below -- not padded to a
+// fixed width in minutes (a question would need to sit open 100+ minutes
+// before that mattered).
+function formatElapsed(totalSeconds: number): string {
+	const minutes = Math.floor(totalSeconds / 60);
+	const seconds = totalSeconds % 60;
+	return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
 // How many grid columns actually fit in .cb-badges's real width, kept up
 // to date via ResizeObserver -- correct on a phone, a tablet, a resized
 // desktop window, or after a rotation, rather than a guess baked in at
@@ -108,8 +119,12 @@ function chunkRows(tiles: ChainTile[], columns: number): ChainTile[][] {
 
 interface Props {
 	state: CbState;
-	onGuess: (guess: string) => void;
-	onGiveUp: () => void;
+	// `points` is this question's live score at the instant the guess/
+	// give-up was pressed (computeScore(elapsedSeconds, hints revealed) --
+	// see below) -- GuessThePlayer.tsx just carries it through to the
+	// reducer unchanged, it never recomputes it itself.
+	onGuess: (guess: string, points: number) => void;
+	onGiveUp: (points: number) => void;
 	onNext: () => void;
 	submitting: boolean;
 	onQuit: () => void;
@@ -137,13 +152,36 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 	// which the lint rule (react-hooks/set-state-in-effect) flags for
 	// exactly that reason.
 	const [revealedHints, setRevealedHints] = useState<Set<HintKey>>(new Set());
+	// Seconds this question has been open -- ticks once per second (the
+	// effect below) while still being guessed, frozen the instant it's
+	// answered (nothing reads it after that; computeScore's own call in
+	// pick()/confirmGiveUp() below already captured the score at the
+	// moment of submission, not whenever the server happens to respond).
+	// Reset alongside revealedHints on the same "question actually
+	// changed" check -- a retry that stays on the same question (solo
+	// lives, state.ts's "wrongAttempt") must NOT reset either one: the
+	// clock and hint count both keep running against the same 100-point
+	// budget until this question is actually done, one way or another.
+	const [elapsedSeconds, setElapsedSeconds] = useState(0);
 	const [hintQuestionIndex, setHintQuestionIndex] = useState(state.questionIndex);
 	if (state.questionIndex !== hintQuestionIndex) {
 		setHintQuestionIndex(state.questionIndex);
 		setRevealedHints(new Set());
+		setElapsedSeconds(0);
 	}
 	const question = state.questions[state.questionIndex];
 	const [gridRef, columns] = useGridColumns();
+
+	// A real subscription (a ticking interval), not state derived from a
+	// prop -- this is exactly what useEffect is for, unlike the render-time
+	// reset above. Stops the instant state.lastResult is set (question
+	// answered) rather than running on uselessly in the background; restarts
+	// on questionIndex changing to the next question.
+	useEffect(() => {
+		if (state.lastResult) return;
+		const id = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
+		return () => clearInterval(id);
+	}, [state.questionIndex, state.lastResult]);
 
 	function revealHint(key: HintKey) {
 		setRevealedHints((prev) => new Set(prev).add(key));
@@ -179,7 +217,7 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 
 	function pick(name: string) {
 		setGuessInput(name);
-		onGuess(name);
+		onGuess(name, computeScore(elapsedSeconds, revealedHints.size));
 		setGuessInput("");
 	}
 
@@ -190,7 +228,7 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 
 	function confirmGiveUp() {
 		setConfirmingGiveUp(false);
-		onGiveUp();
+		onGiveUp(computeScore(elapsedSeconds, revealedHints.size));
 	}
 
 	return (
@@ -241,6 +279,13 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 							: `Pass the device to ${state.players[(turnIndex + 1) % state.players.length].name}`
 						: `${current.name}'s turn — who is this?`}
 			</p>
+
+			{/* Live countdown pressure on the 100-point budget above --
+			    tabular-nums (clubBadges.css) so the digits don't jitter the
+			    layout as they change. Hidden once answered: the reveal below
+			    shows the score that timer produced instead, not the timer
+			    itself still ticking toward nothing. */}
+			{!state.lastResult && <p className="cb-timer">⏱ {formatElapsed(elapsedSeconds)}</p>}
 
 			{/* useGridColumns computes how many tiles fit per row; chunking
 			    chainTiles into rows of that many (clubBadges.css's
@@ -483,6 +528,16 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 								? `It was ${state.lastResult.correctName}`
 								: `❌ Not quite — it was ${state.lastResult.correctName}`}
 					</p>
+					{/* Only for a correct guess -- state.ts's CbResult doc on why a
+					    wrong guess/give-up still carries a `points` value (the
+					    reducer/action shape stays uniform either way) without ever
+					    showing it: there's nothing to have "gotten" if the answer
+					    was wrong. */}
+					{state.lastResult.outcome === "correct" && (
+						<p className={`cb-score cb-score--${scoreBand(state.lastResult.points)}`}>
+							{state.lastResult.points} points
+						</p>
+					)}
 					<button type="button" className="cb-next-button" onClick={next}>
 						{isLastQuestion ? "See results" : "Next question"}
 					</button>
