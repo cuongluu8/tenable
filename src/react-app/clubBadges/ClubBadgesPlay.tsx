@@ -152,20 +152,29 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 	// which the lint rule (react-hooks/set-state-in-effect) flags for
 	// exactly that reason.
 	const [revealedHints, setRevealedHints] = useState<Set<HintKey>>(new Set());
-	// Seconds this question has been open -- ticks once per second (the
+	// Seconds this attempt has been open -- ticks once per second (the
 	// effect below) while still being guessed, frozen the instant it's
 	// answered (nothing reads it after that; computeScore's own call in
 	// pick()/confirmGiveUp() below already captured the score at the
 	// moment of submission, not whenever the server happens to respond).
-	// Reset alongside revealedHints on the same "question actually
-	// changed" check -- a retry that stays on the same question (solo
-	// lives, state.ts's "wrongAttempt") must NOT reset either one: the
-	// clock and hint count both keep running against the same 100-point
-	// budget until this question is actually done, one way or another.
+	// Reset alongside revealedHints on the same "turn actually changed"
+	// check -- a retry that stays on the SAME player's SAME attempt
+	// (state.ts's "wrongAttempt") must NOT reset either one: the clock and
+	// hint count both keep running against the same 100-point budget until
+	// this attempt is actually done, one way or another.
 	const [elapsedSeconds, setElapsedSeconds] = useState(0);
-	const [hintQuestionIndex, setHintQuestionIndex] = useState(state.questionIndex);
-	if (state.questionIndex !== hintQuestionIndex) {
-		setHintQuestionIndex(state.questionIndex);
+	// Keyed on question AND player, not just question -- since 2026-09-08
+	// every multiplayer player gets their own fresh turn at the SAME
+	// question (state.ts's playerIndex doc), so a new player showing up on
+	// an unchanged questionIndex still needs a clean slate: no hints
+	// carried over from the previous player's attempt (that would be a
+	// real, unfair advantage, not just a display nicety), and a timer that
+	// starts back at zero for them. Solo's playerIndex never moves, so
+	// this key only ever changes on questionIndex there, same as before.
+	const [turnKey, setTurnKey] = useState(`${state.questionIndex}:${state.playerIndex}`);
+	const currentTurnKey = `${state.questionIndex}:${state.playerIndex}`;
+	if (currentTurnKey !== turnKey) {
+		setTurnKey(currentTurnKey);
 		setRevealedHints(new Set());
 		setElapsedSeconds(0);
 	}
@@ -174,14 +183,15 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 
 	// A real subscription (a ticking interval), not state derived from a
 	// prop -- this is exactly what useEffect is for, unlike the render-time
-	// reset above. Stops the instant state.lastResult is set (question
-	// answered) rather than running on uselessly in the background; restarts
-	// on questionIndex changing to the next question.
+	// reset above. Stops the instant state.lastResult is set (this
+	// attempt answered) rather than running on uselessly in the
+	// background; restarts whenever turnKey changes (next question, or --
+	// multiplayer -- the next player's turn at the same one).
 	useEffect(() => {
 		if (state.lastResult) return;
 		const id = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
 		return () => clearInterval(id);
-	}, [state.questionIndex, state.lastResult]);
+	}, [turnKey, state.lastResult]);
 
 	function revealHint(key: HintKey) {
 		setRevealedHints((prev) => new Set(prev).add(key));
@@ -211,9 +221,28 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 	// Lives (solo only -- see state.ts's MAX_WRONG_LIVES) can end the round
 	// on this question even though more are technically left in the deck,
 	// same "no Next question after this one" reveal ClubBadgesPlay already
-	// shows once questionIndex reaches the real end.
+	// shows once questionIndex reaches the real end. Multiplayer has no
+	// equivalent: running out of lives there only ends the current
+	// player's own turn (state.ts's "next" case), never the round.
 	const outOfLives = solo && state.wrongCount >= MAX_WRONG_LIVES;
-	const isLastQuestion = state.questionIndex + 1 >= state.questions.length || outOfLives;
+	// Whether the player who JUST went (turnIndex, at the moment
+	// state.lastResult was set -- "next" hasn't advanced it yet) was the
+	// last one due at the current question. Solo is always true here (one
+	// player, always at the end of its own "roster"). This is what gates
+	// revealing the actual correct name/answer below, and the button/
+	// banner copy -- fixing a real reported bug where multiplayer revealed
+	// the answer after every single guess, spoiling it for whoever's turn
+	// was still to come at the SAME question.
+	const isLastPlayerForQuestion = solo || turnIndex === state.players.length - 1;
+	const isLastQuestionOverall = state.questionIndex + 1 >= state.questions.length;
+	// The single "this is the very last reveal of the whole round, show
+	// standings instead of continuing" check -- both the last question AND
+	// (multiplayer) the last player's turn at it, or solo's own early-end
+	// case. Named to describe what it actually gates now that a question
+	// can produce several non-final reveals (one per player) before this
+	// becomes true, unlike the old isLastQuestion this replaces, which
+	// used to be able to assume every reveal was the question's only one.
+	const isRoundOver = (isLastQuestionOverall && isLastPlayerForQuestion) || outOfLives;
 
 	function pick(name: string) {
 		setGuessInput(name);
@@ -241,16 +270,14 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 				Question {state.questionIndex + 1} of {state.questions.length}
 			</p>
 
-			{/* Solo only, same as the daily categories game's tension mode
-			    (PlayScreen.tsx) this mirrors -- 5 lives, one wrong guess (or
-			    give-up, see state.ts's guessResult case) too many and the round
-			    ends right there rather than continuing to a question that
-			    doesn't matter anymore. Multiplayer has no such cap (see
-			    state.ts's "next" case), so there's nothing meaningful to show
-			    here for a real roster. */}
-			{solo && (
-				<LivesIndicator total={MAX_WRONG_LIVES} remaining={MAX_WRONG_LIVES - state.wrongCount} />
-			)}
+			{/* Same 5-life budget shown for both modes since 2026-09-08, but
+			    what running out means differs (state.ts's MAX_WRONG_LIVES doc):
+			    solo, it's round-wide and ending it stops the whole round early,
+			    same as the daily categories game's tension mode (PlayScreen.tsx)
+			    this mirrors; multiplayer, it's just this player's own budget for
+			    their current turn at the current question -- running out only
+			    ends their turn, not anyone else's or the round's. */}
+			<LivesIndicator total={MAX_WRONG_LIVES} remaining={MAX_WRONG_LIVES - state.wrongCount} />
 
 			{!solo && (
 				<ul className="mp-players">
@@ -274,9 +301,19 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 				{solo
 					? "Who is this?"
 					: state.lastResult
-						? isLastQuestion
+						? isRoundOver
 							? "Last question — see how everyone did"
-							: `Pass the device to ${state.players[(turnIndex + 1) % state.players.length].name}`
+							: // Two different "who's up next" cases, both reachable once a
+								// question can take several turns: still mid-question (pass
+								// to whoever in the roster hasn't gone yet) vs. this player
+								// was the last one due, so the group moves on to a brand new
+								// question, which always starts back at player 0 (state.ts's
+								// "next" case -- fixed roster order every time, not a rotating
+								// starter, since there's no adaptive advantage to going first
+								// or last here for anyone to be shielded from).
+								isLastPlayerForQuestion
+								? `Pass the device to ${state.players[0].name}`
+								: `Pass the device to ${state.players[turnIndex + 1].name}`
 						: `${current.name}'s turn — who is this?`}
 			</p>
 
@@ -525,24 +562,42 @@ export function ClubBadgesPlay({ state, onGuess, onGiveUp, onNext, submitting, o
 							? // Confirms the canonical name, not just that the guess counted --
 								// a guess can match via an alias or loose/typo-tolerant matching
 								// (normalize.ts), so "Correct!" alone wouldn't actually confirm
-								// who the player thinks they just named.
+								// who the player thinks they just named. Always safe to show,
+								// even mid-question in multiplayer: this player already typed
+								// the exact right name themselves, so restating it tells THEM
+								// nothing new -- the thing worth protecting is players who
+								// HAVEN'T gone yet, and a correct guess from someone else
+								// doesn't reach their own turn's screen at all.
 								`✅ Correct! It was ${state.lastResult.correctName}`
-							: state.lastResult.gaveUp
-								? `It was ${state.lastResult.correctName}`
-								: `❌ Not quite — it was ${state.lastResult.correctName}`}
+							: isLastPlayerForQuestion
+								? // The real answer, safe to show now -- every player has had
+									// their own turn at this question (fixing a real reported
+									// bug: multiplayer used to reveal this after a single wrong
+									// guess, spoiling it for whoever hadn't gone yet).
+									state.lastResult.gaveUp
+									? `It was ${state.lastResult.correctName}`
+									: `❌ Not quite — it was ${state.lastResult.correctName}`
+								: // Still players left to go at this SAME question -- naming
+									// the answer here would spoil it for them, so this player
+									// only learns their own outcome, not the actual name.
+									state.lastResult.gaveUp
+									? "You gave up on this one."
+									: "❌ Not quite — out of guesses for this one."}
 					</p>
 					{/* Only for a correct guess -- state.ts's CbResult doc on why a
 					    wrong guess/give-up still carries a `points` value (the
 					    reducer/action shape stays uniform either way) without ever
 					    showing it: there's nothing to have "gotten" if the answer
-					    was wrong. */}
+					    was wrong. Safe to show regardless of isLastPlayerForQuestion
+					    -- a player's own score doesn't name the answer, it's private
+					    feedback on how well THEY did. */}
 					{state.lastResult.outcome === "correct" && (
 						<p className={`cb-score cb-score--${scoreBand(state.lastResult.points)}`}>
 							{state.lastResult.points} points
 						</p>
 					)}
 					<button type="button" className="cb-next-button" onClick={next}>
-						{isLastQuestion ? "See results" : "Next question"}
+						{isRoundOver ? "See results" : isLastPlayerForQuestion ? "Next question" : "Next player"}
 					</button>
 				</div>
 			)}

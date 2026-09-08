@@ -77,8 +77,11 @@ export function GuessThePlayer({ playerNames, onExit }: Props) {
 	// Shared by submitGuess and giveUp below -- the server call is identical
 	// either way (giveUp just skips the matching entirely and always grades
 	// wrong -- see clubBadges.ts) -- but what happens to the result differs:
-	// a solo wrong guess with a life still left doesn't end the question at
-	// all (see the "wrongAttempt" branch below), everything else does.
+	// a wrong guess with a life still left on the current player's current
+	// attempt doesn't end their turn at all (see the "wrongAttempt" branch
+	// below, dispatched for solo AND multiplayer since 2026-09-08 -- fixing
+	// a real bug where multiplayer only ever got one guess), everything
+	// else does.
 	// `points` is whatever ClubBadgesPlay.tsx's computeScore(elapsedSeconds,
 	// hintsUsed) read at the moment the guess/give-up button was actually
 	// pressed -- not recomputed here after the fetch resolves, so the
@@ -99,14 +102,17 @@ export function GuessThePlayer({ playerNames, onExit }: Props) {
 			if (!res.ok || "error" in data) return;
 
 			const gaveUp = !("guess" in body);
-			const solo = state.players.length === 1;
-			// A give-up is a deliberate "stop trying this one, show me the
-			// answer" -- it always ends the question, lives or not, unlike an
-			// actual wrong guess (which only ends it once lives run out).
+			// A give-up is a deliberate "stop trying this one" -- it always
+			// ends the current player's turn, lives or not, unlike an actual
+			// wrong guess (which only ends it once their lives run out).
 			// wrongCount+1 here mirrors what the reducer is about to do to it
 			// (see "wrongAttempt"/"guessResult" in state.ts) so this can decide
-			// which of the two to dispatch *before* that update lands.
-			const retryable = solo && !gaveUp && data.result === "wrong" && state.wrongCount + 1 < MAX_WRONG_LIVES;
+			// which of the two to dispatch *before* that update lands. Applies
+			// equally to solo and multiplayer since 2026-09-08 -- multiplayer
+			// used to have no retry at all (every wrong guess ended the
+			// question and revealed the answer after a single attempt), a real
+			// reported bug, not an intentional design difference from solo.
+			const retryable = !gaveUp && data.result === "wrong" && state.wrongCount + 1 < MAX_WRONG_LIVES;
 
 			if (retryable) {
 				dispatch({ type: "wrongAttempt", guess: "guess" in body ? body.guess : "" });

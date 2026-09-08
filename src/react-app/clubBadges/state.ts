@@ -7,11 +7,13 @@
 // Deliberately its own module rather than reusing multiplayer/state.ts:
 // that reducer's shape (lives, a shared found/missed board, "duplicate"
 // guesses) is built around one category's ranked Top-10 list every player
-// contributes to together. This game is 10 independent single-answer
-// questions where each question belongs to exactly one player's turn --
-// similar spirit (pass-and-play, round-robin), different enough machinery
-// that forcing it through the same reducer would mean more special-casing
-// than just having its own.
+// contributes to together. This game is 10 questions, but (2026-09-08,
+// fixing a real reported bug -- see playerIndex's own doc) every player
+// takes their own independent turn at EACH question before the group
+// moves on to the next one, not one question per player across the round
+// -- similar spirit (pass-and-play, lives, a give-up escape hatch),
+// different enough machinery that forcing it through the same reducer
+// would mean more special-casing than just having its own.
 import { colorForPlayerIndex } from "../multiplayer/state";
 
 export interface CbPlayer {
@@ -95,13 +97,23 @@ export interface CbResult {
 	points: number;
 }
 
-// Solo lives, matching the single-player categories game's tension mode
-// (src/worker/lib/types.ts's TENSION_LIVES) -- same number, same "one wrong
-// guess too many and it's over" rule, just counted across this round's
-// otherwise-independent questions instead of one shared Top-10 board.
-// Multiplayer has no lives at all (see currentTurnIndex/isLastQuestion
-// call sites): a shared or per-player life count doesn't map onto
-// pass-and-play the way it does for one person playing alone.
+// Lives per attempt at a question, matching the single-player categories
+// game's tension mode (src/worker/lib/types.ts's TENSION_LIVES) -- same
+// number, same "one wrong guess too many and it's over" rule, but what
+// "it" scopes to differs by mode (see wrongCount's own doc, and the
+// "next" reducer case, which is where this split is actually enforced):
+//   - Solo: a single round-wide budget. wrongCount is never reset until
+//     the round itself ends, so all 5 lives really can get spent on just
+//     one hard question, ending the round there without ever reaching
+//     the rest of the deck -- unchanged behavior from before 2026-09-08.
+//   - Multiplayer: a fresh budget every player gets on THEIR OWN turn at
+//     the current question (reset in "next" whenever playerIndex
+//     advances) -- fixing a real reported bug where a multiplayer guess
+//     had exactly one attempt before the question ended and revealed the
+//     answer to whoever was up next. A player running out of lives here
+//     only ends THEIR turn, never the round -- see isRoundOver's own doc
+//     in ClubBadgesPlay.tsx for why there's no multiplayer equivalent of
+//     solo's early round-ending.
 export const MAX_WRONG_LIVES = 5;
 
 // Per-question scoring. Starts at SCORE_START and decays two ways as the
@@ -145,34 +157,49 @@ export interface CbState {
 	phase: CbPhase;
 	players: CbPlayer[];
 	questions: CbQuestion[];
-	// Which question is currently up. Whose turn it is is always derived
-	// (questionIndex % players.length), never stored separately -- lives
-	// (wrongCount below) can end the round early, but never eliminate one
-	// player while the others keep going, so there's no one to skip over
-	// the way multiplayer's nextTurnIndex() has to account for.
+	// Which question is currently up.
 	questionIndex: number;
+	// Which player (index into `players`) is currently attempting the
+	// active question -- see currentTurnIndex below. Explicit rather than
+	// derived from questionIndex, unlike before 2026-09-08: back when
+	// every question belonged to exactly one player's turn, whose turn it
+	// was fell straight out of questionIndex % players.length and this
+	// field didn't need to exist. Now every player gets their own turn at
+	// EACH question in fixed roster order (0, 1, 2, ...) before the group
+	// moves on -- see the "next" reducer case -- so questionIndex alone no
+	// longer says whose turn it is; solo always stays at 0 (there's only
+	// ever one player to be up), so this is a no-op there.
+	playerIndex: number;
 	// Wrong answers (including give-ups -- see the guessResult case below)
-	// so far this round, solo only in practice (see MAX_WRONG_LIVES). Never
-	// reset mid-round, only by "start"/"reset" -- unlike questionIndex this
-	// has no natural cap of its own, so ClubBadgesPlay.tsx/ClubBadgesResult.tsx
-	// compare it against MAX_WRONG_LIVES themselves wherever the round could
-	// end early because of it.
+	// on the CURRENT player's CURRENT attempt -- see MAX_WRONG_LIVES's own
+	// doc on how far that budget stretches by mode. Reset in "next"
+	// whenever playerIndex advances (multiplayer) or, for solo, never
+	// reset mid-round at all (only "start"/"reset") -- that split is what
+	// makes solo's 5 lives a round-wide budget but multiplayer's a fresh
+	// one per player per question. ClubBadgesPlay.tsx/ClubBadgesResult.tsx
+	// compare it against MAX_WRONG_LIVES wherever that distinction matters.
 	wrongCount: number;
-	// Every wrong guess actually typed/picked for the *current* question
-	// (not give-ups -- see the reducer cases), in order -- same idea and
-	// same rendering (ClubBadgesPlay.tsx reuses App.css's .wrong-guesses
-	// classes directly) as the daily categories game's own incorrect-
-	// guesses list (PlayScreen.tsx), just scoped to one question instead of
-	// the whole round: a name that didn't work for this player isn't
-	// meaningful information once the next question (a different player
-	// entirely) starts, so this resets on "next", unlike categories' list
-	// which persists for the whole round against one shared board.
+	// Every wrong guess actually typed/picked for the CURRENT player's
+	// CURRENT attempt (not give-ups -- see the reducer cases), in order --
+	// same idea and same rendering (ClubBadgesPlay.tsx reuses App.css's
+	// .wrong-guesses classes directly) as the daily categories game's own
+	// incorrect-guesses list (PlayScreen.tsx), just scoped to one attempt
+	// instead of the whole round: a name that didn't work for this
+	// player's turn isn't meaningful information once it's someone else's
+	// turn (multiplayer) or the next question (solo), so this resets on
+	// "next" every time, unlike categories' list which persists for the
+	// whole round against one shared board.
 	wrongGuesses: string[];
 	// Set the instant a guess comes back from the server *and ends the
-	// question* (correct, a give-up, or a wrong guess that was also the
-	// last life) -- cleared by "next". Its presence is what the Play screen
-	// uses to decide whether it's showing the guess box or the reveal --
-	// see ClubBadgesPlay.tsx.
+	// CURRENT player's turn at the current question* (correct, a give-up,
+	// or a wrong guess that was also their last life) -- cleared by
+	// "next". Its presence is what the Play screen uses to decide whether
+	// it's showing the guess box or a reveal -- see ClubBadgesPlay.tsx.
+	// Note this does NOT mean the correct answer is necessarily shown:
+	// multiplayer only reveals it once every player has had their own
+	// turn at this question (ClubBadgesPlay.tsx's isRoundOver/
+	// isLastPlayerForQuestion), so an earlier player's wrong guess or
+	// give-up can't spoil it for whoever's still due to go.
 	lastResult: CbResult | null;
 }
 
@@ -181,23 +208,31 @@ export const initialCbState: CbState = {
 	players: [],
 	questions: [],
 	questionIndex: 0,
+	playerIndex: 0,
 	wrongCount: 0,
 	wrongGuesses: [],
 	lastResult: null,
 };
 
+// Whose turn it is right now -- always state.playerIndex directly since
+// 2026-09-08 (see that field's own doc for why it's no longer derived
+// from questionIndex). Kept as a named function rather than inlining
+// `state.playerIndex` at call sites purely for the doc comment landing
+// somewhere findable; the `players.length === 0` guard covers the brief
+// "setup" phase window before a real roster exists.
 export function currentTurnIndex(state: CbState): number {
 	if (state.players.length === 0) return 0;
-	return state.questionIndex % state.players.length;
+	return state.playerIndex;
 }
 
 export type CbAction =
 	| { type: "start"; playerNames: string[]; questions: CbQuestion[] }
-	// A solo wrong (non-give-up) guess with a life still left after it --
-	// see GuessThePlayer.tsx's checkQuestion for how it decides between
-	// this and "guessResult" for a wrong outcome. Never dispatched for
-	// multiplayer (no lives, no retrying -- every wrong guess there is a
-	// "guessResult").
+	// A wrong (non-give-up) guess with a life still left after it, for
+	// WHICHEVER player is currently up (solo or multiplayer, since
+	// 2026-09-08 -- both get to keep retrying their own current attempt
+	// until they're right, give up, or run out of lives) -- see
+	// GuessThePlayer.tsx's checkQuestion for how it decides between this
+	// and "guessResult" for a wrong outcome.
 	| { type: "wrongAttempt"; guess: string }
 	| {
 			type: "guessResult";
@@ -261,16 +296,54 @@ export function clubBadgesReducer(state: CbState, action: CbAction): CbState {
 
 		case "next": {
 			if (state.phase !== "playing" || !state.lastResult) return state;
-			const nextIndex = state.questionIndex + 1;
-			// Lives only apply solo (see MAX_WRONG_LIVES) -- a shared or
-			// per-player count doesn't map onto multiplayer's pass-and-play, so
-			// a roster of more than one never ends early here regardless of how
-			// many turns have gone wrong.
-			const outOfLives = state.players.length === 1 && state.wrongCount >= MAX_WRONG_LIVES;
-			if (outOfLives || nextIndex >= state.questions.length) {
+
+			// Solo: unchanged behavior from before 2026-09-08 -- one player,
+			// so there's never anyone else left to take a turn at the current
+			// question; every "next" moves straight to the next question (or
+			// ends the round, on either running out of the deck or the
+			// round-wide life budget -- see MAX_WRONG_LIVES's own doc).
+			// wrongCount is deliberately NOT reset here: it has to keep
+			// counting across questions for that round-wide budget to mean
+			// anything.
+			if (state.players.length === 1) {
+				const nextIndex = state.questionIndex + 1;
+				const outOfLives = state.wrongCount >= MAX_WRONG_LIVES;
+				if (outOfLives || nextIndex >= state.questions.length) {
+					return { ...state, phase: "finished", lastResult: null, wrongGuesses: [] };
+				}
+				return { ...state, questionIndex: nextIndex, lastResult: null, wrongGuesses: [] };
+			}
+
+			// Multiplayer: this player's own turn at the current question just
+			// ended (correct, gave up, or ran out of lives -- state.lastResult
+			// is set either way). If anyone in the roster hasn't gone yet,
+			// it's simply their turn next, same question, with a completely
+			// fresh attempt (wrongCount/wrongGuesses reset, and
+			// ClubBadgesPlay.tsx's own turn-keyed effect resets hints/timer to
+			// match) -- nothing about this reveals the answer (see
+			// isLastPlayerForQuestion in ClubBadgesPlay.tsx, which gates that).
+			const nextPlayerIndex = state.playerIndex + 1;
+			if (nextPlayerIndex < state.players.length) {
+				return { ...state, playerIndex: nextPlayerIndex, lastResult: null, wrongGuesses: [], wrongCount: 0 };
+			}
+			// Every player has now had their turn at this question -- move on
+			// to the next one, starting fresh from player 0, or end the round
+			// if that was the last question. No life budget check here:
+			// multiplayer has no round-ending life count (see MAX_WRONG_LIVES's
+			// own doc) -- a player running out of lives only ever costs THEM
+			// this one question, never the group's ability to keep playing.
+			const nextQuestionIndex = state.questionIndex + 1;
+			if (nextQuestionIndex >= state.questions.length) {
 				return { ...state, phase: "finished", lastResult: null, wrongGuesses: [] };
 			}
-			return { ...state, questionIndex: nextIndex, lastResult: null, wrongGuesses: [] };
+			return {
+				...state,
+				questionIndex: nextQuestionIndex,
+				playerIndex: 0,
+				lastResult: null,
+				wrongGuesses: [],
+				wrongCount: 0,
+			};
 		}
 
 		case "reset":
