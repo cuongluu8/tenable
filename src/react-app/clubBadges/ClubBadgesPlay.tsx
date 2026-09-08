@@ -59,7 +59,7 @@ function buildChainTiles(badges: CbBadge[], loanMoves: boolean[]): ChainTile[] {
 // how many tiles actually fit -- a 390px-wide row should hold 4 tiles
 // (4*64 + 3*32 = 352, leaving 38px as outer padding), not 3).
 const TILE_WIDTH = 64;
-const ARROW_WIDTH = 24;
+const ARROW_WIDTH = 48;
 
 // How many grid columns actually fit in .cb-badges's real width, kept up
 // to date via ResizeObserver -- correct on a phone, a tablet, a resized

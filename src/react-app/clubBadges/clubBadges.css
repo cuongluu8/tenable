@@ -108,15 +108,20 @@
 /* Wraps an arrow glyph and, once the transfer-date hint is revealed, a
    small date label above it. Fixed at exactly ARROW_WIDTH
    (ClubBadgesPlay.tsx) rather than sized to content -- a "LOAN" tag or a
-   date string would otherwise render wider than the 32px useGridColumns
+   date string would otherwise render wider than what useGridColumns
    budgeted for every arrow, which is exactly the mismatch that caused a
-   row to be undercounted before. */
+   row to be undercounted before. 48px specifically (not just enough for
+   the plain arrow glyph) is sized for the date label -- measured against
+   the real formatted strings (state.ts's "Mon YYYY"/"~YYYY"), the widest
+   being an 8-character month-year like "Sep 2023" at ~40px -- narrower
+   than this and the date hint truncates ("Au...", "...023") instead of
+   showing the real date (confirmed the hard way, 2026-09-08). */
 .cb-arrow-stack {
 	display: inline-flex;
 	flex-direction: column;
 	align-items: center;
 	justify-content: center;
-	width: 24px;
+	width: 48px;
 	/* A flex/grid item's default min-width is auto (its content's
 	   min-content size), which silently overrides a smaller explicit
 	   width once content can't shrink below it -- exactly what "LOAN"
