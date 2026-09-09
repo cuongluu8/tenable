@@ -391,10 +391,19 @@ clubBadges.get("/round", async (c) => {
 // this only controls what the LIST shows, not whether a set can still
 // be played directly if something already links to it.
 clubBadges.get("/sets", async (c) => {
-	const allPlayerIds = [...new Set(CLUB_BADGE_SETS.flat())];
+	// A plain, unfiltered SELECT rather than `WHERE player_id IN (...)` --
+	// deliberately, not just for simplicity: with 30 sets (2026-09-09)
+	// CLUB_BADGE_SETS.flat() is 293 distinct ids, and binding that many
+	// placeholders in one query hit D1's own bind-parameter ceiling ("too
+	// many SQL variables"), a real 500 in production confirmed while
+	// testing this exact change locally. club_badge_questions is small and
+	// only grows via manual curation (349 rows as of this fix, nowhere
+	// near entities' own scale) -- see /round's own unfiltered SELECT
+	// above for the same reasoning already applied there -- so filtering
+	// in JS after fetching everything is both simpler and immune to this
+	// limit regardless of how many sets get added later.
 	const { results } = await c.env.DB
-		.prepare(`SELECT id, player_id FROM club_badge_questions WHERE player_id IN (${allPlayerIds.map(() => "?").join(",")})`)
-		.bind(...allPlayerIds)
+		.prepare(`SELECT id, player_id FROM club_badge_questions`)
 		.all<{ id: number; player_id: number }>();
 	const questionIdByPlayerId = new Map((results ?? []).map((r) => [r.player_id, r.id]));
 
