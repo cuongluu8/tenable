@@ -140,6 +140,16 @@ interface Props {
 	// question and treat every reveal as the round's last one.
 	progressLabel?: string;
 	isLastOverride?: boolean;
+	// "Who am I?" mode (Teammates.tsx) reuses this whole screen -- same
+	// reducer, lives, timer, guess box, give-up flow, reveal, score chip
+	// -- and only swaps the middle: `middle` renders in place of the badge
+	// chain + "may not show their full career" disclaimer, `hideHints`
+	// drops the hint button (that mode has no hints), and `soloBanner`
+	// changes the solo prompt from "Who is this?". All optional; club-
+	// badges itself passes none of them and is unchanged.
+	middle?: React.ReactNode;
+	hideHints?: boolean;
+	soloBanner?: string;
 }
 
 // Active-round screen. Two sub-views depending on state.lastResult: the
@@ -155,6 +165,9 @@ export function ClubBadgesPlay({
 	onQuit,
 	progressLabel,
 	isLastOverride,
+	middle,
+	hideHints,
+	soloBanner = "Who is this?",
 }: Props) {
 	const [guessInput, setGuessInput] = useState("");
 	// Same "confirm before it costs you" pattern as single-player's give-up
@@ -318,7 +331,7 @@ export function ClubBadgesPlay({
 				style={{ "--player-color": current.color } as React.CSSProperties}
 			>
 				{solo
-					? "Who is this?"
+					? soloBanner
 					: state.lastResult
 						? isRoundOver
 							? "Last question — see how everyone did"
@@ -346,6 +359,8 @@ export function ClubBadgesPlay({
 			    useful to see. */}
 			<p className="cb-timer">⏱ {formatElapsed(elapsedSeconds)}</p>
 
+			{middle ?? (
+			<>
 			{/* useGridColumns computes how many tiles fit per row; chunking
 			    chainTiles into rows of that many (clubBadges.css's
 			    .cb-badges, a plain flex column) is what actually determines
@@ -508,6 +523,8 @@ export function ClubBadgesPlay({
 			    and a loan move itself is labeled right on its arrow (below) so
 			    it doesn't read as a normal permanent transfer. */}
 			<p className="cb-disclaimer">This may not show their full career.</p>
+			</>
+			)}
 
 			{revealedHints.has("nationality") && (
 				<p className="cb-hint-text">Nationality: {question.nationality}</p>
@@ -518,7 +535,8 @@ export function ClubBadgesPlay({
 			    hint). Already-revealed hints (their ribbon/text above) stay up
 			    regardless; only the button for whichever's next disappears once
 			    used, then the next hint's button (if any) takes its place. */}
-			{!state.lastResult &&
+			{!hideHints &&
+				!state.lastResult &&
 				(() => {
 					const nextHint = availableHints.find((key) => !revealedHints.has(key));
 					return (

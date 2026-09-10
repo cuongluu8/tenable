@@ -1,9 +1,8 @@
-/* "Who am I? I played with..." single-player mode (Teammates.tsx). The
-   screen chrome (.cb-play, .cb-progress, .cb-turn-banner, .cb-timer,
-   .cb-reveal, .cb-score, .cb-next-button, .give-up-*, .wrong-guesses,
-   LivesIndicator) is all shared with club-badges' ClubBadgesPlay.tsx so
-   the two solo modes play identically -- only the clue list and the two
-   small labels below are this mode's own. */
+/* "Who am I? I played with..." mode (Teammates.tsx). The entire play
+   screen is ClubBadgesPlay.tsx now -- lives, timer, guess box, give-up,
+   reveal, score chip, round-over screen are all shared with club-badges.
+   The only thing this mode owns is the clue list that fills
+   ClubBadgesPlay's `middle` slot in place of the badge chain. */
 
 .tm-sub {
 	margin: -0.4rem 0 0.75rem;
@@ -11,6 +10,7 @@
 	font-size: 0.95rem;
 	text-transform: uppercase;
 	letter-spacing: 0.08em;
+	text-align: center;
 }
 
 .tm-clues {
@@ -42,10 +42,4 @@
 	color: #9ca3af;
 	font-size: 0.85rem;
 	white-space: nowrap;
-}
-
-.tm-final {
-	font-size: 1.05rem;
-	font-weight: 700;
-	margin: 0.5rem 0;
 }
