@@ -19,28 +19,26 @@ that they didn't play together until better data becomes available"):
      min(end_a, end_b) - max(start_a, start_b) >= 1 (open-ended range ends
      at CURRENT_YEAR). Year granularity is the ceiling.
 
-PICKING THE CLUE SET (2026-09-10, revised)
-----------------------------------------
+PICKING THE CLUE SET (2026-09-10)
+-------------------------------
 The clue set has to actually pin down one player, and *feel* like it does.
 "Shevchenko, Lampard, Terry" is just "a Chelsea player 2006-2009" -- Drogba,
-Cech, Ashley Cole all fit -- so an arbitrary count of 3 was wrong.
+Cech, Ashley Cole all fit -- so a plain count of "the 3 most famous
+teammates" was wrong, and so was "the smallest set that happens not to
+collide in our sample" (fragile -- pool-unique only because the rest of
+that squad isn't researched yet).
 
-First revision minimised clue count subject to "unique among the ~350
-researched players". That was still too weak: a 2-clue set can be
-pool-unique only because the other 15 guys from that squad aren't in the
-pool yet -- fragile, and it reads as ambiguous to the solver.
+Two hard rules now, both user instructions:
+  - At least MIN_CLUES teammates per question.
+  - Each clue from a DIFFERENT club of the mystery player's -- there must
+    be a way to assign each clue its own distinct club where it actually
+    overlapped them (a system of distinct representatives, has_distinct_
+    clubs below). So every question is a genuine multi-club bridge, never
+    a group from one squad.
 
-Every clue in a set must be from a DIFFERENT club of the mystery player's
-(user instruction 2026-09-10). Concretely: there has to be a way to assign
-each clue to its own distinct club where it actually overlapped the
-mystery player (a system of distinct representatives -- has_distinct_clubs
-below). So every question is a genuine "played with X at club A, and Y at
-club B" bridge -- never "three guys from the same squad", which reads as
-ambiguous and is fragile against the pool growing.
-
-Among the candidate sets that are minimal, unique (no other researched
-player played with all of them), AND clue-per-distinct-club, the most
-discriminating one is picked:
+Among the candidate sets that satisfy both rules AND are minimal (no
+redundant clue) AND unique (no other researched player played with all of
+them), the most discriminating one is picked:
 
   1. clue rarity, MAXIMISED -- prefer clues who themselves have few
      verified teammates; a player who only ever overlapped 10 others is a
@@ -63,12 +61,18 @@ import re
 import sqlite3
 
 CURRENT_YEAR = 2026
-MIN_CLUES = 2
+# At least 3 teammate clues per question (user instruction 2026-09-10),
+# each from a different club (see has_distinct_clubs) -- so every question
+# is "played with X at club A, Y at club B, Z at club C".
+MIN_CLUES = 3
 MAX_CLUES = 5
 # Clues are only ever drawn from a player's N most-famous (lowest entity
 # id) teammates -- keeps every question built from recognizable names and
-# keeps the combination search cheap.
-CANDIDATE_POOL = 14
+# keeps the combination search cheap. Widened from 14 to 20 when MIN_CLUES
+# went 2->3: needing 3 unique cross-club famous teammates is a much
+# tighter ask, and a curated star's 20th-most-famous teammate is still a
+# real name.
+CANDIDATE_POOL = 20
 
 
 def parse_years(s):

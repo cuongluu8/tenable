@@ -9,419 +9,201 @@
 -- a set that used to be unique.
 
 INSERT INTO teammate_questions (player_id, teammate_ids, source) VALUES
-	-- George Weah (2): Youri Djorkaeff, William Gallas
-	(548, '[669,672]', 'player_career_stats'),
+	-- George Weah (3): Roberto Baggio, Youri Djorkaeff, William Gallas
+	(548, '[549,669,672]', 'player_career_stats'),
 	-- Roberto Baggio (3): Alessandro Del Piero, Marcel Desailly, Youri Djorkaeff
 	(549, '[588,667,669]', 'player_career_stats'),
-	-- Michael Owen (2): Alan Shearer, Peter Crouch
-	(550, '[551,660]', 'player_career_stats'),
-	-- Wayne Rooney (2): Edwin van der Sar, Anthony Gordon
-	(552, '[643,825]', 'player_career_stats'),
-	-- Andriy Shevchenko (2): Cafu, Michael Ballack
-	(553, '[593,650]', 'player_career_stats'),
-	-- Fabio Cannavaro (2): Pavel Nedved, Roberto Carlos
-	(555, '[554,592]', 'player_career_stats'),
-	-- Kaka (2): Cafu, Xabi Alonso
-	(556, '[593,606]', 'player_career_stats'),
-	-- Rivaldo (2): Carles Puyol, Cafu
-	(557, '[584,593]', 'player_career_stats'),
-	-- George Best (2): Bobby Charlton, Bobby Moore
-	(567, '[565,656]', 'player_career_stats'),
-	-- Ruud Gullit (2): Johan Cruyff, Gianfranco Zola
-	(569, '[561,591]', 'player_career_stats'),
-	-- Frank Rijkaard (2): Marco van Basten, Dennis Bergkamp
-	(570, '[568,571]', 'player_career_stats'),
-	-- Dennis Bergkamp (2): Marco van Basten, Robert Pires
-	(571, '[568,664]', 'player_career_stats'),
-	-- Ruud van Nistelrooy (2): Diego Forlan, Wesley Sneijder
-	(572, '[598,607]', 'player_career_stats'),
-	-- David Beckham (2): Fabio Cannavaro, Peter Schmeichel
-	(575, '[555,645]', 'player_career_stats'),
-	-- Frank Lampard (2): Gianfranco Zola, David Villa
-	(577, '[591,604]', 'player_career_stats'),
-	-- Rio Ferdinand (2): David Beckham, Frank Lampard
-	(579, '[575,577]', 'player_career_stats'),
-	-- Sergio Ramos (2): Wesley Sneijder, Achraf Hakimi
-	(582, '[607,618]', 'player_career_stats'),
-	-- Gerard Pique (2): Paul Scholes, Carles Puyol
-	(583, '[574,584]', 'player_career_stats'),
-	-- Gianluigi Buffon (2): Fabio Cannavaro, Gianfranco Zola
-	(586, '[555,591]', 'player_career_stats'),
-	-- Andrea Pirlo (2): Cafu, Youri Djorkaeff
-	(590, '[593,669]', 'player_career_stats'),
-	-- Gianfranco Zola (2): Diego Maradona, Ruud Gullit
-	(591, '[560,569]', 'player_career_stats'),
-	-- Roberto Carlos (2): Rivaldo, David Beckham
-	(592, '[557,575]', 'player_career_stats'),
-	-- Cafu (2): Rivaldo, Francesco Totti
-	(593, '[557,589]', 'player_career_stats'),
-	-- Luis Suarez (2): Steven Gerrard, Xavi Hernandez
-	(594, '[576,580]', 'player_career_stats'),
-	-- Edinson Cavani (2): Gianluigi Buffon, Giorgi Mamardashvili
-	(595, '[586,738]', 'player_career_stats'),
-	-- Radamel Falcao (2): James Rodriguez, Fabinho
-	(596, '[597,635]', 'player_career_stats'),
-	-- James Rodriguez (2): Radamel Falcao, Takefusa Kubo
-	(597, '[596,629]', 'player_career_stats'),
-	-- Diego Forlan (2): Fabien Barthez, Robert Pires
-	(598, '[649,664]', 'player_career_stats'),
-	-- Zlatan Ibrahimovic (2): Pavel Nedved, David Villa
-	(599, '[554,604]', 'player_career_stats'),
-	-- Manuel Neuer (2): Mesut Ozil, Michael Olise
-	(601, '[611,698]', 'player_career_stats'),
-	-- Toni Kroos (2): Thomas Muller, Jude Bellingham
-	(602, '[600,620]', 'player_career_stats'),
-	-- Sergio Aguero (2): Diego Forlan, Bacary Sagna
-	(603, '[598,673]', 'player_career_stats'),
-	-- David Villa (2): Andres Iniesta, Andrea Pirlo
-	(604, '[581,590]', 'player_career_stats'),
-	-- Fernando Torres (2): Jan Oblak, Peter Crouch
-	(605, '[640,660]', 'player_career_stats'),
-	-- Xabi Alonso (2): Kaka, Peter Crouch
-	(606, '[556,660]', 'player_career_stats'),
+	-- Michael Owen (3): Alan Shearer, Steven Gerrard, Peter Crouch
+	(550, '[551,576,660]', 'player_career_stats'),
+	-- Fabio Cannavaro (3): Pavel Nedved, Gianfranco Zola, Wesley Sneijder
+	(555, '[554,591,607]', 'player_career_stats'),
+	-- Rivaldo (3): Carles Puyol, Paolo Maldini, Cafu
+	(557, '[584,587,593]', 'player_career_stats'),
+	-- Ruud Gullit (3): Johan Cruyff, Marco van Basten, Gianfranco Zola
+	(569, '[561,568,591]', 'player_career_stats'),
+	-- Ruud van Nistelrooy (3): Wesley Sneijder, Son Heung-min, Fabien Barthez
+	(572, '[607,627,649]', 'player_career_stats'),
+	-- Frank Lampard (3): Gianfranco Zola, David Villa, Bacary Sagna
+	(577, '[591,604,673]', 'player_career_stats'),
+	-- Gianluigi Buffon (3): Pavel Nedved, Gianfranco Zola, Edinson Cavani
+	(586, '[554,591,595]', 'player_career_stats'),
+	-- Andrea Pirlo (3): Cafu, David Villa, Youri Djorkaeff
+	(590, '[593,604,669]', 'player_career_stats'),
+	-- Gianfranco Zola (3): Fabio Cannavaro, Diego Maradona, Ruud Gullit
+	(591, '[555,560,569]', 'player_career_stats'),
+	-- Cafu (3): Kaka, Rivaldo, Francesco Totti
+	(593, '[556,557,589]', 'player_career_stats'),
+	-- Luis Suarez (3): Steven Gerrard, Xavi Hernandez, Jan Oblak
+	(594, '[576,580,640]', 'player_career_stats'),
+	-- Edinson Cavani (3): Gianluigi Buffon, Scott McTominay, Giorgi Mamardashvili
+	(595, '[586,695,738]', 'player_career_stats'),
+	-- James Rodriguez (3): Radamel Falcao, Takefusa Kubo, Jarrad Branthwaite
+	(597, '[596,629,873]', 'player_career_stats'),
+	-- Diego Forlan (3): Wesley Sneijder, Fabien Barthez, Robert Pires
+	(598, '[607,649,664]', 'player_career_stats'),
+	-- Zlatan Ibrahimovic (3): Pavel Nedved, Carles Puyol, Wesley Sneijder
+	(599, '[554,584,607]', 'player_career_stats'),
+	-- Fernando Torres (3): Jan Oblak, Peter Crouch, Nicolas Anelka
+	(605, '[640,660,671]', 'player_career_stats'),
+	-- Xabi Alonso (3): Kaka, Thomas Muller, Peter Crouch
+	(606, '[556,600,660]', 'player_career_stats'),
 	-- Wesley Sneijder (3): Fabio Cannavaro, Diego Forlan, Zlatan Ibrahimovic
 	(607, '[555,598,599]', 'player_career_stats'),
-	-- Arjen Robben (2): Thomas Muller, Wesley Sneijder
-	(608, '[600,607]', 'player_career_stats'),
-	-- Marco Reus (2): Marc-Andre ter Stegen, Niclas Fullkrug
-	(609, '[663,857]', 'player_career_stats'),
-	-- Mario Gotze (2): Thomas Muller, Denzel Dumfries
-	(610, '[600,690]', 'player_career_stats'),
-	-- Mesut Ozil (2): Kaka, Bacary Sagna
-	(611, '[556,673]', 'player_career_stats'),
-	-- Ilkay Gundogan (2): Marco Reus, Victor Osimhen
-	(612, '[609,617]', 'player_career_stats'),
-	-- N'Golo Kante (2): John Terry, Jamie Vardy
-	(613, '[578,661]', 'player_career_stats'),
-	-- Antoine Griezmann (2): Pedri, Jan Oblak
-	(614, '[621,640]', 'player_career_stats'),
-	-- Ousmane Dembele (2): Marco Reus, Khvicha Kvaratskhelia
-	(615, '[609,693]', 'player_career_stats'),
-	-- Riyad Mahrez (2): Jamie Vardy, Roberto Firmino
-	(616, '[661,682]', 'player_career_stats'),
-	-- Victor Osimhen (2): Khvicha Kvaratskhelia, Gabriel Magalhaes
-	(617, '[693,709]', 'player_career_stats'),
-	-- Achraf Hakimi (2): Takefusa Kubo, Lautaro Martinez
-	(618, '[629,630]', 'player_career_stats'),
-	-- Jude Bellingham (2): Marco Reus, Dean Huijsen
-	(620, '[609,900]', 'player_career_stats'),
-	-- Son Heung-min (2): Ruud van Nistelrooy, Hugo Lloris
-	(627, '[572,674]', 'player_career_stats'),
-	-- Federico Valverde (2): Diego Forlan, Jude Bellingham
-	(633, '[598,620]', 'player_career_stats'),
-	-- Fabinho (2): Radamel Falcao, Roberto Firmino
-	(635, '[596,682]', 'player_career_stats'),
-	-- Alisson Becker (2): Francesco Totti, Diego Forlan
-	(637, '[589,598]', 'player_career_stats'),
-	-- Thibaut Courtois (2): Fernando Torres, Jude Bellingham
-	(639, '[605,620]', 'player_career_stats'),
-	-- Jan Oblak (2): Bernardo Silva, Matheus Cunha
-	(640, '[744,771]', 'player_career_stats'),
-	-- David de Gea (2): Edinson Cavani, Diego Forlan
-	(641, '[595,598]', 'player_career_stats'),
-	-- Petr Cech (2): Mesut Ozil, Michael Ballack
-	(642, '[611,650]', 'player_career_stats'),
-	-- Edwin van der Sar (2): Frank Rijkaard, David Trezeguet
-	(643, '[570,670]', 'player_career_stats'),
-	-- Peter Schmeichel (2): Paul Scholes, Nicolas Anelka
-	(645, '[574,671]', 'player_career_stats'),
-	-- Fabien Barthez (2): Rudi Voller, David Trezeguet
-	(649, '[653,670]', 'player_career_stats'),
-	-- Michael Ballack (2): Oliver Kahn, Claude Makelele
-	(650, '[644,666]', 'player_career_stats'),
-	-- Lothar Matthaus (2): Oliver Kahn, Jurgen Klinsmann
-	(651, '[644,652]', 'player_career_stats'),
-	-- Jurgen Klinsmann (2): Oliver Kahn, Lothar Matthaus
-	(652, '[644,651]', 'player_career_stats'),
-	-- Bobby Moore (2): George Best, Geoff Hurst
-	(656, '[567,657]', 'player_career_stats'),
-	-- Geoff Hurst (2): Gordon Banks, Bobby Moore
-	(657, '[646,656]', 'player_career_stats'),
-	-- Ian Rush (2): Alan Shearer, Kenny Dalglish
-	(659, '[551,658]', 'player_career_stats'),
-	-- Peter Crouch (2): Steven Gerrard, William Gallas
-	(660, '[576,672]', 'player_career_stats'),
-	-- Marc-Andre ter Stegen (2): Xavi Hernandez, Marco Reus
-	(663, '[580,609]', 'player_career_stats'),
-	-- Robert Pires (2): Dennis Bergkamp, Diego Forlan
-	(664, '[571,598]', 'player_career_stats'),
-	-- Patrick Vieira (2): Roberto Baggio, Robert Pires
-	(665, '[549,664]', 'player_career_stats'),
-	-- Claude Makelele (2): Roberto Carlos, Marcel Desailly
-	(666, '[592,667]', 'player_career_stats'),
-	-- Marcel Desailly (2): Marco van Basten, Rudi Voller
-	(667, '[568,653]', 'player_career_stats'),
-	-- Lilian Thuram (2): Pavel Nedved, Jurgen Klinsmann
-	(668, '[554,652]', 'player_career_stats'),
-	-- Youri Djorkaeff (2): Roberto Baggio, Jurgen Klinsmann
-	(669, '[549,652]', 'player_career_stats'),
-	-- David Trezeguet (2): Fabien Barthez, Lilian Thuram
-	(670, '[649,668]', 'player_career_stats'),
-	-- Nicolas Anelka (2): Dennis Bergkamp, Peter Schmeichel
-	(671, '[571,645]', 'player_career_stats'),
-	-- William Gallas (2): Peter Crouch, Robert Pires
-	(672, '[660,664]', 'player_career_stats'),
-	-- Bacary Sagna (2): Sergio Aguero, Mesut Ozil
-	(673, '[603,611]', 'player_career_stats'),
-	-- Hugo Lloris (2): Alexandre Lacazette, Brennan Johnson
-	(674, '[678,804]', 'player_career_stats'),
-	-- Raphael Varane (2): Kaka, Edinson Cavani
-	(675, '[556,595]', 'player_career_stats'),
-	-- Paul Pogba (2): Michael Owen, Andrea Pirlo
-	(676, '[550,590]', 'player_career_stats'),
-	-- Olivier Giroud (2): Hugo Lloris, Alexandre Lacazette
-	(677, '[674,678]', 'player_career_stats'),
-	-- Alexandre Lacazette (2): Moussa Dembele, Aaron Ramsdale
-	(678, '[680,829]', 'player_career_stats'),
-	-- Moussa Dembele (2): Lucas Paqueta, Ryan Christie
-	(680, '[855,896]', 'player_career_stats'),
-	-- Gabriel Jesus (2): Sergio Aguero, Cristhian Mosquera
-	(681, '[603,707]', 'player_career_stats'),
-	-- Roberto Firmino (2): Riyad Mahrez, Darwin Nunez
-	(682, '[616,684]', 'player_career_stats'),
-	-- Diogo Jota (2): Jan Oblak, Roberto Firmino
-	(683, '[640,682]', 'player_career_stats'),
-	-- Cody Gakpo (2): Darwin Nunez, Denzel Dumfries
-	(685, '[684,690]', 'player_career_stats'),
-	-- Bruno Fernandes (2): Edinson Cavani, Raphinha
-	(686, '[595,700]', 'player_career_stats'),
-	-- Gianluigi Donnarumma (2): Fernando Torres, Joao Neves
-	(688, '[605,697]', 'player_career_stats'),
-	-- Desire Doue (2): Serhou Guirassy, Khvicha Kvaratskhelia
-	(689, '[691,693]', 'player_career_stats'),
-	-- Denzel Dumfries (2): Mario Gotze, Lautaro Martinez
-	(690, '[610,630]', 'player_career_stats'),
-	-- Serhou Guirassy (2): Donyell Malen, Adrien Truffert
-	(691, '[851,897]', 'player_career_stats'),
-	-- Khvicha Kvaratskhelia (2): Victor Osimhen, Fabian Ruiz
-	(693, '[617,701]', 'player_career_stats'),
-	-- Alexis Mac Allister (2): Kaoru Mitoma, Darwin Nunez
-	(694, '[628,684]', 'player_career_stats'),
-	-- Scott McTominay (2): Edinson Cavani, Victor Osimhen
-	(695, '[595,617]', 'player_career_stats'),
-	-- Nuno Mendes (2): Khvicha Kvaratskhelia, Joao Palhinha
-	(696, '[693,821]', 'player_career_stats'),
-	-- Joao Neves (2): Khvicha Kvaratskhelia, Enzo Fernandez
-	(697, '[693,780]', 'player_career_stats'),
-	-- Michael Olise (2): Thomas Muller, Jean-Philippe Mateta
-	(698, '[600,859]', 'player_career_stats'),
-	-- Raphinha (2): Lamine Yamal, Joao Palhinha
-	(700, '[704,821]', 'player_career_stats'),
-	-- Fabian Ruiz (2): Sergio Ramos, Victor Osimhen
-	(701, '[582,617]', 'player_career_stats'),
-	-- Vitinha (2): Iker Casillas, Khvicha Kvaratskhelia
-	(702, '[585,693]', 'player_career_stats'),
-	-- Cristhian Mosquera (2): Edinson Cavani, Jakub Kiwior
-	(707, '[595,714]', 'player_career_stats'),
-	-- Gabriel Magalhaes (2): Mesut Ozil, Victor Osimhen
-	(709, '[611,617]', 'player_career_stats'),
-	-- Martin Odegaard (2): Takefusa Kubo, Alexandre Lacazette
-	(710, '[629,678]', 'player_career_stats'),
-	-- Leandro Trossard (2): Kaoru Mitoma, Cristhian Mosquera
-	(717, '[628,707]', 'player_career_stats'),
-	-- Noni Madueke (2): Denzel Dumfries, Cristhian Mosquera
-	(718, '[690,707]', 'player_career_stats'),
-	-- Mikel Merino (2): Marco Reus, Takefusa Kubo
-	(719, '[609,629]', 'player_career_stats'),
-	-- Eberechi Eze (2): Michael Olise, Cristhian Mosquera
-	(725, '[698,707]', 'player_career_stats'),
-	-- Trent Alexander-Arnold (2): Jude Bellingham, Roberto Firmino
-	(726, '[620,682]', 'player_career_stats'),
-	-- Ryan Gravenberch (2): Thomas Muller, Darwin Nunez
-	(730, '[600,684]', 'player_career_stats'),
-	-- Luis Diaz (2): Michael Olise, Vitinha
-	(732, '[698,702]', 'player_career_stats'),
-	-- Federico Chiesa (2): Paul Pogba, Darwin Nunez
-	(733, '[676,684]', 'player_career_stats'),
-	-- Hugo Ekitike (2): Fabian Ruiz, Florian Wirtz
-	(734, '[701,703]', 'player_career_stats'),
-	-- Alexander Isak (2): Marco Reus, Florian Wirtz
-	(735, '[609,703]', 'player_career_stats'),
-	-- Milos Kerkez (2): Olivier Giroud, Florian Wirtz
-	(737, '[677,703]', 'player_career_stats'),
-	-- Giorgi Mamardashvili (2): Edinson Cavani, Florian Wirtz
-	(738, '[595,703]', 'player_career_stats'),
-	-- Rodri (2): Antoine Griezmann, Gabriel Jesus
-	(743, '[614,681]', 'player_career_stats'),
-	-- Bernardo Silva (2): Radamel Falcao, Jan Oblak
-	(744, '[596,640]', 'player_career_stats'),
-	-- Josko Gvardiol (2): Dominik Szoboszlai, Savinho
-	(746, '[729,750]', 'player_career_stats'),
-	-- Nathan Ake (2): Riyad Mahrez, Petr Cech
-	(748, '[616,642]', 'player_career_stats'),
-	-- Jeremy Doku (2): Julian Alvarez, Serhou Guirassy
-	(751, '[631,691]', 'player_career_stats'),
-	-- Rayan Cherki (2): Moussa Dembele, Tijjani Reijnders
-	(752, '[680,753]', 'player_career_stats'),
-	-- Tijjani Reijnders (2): Olivier Giroud, Savinho
-	(753, '[677,750]', 'player_career_stats'),
-	-- Omar Marmoush (2): Mario Gotze, Rayan Cherki
-	(754, '[610,752]', 'player_career_stats'),
-	-- Matheus Nunes (2): Julian Alvarez, Nuno Mendes
-	(755, '[631,696]', 'player_career_stats'),
-	-- Nico Gonzalez (2): Sergio Busquets, Josko Gvardiol
-	(757, '[662,746]', 'player_career_stats'),
-	-- Kyle Walker (2): Julian Alvarez, Peter Crouch
-	(758, '[631,660]', 'player_career_stats'),
-	-- Matthijs de Ligt (2): Gianluigi Buffon, Thomas Muller
-	(762, '[586,600]', 'player_career_stats'),
-	-- Lisandro Martinez (2): David de Gea, Jurrien Timber
-	(763, '[641,712]', 'player_career_stats'),
-	-- Harry Maguire (2): Edinson Cavani, Jamie Vardy
-	(764, '[595,661]', 'player_career_stats'),
-	-- Noussair Mazraoui (3): Thomas Muller, Rasmus Hojlund, Jurrien Timber
-	(767, '[600,687,712]', 'player_career_stats'),
-	-- Mason Mount (2): N'Golo Kante, Scott McTominay
-	(769, '[613,695]', 'player_career_stats'),
-	-- Bryan Mbeumo (2): Rasmus Hojlund, David Raya
-	(770, '[687,705]', 'player_career_stats'),
-	-- Matheus Cunha (2): Jan Oblak, Rasmus Hojlund
-	(771, '[640,687]', 'player_career_stats'),
-	-- Benjamin Sesko (2): Rasmus Hojlund, Dominik Szoboszlai
-	(772, '[687,729]', 'player_career_stats'),
-	-- Alejandro Garnacho (2): Scott McTominay, Cole Palmer
-	(774, '[695,699]', 'player_career_stats'),
-	-- Andre Onana (2): Lautaro Martinez, Scott McTominay
-	(775, '[630,695]', 'player_career_stats'),
-	-- Joshua Zirkzee (2): Thomas Muller, Riccardo Calafiori
-	(777, '[600,721]', 'player_career_stats'),
-	-- Enzo Fernandez (2): Julian Alvarez, Joao Neves
-	(780, '[631,697]', 'player_career_stats'),
-	-- Wesley Fofana (2): Jamie Vardy, Enzo Fernandez
-	(784, '[661,780]', 'player_career_stats'),
-	-- Marc Cucurella (2): Andres Iniesta, Kaoru Mitoma
-	(786, '[581,628]', 'player_career_stats'),
-	-- Malo Gusto (2): Moussa Dembele, Enzo Fernandez
-	(787, '[680,780]', 'player_career_stats'),
-	-- Robert Sanchez (2): Viktor Gyokeres, Alejandro Garnacho
-	(788, '[692,774]', 'player_career_stats'),
-	-- Christopher Nkunku (2): Gianluigi Buffon, Enzo Fernandez
-	(790, '[586,780]', 'player_career_stats'),
-	-- Pedro Neto (2): Diogo Jota, Enzo Fernandez
-	(791, '[683,780]', 'player_career_stats'),
-	-- Jamie Gittens (2): Serhou Guirassy, Enzo Fernandez
-	(792, '[691,780]', 'player_career_stats'),
-	-- Raheem Sterling (2): Steven Gerrard, Bacary Sagna
-	(798, '[576,673]', 'player_career_stats'),
-	-- Cesar Azpilicueta (2): N'Golo Kante, Jan Oblak
-	(799, '[613,640]', 'player_career_stats'),
-	-- James Maddison (2): Jamie Vardy, Hugo Lloris
-	(801, '[661,674]', 'player_career_stats'),
-	-- Dejan Kulusevski (2): Hugo Lloris, Paul Pogba
-	(802, '[674,676]', 'player_career_stats'),
-	-- Dominic Solanke (2): John Terry, Roberto Firmino
-	(803, '[578,682]', 'player_career_stats'),
-	-- Richarlison (2): James Rodriguez, Hugo Lloris
-	(805, '[597,674]', 'player_career_stats'),
-	-- Micky van de Ven (2): Hugo Lloris, Omar Marmoush
-	(808, '[674,754]', 'player_career_stats'),
-	-- Guglielmo Vicario (2): Hugo Lloris, Bruno Fernandes
-	(810, '[674,686]', 'player_career_stats'),
-	-- Yves Bissouma (2): Kaoru Mitoma, Hugo Lloris
-	(811, '[628,674]', 'player_career_stats'),
-	-- Wilson Odobert (2): Savinho, Brennan Johnson
-	(814, '[750,804]', 'player_career_stats'),
-	-- Mathys Tel (2): Serhou Guirassy, Michael Olise
-	(815, '[691,698]', 'player_career_stats'),
-	-- Mohammed Kudus (2): Jurrien Timber, Destiny Udogie
-	(816, '[712,806]', 'player_career_stats'),
-	-- Xavi Simons (2): Joao Neves, Dejan Kulusevski
-	(817, '[697,802]', 'player_career_stats'),
-	-- Randal Kolo Muani (2): Khvicha Kvaratskhelia, Daichi Kamada
-	(818, '[693,862]', 'player_career_stats'),
-	-- Joao Palhinha (2): Michael Olise, Raphinha
-	(821, '[698,700]', 'player_career_stats'),
-	-- Bruno Guimaraes (2): Moussa Dembele, Dan Burn
-	(822, '[680,833]', 'player_career_stats'),
-	-- Anthony Gordon (2): Wayne Rooney, Joelinton
-	(825, '[552,824]', 'player_career_stats'),
-	-- Harvey Barnes (2): Jamie Vardy, Joelinton
-	(826, '[661,824]', 'player_career_stats'),
-	-- Jacob Murphy (2): Mikel Merino, James Maddison
-	(827, '[719,801]', 'player_career_stats'),
-	-- Nick Pope (2): Joe Gomez, Nick Woltemade
-	(828, '[739,835]', 'player_career_stats'),
-	-- Kieran Trippier (2): Jan Oblak, Patrick Vieira
-	(832, '[640,665]', 'player_career_stats'),
-	-- Dan Burn (2): Kaoru Mitoma, Moussa Dembele
-	(833, '[628,680]', 'player_career_stats'),
-	-- Tino Livramento (2): Romeo Lavia, Joelinton
-	(834, '[795,824]', 'player_career_stats'),
-	-- Yoane Wissa (2): David Raya, Joelinton
-	(836, '[705,824]', 'player_career_stats'),
-	-- Malick Thiaw (2): Tijjani Reijnders, Joelinton
-	(838, '[753,824]', 'player_career_stats'),
-	-- Emiliano Martinez (2): Bacary Sagna, Boubacar Kamara
-	(839, '[673,844]', 'player_career_stats'),
-	-- Ollie Watkins (2): David Raya, Boubacar Kamara
-	(840, '[705,844]', 'player_career_stats'),
-	-- Youri Tielemans (2): Radamel Falcao, Jamie Vardy
-	(842, '[596,661]', 'player_career_stats'),
-	-- Amadou Onana (2): Sven Botman, Boubacar Kamara
-	(845, '[830,844]', 'player_career_stats'),
-	-- Pau Torres (2): Nicolas Jackson, Boubacar Kamara
-	(847, '[789,844]', 'player_career_stats'),
-	-- Matty Cash (2): Brennan Johnson, Boubacar Kamara
-	(848, '[804,844]', 'player_career_stats'),
-	-- Lucas Digne (2): Andres Iniesta, James Rodriguez
-	(849, '[581,597]', 'player_career_stats'),
-	-- Donyell Malen (2): Denzel Dumfries, Serhou Guirassy
-	(851, '[690,691]', 'player_career_stats'),
-	-- Leon Bailey (2): Florian Wirtz, Boubacar Kamara
-	(853, '[703,844]', 'player_career_stats'),
-	-- Jarrod Bowen (2): James Ward-Prowse, Keane Lewis-Potter
-	(854, '[856,891]', 'player_career_stats'),
-	-- Lucas Paqueta (2): Moussa Dembele, Jarrod Bowen
-	(855, '[680,854]', 'player_career_stats'),
-	-- James Ward-Prowse (2): Tino Livramento, Jarrod Bowen
-	(856, '[834,854]', 'player_career_stats'),
-	-- Niclas Fullkrug (2): Marco Reus, Jarrod Bowen
-	(857, '[609,854]', 'player_career_stats'),
-	-- Max Kilman (2): James Ward-Prowse, Nathan Collins
-	(858, '[856,890]', 'player_career_stats'),
-	-- Jean-Philippe Mateta (2): Alexandre Lacazette, Adam Wharton
-	(859, '[678,861]', 'player_career_stats'),
-	-- Marc Guehi (2): N'Golo Kante, Adam Wharton
-	(860, '[613,861]', 'player_career_stats'),
-	-- Daichi Kamada (2): Randal Kolo Muani, Adam Wharton
-	(862, '[818,861]', 'player_career_stats'),
-	-- Ismaila Sarr (2): Adam Wharton, Iliman Ndiaye
-	(863, '[861,870]', 'player_career_stats'),
-	-- Dean Henderson (2): Wayne Rooney, Michael Olise
-	(865, '[552,698]', 'player_career_stats'),
-	-- Idrissa Gueye (2): Edinson Cavani, Dwight McNeil
-	(868, '[595,869]', 'player_career_stats'),
-	-- Iliman Ndiaye (2): Ismaila Sarr, Beto
-	(870, '[863,871]', 'player_career_stats'),
-	-- Bernd Leno (2): Joao Palhinha, Aaron Ramsdale
-	(874, '[821,829]', 'player_career_stats'),
-	-- Antonee Robinson (2): Wayne Rooney, Joao Palhinha
-	(875, '[552,821]', 'player_career_stats'),
-	-- Joachim Andersen (2): Moussa Dembele, Michael Olise
-	(876, '[680,698]', 'player_career_stats'),
-	-- Alex Iwobi (2): Mesut Ozil, Jordan Pickford
-	(878, '[611,867]', 'player_career_stats'),
-	-- Raul Jimenez (2): Jan Oblak, Joao Palhinha
-	(879, '[640,821]', 'player_career_stats'),
-	-- Harry Wilson (2): Caoimhin Kelleher, Tosin Adarabioyo
-	(880, '[742,797]', 'player_career_stats'),
-	-- Carlos Baleba (2): Leny Yoro, Bart Verbruggen
-	(884, '[776,881]', 'player_career_stats'),
-	-- Georginio Rutter (2): Serhou Guirassy, Bart Verbruggen
-	(886, '[691,881]', 'player_career_stats'),
-	-- Danny Welbeck (2): Kaoru Mitoma, Edwin van der Sar
-	(887, '[628,643]', 'player_career_stats'),
-	-- Nathan Collins (2): Max Kilman, Igor Thiago
-	(890, '[858,888]', 'player_career_stats'),
-	-- Keane Lewis-Potter (2): Jarrod Bowen, Igor Thiago
-	(891, '[854,888]', 'player_career_stats'),
-	-- Justin Kluivert (2): Riccardo Calafiori, Antoine Semenyo
-	(894, '[721,893]', 'player_career_stats'),
-	-- Ryan Christie (2): Moussa Dembele, Antoine Semenyo
-	(896, '[680,893]', 'player_career_stats'),
-	-- Adrien Truffert (2): Serhou Guirassy, Antoine Semenyo
-	(897, '[691,893]', 'player_career_stats'),
-	-- Ilya Zabarnyi (2): Khvicha Kvaratskhelia, Antoine Semenyo
-	(899, '[693,893]', 'player_career_stats'),
-	-- Dean Huijsen (2): Jude Bellingham, Antoine Semenyo
-	(900, '[620,893]', 'player_career_stats');
+	-- Arjen Robben (3): Thomas Muller, Wesley Sneijder, Michael Ballack
+	(608, '[600,607,650]', 'player_career_stats'),
+	-- Mario Gotze (3): Marco Reus, Denzel Dumfries, Daichi Kamada
+	(610, '[609,690,862]', 'player_career_stats'),
+	-- Mesut Ozil (3): Kaka, Manuel Neuer, Bacary Sagna
+	(611, '[556,601,673]', 'player_career_stats'),
+	-- Ilkay Gundogan (3): Marco Reus, Victor Osimhen, Lamine Yamal
+	(612, '[609,617,704]', 'player_career_stats'),
+	-- N'Golo Kante (3): Fabinho, Jamie Vardy, Marc Guehi
+	(613, '[635,661,860]', 'player_career_stats'),
+	-- Ousmane Dembele (3): Marco Reus, Pedri, Khvicha Kvaratskhelia
+	(615, '[609,621,693]', 'player_career_stats'),
+	-- Riyad Mahrez (3): Sergio Aguero, Jamie Vardy, Roberto Firmino
+	(616, '[603,661,682]', 'player_career_stats'),
+	-- Victor Osimhen (3): Ilkay Gundogan, Khvicha Kvaratskhelia, Gabriel Magalhaes
+	(617, '[612,693,709]', 'player_career_stats'),
+	-- Achraf Hakimi (3): Takefusa Kubo, Lautaro Martinez, Khvicha Kvaratskhelia
+	(618, '[629,630,693]', 'player_career_stats'),
+	-- Son Heung-min (3): Ruud van Nistelrooy, Hugo Lloris, Brennan Johnson
+	(627, '[572,674,804]', 'player_career_stats'),
+	-- Fabinho (3): Radamel Falcao, N'Golo Kante, Roberto Firmino
+	(635, '[596,613,682]', 'player_career_stats'),
+	-- Alisson Becker (3): Francesco Totti, Diego Forlan, Roberto Firmino
+	(637, '[589,598,682]', 'player_career_stats'),
+	-- Edwin van der Sar (3): Frank Rijkaard, Paul Scholes, David Trezeguet
+	(643, '[570,574,670]', 'player_career_stats'),
+	-- Fabien Barthez (3): David Beckham, Rudi Voller, David Trezeguet
+	(649, '[575,653,670]', 'player_career_stats'),
+	-- Jurgen Klinsmann (3): Oliver Kahn, Lothar Matthaus, Youri Djorkaeff
+	(652, '[644,651,669]', 'player_career_stats'),
+	-- Peter Crouch (3): Michael Owen, Steven Gerrard, William Gallas
+	(660, '[550,576,672]', 'player_career_stats'),
+	-- Robert Pires (3): Dennis Bergkamp, Diego Forlan, William Gallas
+	(664, '[571,598,672]', 'player_career_stats'),
+	-- Patrick Vieira (3): Roberto Baggio, Pavel Nedved, Robert Pires
+	(665, '[549,554,664]', 'player_career_stats'),
+	-- Claude Makelele (3): Roberto Carlos, Michael Ballack, Marcel Desailly
+	(666, '[592,650,667]', 'player_career_stats'),
+	-- Marcel Desailly (3): Marco van Basten, Gianfranco Zola, Rudi Voller
+	(667, '[568,591,653]', 'player_career_stats'),
+	-- Lilian Thuram (3): Pavel Nedved, Carles Puyol, Jurgen Klinsmann
+	(668, '[554,584,652]', 'player_career_stats'),
+	-- Nicolas Anelka (3): Dennis Bergkamp, Peter Schmeichel, Michael Ballack
+	(671, '[571,645,650]', 'player_career_stats'),
+	-- William Gallas (3): Gianfranco Zola, Peter Crouch, Robert Pires
+	(672, '[591,660,664]', 'player_career_stats'),
+	-- Hugo Lloris (3): Son Heung-min, William Gallas, Alexandre Lacazette
+	(674, '[627,672,678]', 'player_career_stats'),
+	-- Olivier Giroud (3): Bacary Sagna, Hugo Lloris, Marc Guehi
+	(677, '[673,674,860]', 'player_career_stats'),
+	-- Moussa Dembele (3): Dan Burn, Lucas Paqueta, Ryan Christie
+	(680, '[833,855,896]', 'player_career_stats'),
+	-- Gianluigi Donnarumma (3): Fernando Torres, Joao Neves, Savinho
+	(688, '[605,697,750]', 'player_career_stats'),
+	-- Noni Madueke (3): Denzel Dumfries, Cole Palmer, Cristhian Mosquera
+	(718, '[690,699,707]', 'player_career_stats'),
+	-- Mikel Merino (3): Marco Reus, Takefusa Kubo, Cristhian Mosquera
+	(719, '[609,629,707]', 'player_career_stats'),
+	-- Ryan Gravenberch (3): Thomas Muller, Darwin Nunez, Jurrien Timber
+	(730, '[600,684,712]', 'player_career_stats'),
+	-- Luis Diaz (3): Roberto Firmino, Michael Olise, Vitinha
+	(732, '[682,698,702]', 'player_career_stats'),
+	-- Federico Chiesa (3): Paul Pogba, Darwin Nunez, Christian Norgaard
+	(733, '[676,684,715]', 'player_career_stats'),
+	-- Hugo Ekitike (3): Mario Gotze, Fabian Ruiz, Florian Wirtz
+	(734, '[610,701,703]', 'player_career_stats'),
+	-- Alexander Isak (3): Marco Reus, Florian Wirtz, Martin Zubimendi
+	(735, '[609,703,722]', 'player_career_stats'),
+	-- Jeremie Frimpong (3): Florian Wirtz, Milos Kerkez, Ryan Christie
+	(736, '[703,737,896]', 'player_career_stats'),
+	-- Bernardo Silva (3): Radamel Falcao, Sergio Aguero, Jan Oblak
+	(744, '[596,603,640]', 'player_career_stats'),
+	-- Tijjani Reijnders (3): Olivier Giroud, Milos Kerkez, Omar Marmoush
+	(753, '[677,737,754]', 'player_career_stats'),
+	-- Matthijs de Ligt (3): Gianluigi Buffon, Thomas Muller, Benjamin Sesko
+	(762, '[586,600,772]', 'player_career_stats'),
+	-- Harry Maguire (3): Edinson Cavani, Jamie Vardy, Andrew Robertson
+	(764, '[595,661,727]', 'player_career_stats'),
+	-- Noussair Mazraoui (3): Thomas Muller, Jurrien Timber, Benjamin Sesko
+	(767, '[600,712,772]', 'player_career_stats'),
+	-- Matheus Cunha (3): Jan Oblak, Ibrahima Konate, Benjamin Sesko
+	(771, '[640,728,772]', 'player_career_stats'),
+	-- Andre Onana (3): Lautaro Martinez, Scott McTominay, Noussair Mazraoui
+	(775, '[630,695,767]', 'player_career_stats'),
+	-- Joshua Zirkzee (3): Thomas Muller, Riccardo Calafiori, Benjamin Sesko
+	(777, '[600,721,772]', 'player_career_stats'),
+	-- Enzo Fernandez (3): Julian Alvarez, Joao Neves, Estevao
+	(780, '[631,697,794]', 'player_career_stats'),
+	-- Marc Cucurella (3): Andres Iniesta, N'Golo Kante, Kaoru Mitoma
+	(786, '[581,613,628]', 'player_career_stats'),
+	-- Christopher Nkunku (3): Gianluigi Buffon, Dominik Szoboszlai, Nicolas Jackson
+	(790, '[586,729,789]', 'player_career_stats'),
+	-- Raheem Sterling (3): Steven Gerrard, N'Golo Kante, Bacary Sagna
+	(798, '[576,613,673]', 'player_career_stats'),
+	-- Dejan Kulusevski (3): Gianluigi Buffon, Hugo Lloris, Amad Diallo
+	(802, '[586,674,773]', 'player_career_stats'),
+	-- Dominic Solanke (3): Fernando Torres, Son Heung-min, Roberto Firmino
+	(803, '[605,627,682]', 'player_career_stats'),
+	-- Yves Bissouma (3): Kaoru Mitoma, Hugo Lloris, Gabriel Magalhaes
+	(811, '[628,674,709]', 'player_career_stats'),
+	-- Wilson Odobert (3): Savinho, James Trafford, Brennan Johnson
+	(814, '[750,759,804]', 'player_career_stats'),
+	-- Mathys Tel (3): Serhou Guirassy, Michael Olise, Destiny Udogie
+	(815, '[691,698,806]', 'player_career_stats'),
+	-- Xavi Simons (3): Cody Gakpo, Joao Neves, Destiny Udogie
+	(817, '[685,697,806]', 'player_career_stats'),
+	-- Joao Palhinha (3): Michael Olise, Raphinha, Antonee Robinson
+	(821, '[698,700,875]', 'player_career_stats'),
+	-- Nick Pope (3): Joe Gomez, Joelinton, Dwight McNeil
+	(828, '[739,824,869]', 'player_career_stats'),
+	-- Aaron Ramsdale (3): Alexandre Lacazette, Nathan Ake, Iliman Ndiaye
+	(829, '[678,748,870]', 'player_career_stats'),
+	-- Kieran Trippier (3): Jan Oblak, Patrick Vieira, Joelinton
+	(832, '[640,665,824]', 'player_career_stats'),
+	-- Dan Burn (3): Kaoru Mitoma, Moussa Dembele, Joelinton
+	(833, '[628,680,824]', 'player_career_stats'),
+	-- Yoane Wissa (3): Joelinton, Jean-Philippe Mateta, Igor Thiago
+	(836, '[824,859,888]', 'player_career_stats'),
+	-- Youri Tielemans (3): Radamel Falcao, Jamie Vardy, Boubacar Kamara
+	(842, '[596,661,844]', 'player_career_stats'),
+	-- Amadou Onana (3): Sven Botman, Boubacar Kamara, Beto
+	(845, '[830,844,871]', 'player_career_stats'),
+	-- Lucas Digne (3): Andres Iniesta, Edinson Cavani, Boubacar Kamara
+	(849, '[581,595,844]', 'player_career_stats'),
+	-- Donyell Malen (3): Denzel Dumfries, Serhou Guirassy, Boubacar Kamara
+	(851, '[690,691,844]', 'player_career_stats'),
+	-- Leon Bailey (3): Florian Wirtz, Leandro Trossard, Boubacar Kamara
+	(853, '[703,717,844]', 'player_career_stats'),
+	-- Lucas Paqueta (3): Vinicius Junior, Moussa Dembele, Jarrod Bowen
+	(855, '[619,680,854]', 'player_career_stats'),
+	-- Niclas Fullkrug (3): Marco Reus, Nick Woltemade, Jarrod Bowen
+	(857, '[609,835,854]', 'player_career_stats'),
+	-- Jean-Philippe Mateta (3): Alexandre Lacazette, Yoane Wissa, Adam Wharton
+	(859, '[678,836,861]', 'player_career_stats'),
+	-- Ismaila Sarr (3): Joao Pedro, Adam Wharton, Iliman Ndiaye
+	(863, '[793,861,870]', 'player_career_stats'),
+	-- Idrissa Gueye (3): Edinson Cavani, Eden Hazard, Beto
+	(868, '[595,800,871]', 'player_career_stats'),
+	-- Iliman Ndiaye (3): Aaron Ramsdale, Ismaila Sarr, Beto
+	(870, '[829,863,871]', 'player_career_stats'),
+	-- Bernd Leno (3): Joao Palhinha, Aaron Ramsdale, Leon Bailey
+	(874, '[821,829,853]', 'player_career_stats'),
+	-- Joachim Andersen (3): Moussa Dembele, Michael Olise, Antonee Robinson
+	(876, '[680,698,875]', 'player_career_stats'),
+	-- Alex Iwobi (3): Mesut Ozil, Joao Palhinha, Dwight McNeil
+	(878, '[611,821,869]', 'player_career_stats'),
+	-- Raul Jimenez (3): Jan Oblak, Joao Palhinha, Max Kilman
+	(879, '[640,821,858]', 'player_career_stats'),
+	-- Georginio Rutter (3): Serhou Guirassy, Archie Gray, Bart Verbruggen
+	(886, '[691,819,881]', 'player_career_stats'),
+	-- Danny Welbeck (3): Mesut Ozil, Kaoru Mitoma, Edwin van der Sar
+	(887, '[611,628,643]', 'player_career_stats'),
+	-- Nathan Collins (3): Max Kilman, Dwight McNeil, Igor Thiago
+	(890, '[858,869,888]', 'player_career_stats'),
+	-- Justin Kluivert (3): Riccardo Calafiori, Noussair Mazraoui, Antoine Semenyo
+	(894, '[721,767,893]', 'player_career_stats'),
+	-- Dean Huijsen (3): Jude Bellingham, Paul Pogba, Antoine Semenyo
+	(900, '[620,676,893]', 'player_career_stats');
