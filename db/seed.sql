@@ -6,14 +6,9 @@
 -- section for the model this populates). This file is an export of
 -- production D1's content tables — dumped via `wrangler d1 export
 -- tenable-content --no-schema`, table-by-table, one INSERT per row — never
--- edited by hand. That's a deliberate change from before: the previous
--- schema had this file and production silently diverge more than once
--- (batches applied to production but never mirrored back here — see git
--- history around 2026-08-26/27) because keeping two hand-maintained copies
--- in sync depended on nobody forgetting a step. Treating this file as
--- generated closes that off structurally instead of relying on discipline
--- a second time: production is the one authoring surface, this is its
--- export.
+-- edited by hand. Treating this file as generated (not a second
+-- hand-maintained copy of production) is deliberate — see git history
+-- around 2026-08-26/27 for the "silently diverged" incidents that caused.
 --
 -- To regenerate after a production content change:
 --   wrangler d1 export tenable-content --remote --no-schema \
@@ -22,27 +17,23 @@
 --     --table=transfers --table=management_spells --table=player_career_stats \
 --     --table=club_badge_questions --table=teammate_questions \
 --     --output=db/seed.sql
+--   cat db/seed_header.txt db/seed.sql > /tmp/s && mv /tmp/s db/seed.sql
 --
--- Keep every content table in that --table list. club_badge_questions was
--- missing from it until 2026-09-09, teammate_questions added 2026-09-10 --
--- a table left off the list is silently dropped from this file on the next
--- regeneration (and then from every fresh local reseed) with no error.
+-- The export strips leading comments every time, so the second line
+-- re-prepends this header from db/seed_header.txt -- keep the two in sync.
+-- Keep every content table in that --table list: club_badge_questions was
+-- missing until 2026-09-09, teammate_questions added 2026-09-10 -- a table
+-- left off is silently dropped from this file (and every fresh reseed).
 --
--- Also note: db/schema.sql is NOT auto-applied to production. A new table
--- there (like teammate_questions) has to be created in prod by hand (one
--- `CREATE TABLE IF NOT EXISTS ...` via the D1 query tool / wrangler) before
--- its first data load -- see the 2026-09-10 rollout.
+-- db/schema.sql is NOT auto-applied to production: a new table there has
+-- to be created in prod by hand (CREATE TABLE IF NOT EXISTS via the D1
+-- query tool / wrangler) before its first data load -- see the 2026-09-10
+-- teammate_questions rollout.
 --
--- Deliberately NOT --table=content_version: that table is runtime state
--- (a cache-busting counter bumped by src/worker/lib/rebuild.ts), not seed
--- content. db/schema.sql already seeds it with `INSERT OR IGNORE ... (1, 1,
--- ...)`; exporting a real row for it here collides with that on a fresh
--- local reset (`UNIQUE constraint failed: content_version.id` — hit this
--- exact crash 2026-09-04, fixed by dropping the table from the export).
---
--- After editing this header by hand, the next real `wrangler d1 export`
--- will overwrite it (wrangler doesn't preserve arbitrary leading comments)
--- — re-paste this same header back in as part of that regenerate step.
+-- Deliberately NOT --table=content_version: runtime state (a cache-bust
+-- counter bumped by rebuild.ts), and db/schema.sql already seeds it with
+-- INSERT OR IGNORE -- exporting a real row collides on a fresh local reset
+-- (UNIQUE constraint failed: content_version.id, crash hit 2026-09-04).
 PRAGMA defer_foreign_keys=TRUE;
 INSERT INTO "categories" ("id","slug","title","subtitle","stat_label","scheduled_date","entity_type","group_label","group_order","reference_scope") VALUES(1,'ucl-titles-by-club','Top 10 UEFA Champions League / European Cup winners','By club, through the 2025-26 final. Ties broken by most recent title.','titles','2026-08-25','club','All-Time Records',3,NULL);
 INSERT INTO "categories" ("id","slug","title","subtitle","stat_label","scheduled_date","entity_type","group_label","group_order","reference_scope") VALUES(2,'ballon-dor-most-wins','Top 10 most Ballon d''Or wins','By individual player, all-time','wins','2026-08-26','player','All-Time Records',3,NULL);
@@ -63299,262 +63290,211 @@ INSERT INTO "club_badge_questions" ("id","player_id","club_sequence","source") V
 INSERT INTO "club_badge_questions" ("id","player_id","club_sequence","source") VALUES(454,898,'[19044, 189, 269, 185]','player_career_stats');
 INSERT INTO "club_badge_questions" ("id","player_id","club_sequence","source") VALUES(455,899,'[296, 185, 261]','player_career_stats');
 INSERT INTO "club_badge_questions" ("id","player_id","club_sequence","source") VALUES(456,900,'[232, 239, 185, 217]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(328,548,'[553,668]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(329,549,'[590,669]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(330,550,'[551,552]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(331,551,'[550,659]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(332,552,'[572,626]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(333,553,'[548,650]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(334,555,'[554,572]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(335,556,'[553,675]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(336,557,'[553,580]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(337,562,'[563,654]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(338,563,'[562,654]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(339,567,'[565,656]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(340,568,'[561,569,570]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(341,569,'[561,591]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(342,570,'[561,643]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(343,571,'[568,664]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(344,572,'[552,556]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(345,573,'[552,574,645]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(346,574,'[552,573,645]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(347,575,'[555,645]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(348,576,'[550,594]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(349,577,'[553,579]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(350,578,'[553,613]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(351,579,'[550,577]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(352,580,'[557,584]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(353,581,'[615,668]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(354,582,'[555,585,597]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(355,583,'[552,594]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(356,584,'[557,580]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(357,585,'[550,556]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(358,586,'[554,762]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(359,587,'[548,553]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(360,588,'[549,643]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(361,589,'[593,637]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(362,590,'[549,604]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(363,591,'[555,560]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(364,592,'[550,557]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(365,593,'[553,589]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(366,594,'[576,580]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(367,595,'[586,707]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(368,596,'[597,635]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(369,597,'[582,596]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(370,598,'[572,603]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(371,599,'[552,554]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(372,600,'[601,602,698]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(373,601,'[611,698]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(374,602,'[585,620]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(375,603,'[598,605]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(376,604,'[577,580]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(377,605,'[576,577]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(378,606,'[556,576]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(379,607,'[555,572,599]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(380,608,'[553,555]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(381,609,'[610,612]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(382,610,'[600,609]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(383,611,'[556,623]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(384,612,'[603,609]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(385,613,'[578,661]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(386,614,'[583,605]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(387,615,'[581,610]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(388,616,'[603,661]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(389,617,'[612,693]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(390,618,'[582,630]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(391,619,'[602,620,632,633,639]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(392,620,'[602,792]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(393,621,'[583,612,622,663]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(394,622,'[583,612,621,663]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(395,623,'[642,705]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(396,627,'[572,674]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(397,629,'[582,710,719]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(398,630,'[618,690]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(399,631,'[612,614,743]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(400,632,'[602,619,620,633,639]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(401,633,'[597,598]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(402,635,'[596,613]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(403,637,'[589,598]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(404,638,'[603,635,744]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(405,639,'[577,620]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(406,640,'[683,832]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(407,641,'[550,603]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(408,642,'[553,623]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(409,643,'[550,570]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(410,644,'[602,651]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(411,645,'[573,671]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(412,649,'[572,653]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(413,650,'[553,644]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(414,651,'[644,652]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(415,652,'[644,651]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(416,653,'[649,667]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(417,654,'[562,563]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(418,656,'[567,657]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(419,657,'[646,656]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(420,659,'[551,658]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(421,660,'[550,576]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(422,661,'[613,616,764]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(423,662,'[583,584,614]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(424,663,'[580,609]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(425,664,'[571,598]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(426,665,'[548,571]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(427,666,'[585,667]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(428,667,'[548,653]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(429,668,'[548,580]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(430,669,'[549,652]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(431,670,'[588,643]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(432,671,'[553,571]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(433,672,'[548,660]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(434,673,'[603,611]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(435,674,'[627,677]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(436,675,'[556,595]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(437,676,'[550,586]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(438,677,'[599,611]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(439,678,'[611,680]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(440,680,'[678,896]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(441,681,'[603,623]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(442,682,'[616,636]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(443,683,'[605,684]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(444,685,'[610,683]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(445,686,'[595,700]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(446,688,'[582,624]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(447,689,'[615,691]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(448,690,'[610,630]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(449,691,'[689,792]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(450,693,'[615,695]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(451,694,'[628,636]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(452,695,'[595,617]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(453,696,'[693,755]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(454,697,'[618,780]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(455,698,'[600,725]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(456,699,'[603,631,713]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(457,700,'[615,686]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(458,701,'[582,617]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(459,702,'[585,615]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(460,704,'[612,621,622,663,700]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(461,706,'[611,623,692,709,711]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(462,707,'[595,623]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(463,709,'[611,617]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(464,710,'[582,625]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(465,711,'[611,623,692,706,709]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(466,713,'[613,623,699]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(467,717,'[625,628]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(468,718,'[623,685]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(469,719,'[609,623]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(470,725,'[623,698]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(471,726,'[619,635]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(472,730,'[600,636]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(473,732,'[585,635]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(474,733,'[636,676]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(475,734,'[615,636]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(476,735,'[609,636]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(477,737,'[599,636]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(478,738,'[595,636]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(479,743,'[614,681]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(480,744,'[596,603]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(481,746,'[612,728]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(482,747,'[673,688]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(483,748,'[612,639]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(484,751,'[612,689]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(485,752,'[624,678]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(486,753,'[624,677]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(487,754,'[610,624,688]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(488,755,'[612,696]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(489,757,'[583,624]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(490,758,'[612,660]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(491,762,'[586,600]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(492,763,'[641,712]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(493,764,'[595,616]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(494,765,'[552,626,687]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(495,766,'[585,595,675]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(496,767,'[600,626,712]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(497,769,'[613,626]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(498,770,'[626,705]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(499,771,'[594,626]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(500,772,'[626,729]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(501,774,'[626,699]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(502,775,'[626,630]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(503,777,'[600,721]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(504,780,'[631,697]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(505,784,'[661,718]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(506,785,'[677,699,713,782]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(507,786,'[581,613]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(508,787,'[678,699]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(509,788,'[692,774]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(510,790,'[586,699]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(511,791,'[683,699]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(512,792,'[609,774]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(513,793,'[628,699,781,786,788]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(514,798,'[576,594]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(515,799,'[577,720]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(516,801,'[627,661]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(517,802,'[627,676]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(518,803,'[578,627]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(519,805,'[597,627]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(520,808,'[627,754]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(521,810,'[627,686]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(522,811,'[627,628]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(523,814,'[750,801]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(524,815,'[600,691]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(525,816,'[712,801]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(526,817,'[582,685]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(527,818,'[610,615,689]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(528,821,'[600,696]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(529,822,'[735,752]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(530,823,'[599,677,737]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(531,825,'[552,735]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(532,826,'[616,735]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(533,827,'[719,801]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(534,828,'[735,739,822]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(535,832,'[594,627]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(536,833,'[628,680]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(537,834,'[735,795]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(538,836,'[705,822]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(539,838,'[753,824]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(540,839,'[611,749]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(541,840,'[705,842]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(542,842,'[596,661]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(543,845,'[830,839]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(544,847,'[789,839]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(545,848,'[804,839]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(546,849,'[581,597]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(547,851,'[609,839]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(548,853,'[703,720]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(549,854,'[625,727]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(550,855,'[599,619]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(551,856,'[636,765]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(552,857,'[609,816]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(553,858,'[683,855]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(554,859,'[678,698]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(555,860,'[613,698]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(556,862,'[610,859]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(557,863,'[725,793]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(558,865,'[552,698]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(559,867,'[552,597,825]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(560,868,'[552,618]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(561,869,'[825,828,872]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(562,870,'[829,863]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(563,872,'[825,828,869]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(564,873,'[597,867,870]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(565,874,'[611,627]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(566,875,'[552,747]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(567,876,'[680,698]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(568,877,'[623,625,642]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(569,878,'[597,797]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(570,879,'[614,821]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(571,880,'[576,635]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(572,884,'[628,776]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(573,886,'[628,691]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(574,887,'[550,623]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(575,888,'[742,889,890,891,892]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(576,889,'[705,742,890,891,892]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(577,890,'[705,755]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(578,891,'[836,854]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(579,892,'[705,742,889,890,891]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(580,893,'[737,894,895,896,897]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(581,894,'[721,737]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(582,895,'[737,893,894,896,897]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(583,896,'[680,736]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(584,897,'[689,898]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(585,899,'[615,893]','player_career_stats');
-INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(586,900,'[619,737]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(853,548,'[669,672]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(854,549,'[588,667,669]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(855,550,'[551,660]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(856,552,'[643,825]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(857,553,'[593,650]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(858,555,'[554,592]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(859,556,'[593,606]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(860,557,'[584,593]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(861,567,'[565,656]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(862,569,'[561,591]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(863,570,'[568,571]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(864,571,'[568,664]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(865,572,'[598,607]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(866,575,'[555,645]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(867,577,'[591,604]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(868,579,'[575,577]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(869,582,'[607,618]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(870,583,'[574,584]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(871,586,'[555,591]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(872,590,'[593,669]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(873,591,'[560,569]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(874,592,'[557,575]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(875,593,'[557,589]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(876,594,'[576,580]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(877,595,'[586,738]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(878,596,'[597,635]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(879,597,'[596,629]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(880,598,'[649,664]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(881,599,'[554,604]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(882,601,'[611,698]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(883,602,'[600,620]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(884,603,'[598,673]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(885,604,'[581,590]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(886,605,'[640,660]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(887,606,'[556,660]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(888,607,'[555,598,599]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(889,608,'[600,607]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(890,609,'[663,857]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(891,610,'[600,690]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(892,611,'[556,673]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(893,612,'[609,617]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(894,613,'[578,661]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(895,614,'[621,640]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(896,615,'[609,693]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(897,616,'[661,682]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(898,617,'[693,709]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(899,618,'[629,630]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(900,620,'[609,900]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(901,627,'[572,674]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(902,633,'[598,620]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(903,635,'[596,682]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(904,637,'[589,598]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(905,639,'[605,620]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(906,640,'[744,771]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(907,641,'[595,598]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(908,642,'[611,650]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(909,643,'[570,670]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(910,645,'[574,671]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(911,649,'[653,670]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(912,650,'[644,666]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(913,651,'[644,652]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(914,652,'[644,651]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(915,656,'[567,657]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(916,657,'[646,656]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(917,659,'[551,658]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(918,660,'[576,672]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(919,663,'[580,609]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(920,664,'[571,598]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(921,665,'[549,664]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(922,666,'[592,667]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(923,667,'[568,653]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(924,668,'[554,652]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(925,669,'[549,652]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(926,670,'[649,668]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(927,671,'[571,645]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(928,672,'[660,664]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(929,673,'[603,611]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(930,674,'[678,804]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(931,675,'[556,595]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(932,676,'[550,590]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(933,677,'[674,678]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(934,678,'[680,829]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(935,680,'[855,896]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(936,681,'[603,707]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(937,682,'[616,684]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(938,683,'[640,682]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(939,685,'[684,690]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(940,686,'[595,700]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(941,688,'[605,697]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(942,689,'[691,693]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(943,690,'[610,630]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(944,691,'[851,897]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(945,693,'[617,701]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(946,694,'[628,684]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(947,695,'[595,617]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(948,696,'[693,821]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(949,697,'[693,780]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(950,698,'[600,859]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(951,700,'[704,821]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(952,701,'[582,617]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(953,702,'[585,693]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(954,707,'[595,714]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(955,709,'[611,617]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(956,710,'[629,678]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(957,717,'[628,707]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(958,718,'[690,707]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(959,719,'[609,629]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(960,725,'[698,707]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(961,726,'[620,682]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(962,730,'[600,684]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(963,732,'[698,702]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(964,733,'[676,684]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(965,734,'[701,703]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(966,735,'[609,703]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(967,737,'[677,703]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(968,738,'[595,703]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(969,743,'[614,681]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(970,744,'[596,640]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(971,746,'[729,750]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(972,748,'[616,642]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(973,751,'[631,691]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(974,752,'[680,753]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(975,753,'[677,750]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(976,754,'[610,752]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(977,755,'[631,696]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(978,757,'[662,746]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(979,758,'[631,660]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(980,762,'[586,600]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(981,763,'[641,712]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(982,764,'[595,661]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(983,767,'[600,687,712]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(984,769,'[613,695]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(985,770,'[687,705]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(986,771,'[640,687]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(987,772,'[687,729]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(988,774,'[695,699]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(989,775,'[630,695]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(990,777,'[600,721]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(991,780,'[631,697]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(992,784,'[661,780]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(993,786,'[581,628]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(994,787,'[680,780]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(995,788,'[692,774]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(996,790,'[586,780]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(997,791,'[683,780]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(998,792,'[691,780]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(999,798,'[576,673]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1000,799,'[613,640]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1001,801,'[661,674]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1002,802,'[674,676]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1003,803,'[578,682]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1004,805,'[597,674]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1005,808,'[674,754]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1006,810,'[674,686]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1007,811,'[628,674]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1008,814,'[750,804]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1009,815,'[691,698]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1010,816,'[712,806]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1011,817,'[697,802]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1012,818,'[693,862]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1013,821,'[698,700]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1014,822,'[680,833]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1015,825,'[552,824]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1016,826,'[661,824]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1017,827,'[719,801]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1018,828,'[739,835]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1019,832,'[640,665]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1020,833,'[628,680]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1021,834,'[795,824]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1022,836,'[705,824]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1023,838,'[753,824]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1024,839,'[673,844]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1025,840,'[705,844]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1026,842,'[596,661]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1027,845,'[830,844]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1028,847,'[789,844]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1029,848,'[804,844]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1030,849,'[581,597]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1031,851,'[690,691]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1032,853,'[703,844]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1033,854,'[856,891]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1034,855,'[680,854]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1035,856,'[834,854]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1036,857,'[609,854]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1037,858,'[856,890]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1038,859,'[678,861]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1039,860,'[613,861]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1040,862,'[818,861]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1041,863,'[861,870]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1042,865,'[552,698]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1043,868,'[595,869]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1044,870,'[863,871]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1045,874,'[821,829]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1046,875,'[552,821]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1047,876,'[680,698]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1048,878,'[611,867]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1049,879,'[640,821]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1050,880,'[742,797]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1051,884,'[776,881]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1052,886,'[691,881]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1053,887,'[628,643]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1054,890,'[858,888]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1055,891,'[854,888]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1056,894,'[721,893]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1057,896,'[680,893]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1058,897,'[691,893]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1059,899,'[693,893]','player_career_stats');
+INSERT INTO "teammate_questions" ("id","player_id","teammate_ids","source") VALUES(1060,900,'[620,893]','player_career_stats');

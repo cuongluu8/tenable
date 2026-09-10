@@ -1,0 +1,36 @@
+-- Content for local/dev testing, and the reference this repo carries for
+-- what production D1 should contain.
+--
+-- Generated, not hand-authored (as of 2026-08-31's entities/entity_stats/
+-- category_defs rebuild — see db/schema.sql and agents.md's Data model
+-- section for the model this populates). This file is an export of
+-- production D1's content tables — dumped via `wrangler d1 export
+-- tenable-content --no-schema`, table-by-table, one INSERT per row — never
+-- edited by hand. Treating this file as generated (not a second
+-- hand-maintained copy of production) is deliberate — see git history
+-- around 2026-08-26/27 for the "silently diverged" incidents that caused.
+--
+-- To regenerate after a production content change:
+--   wrangler d1 export tenable-content --remote --no-schema \
+--     --table=categories --table=entities --table=entity_aliases \
+--     --table=entity_stats --table=category_defs --table=category_answers \
+--     --table=transfers --table=management_spells --table=player_career_stats \
+--     --table=club_badge_questions --table=teammate_questions \
+--     --output=db/seed.sql
+--   cat db/seed_header.txt db/seed.sql > /tmp/s && mv /tmp/s db/seed.sql
+--
+-- The export strips leading comments every time, so the second line
+-- re-prepends this header from db/seed_header.txt -- keep the two in sync.
+-- Keep every content table in that --table list: club_badge_questions was
+-- missing until 2026-09-09, teammate_questions added 2026-09-10 -- a table
+-- left off is silently dropped from this file (and every fresh reseed).
+--
+-- db/schema.sql is NOT auto-applied to production: a new table there has
+-- to be created in prod by hand (CREATE TABLE IF NOT EXISTS via the D1
+-- query tool / wrangler) before its first data load -- see the 2026-09-10
+-- teammate_questions rollout.
+--
+-- Deliberately NOT --table=content_version: runtime state (a cache-bust
+-- counter bumped by rebuild.ts), and db/schema.sql already seeds it with
+-- INSERT OR IGNORE -- exporting a real row collides on a fresh local reset
+-- (UNIQUE constraint failed: content_version.id, crash hit 2026-09-04).
