@@ -7,7 +7,8 @@ import "../clubBadges/clubBadges.css";
 import "./teammates.css";
 
 // "Who am I? I played with..." -- single-player mode. A round is 10 mystery
-// players, each shown only by three well-known former teammates (see
+// players, each shown only by a set of well-known former teammates -- 2 to
+// 5 of them, whatever uniquely identifies the mystery player (see
 // db/schema.sql's teammate_questions + build_teammate_questions.py for how
 // those are derived, fail-closed). Guess who it is.
 //

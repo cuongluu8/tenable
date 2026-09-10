@@ -226,7 +226,7 @@ CREATE TABLE IF NOT EXISTS club_badge_questions (
 CREATE INDEX IF NOT EXISTS idx_club_badge_questions_player ON club_badge_questions(player_id);
 
 -- "Who am I? I played with..." quiz question pool -- a mystery player
--- identified by three well-known former teammates (the GiveMeSport-style
+-- identified by a set of well-known former teammates (the GiveMeSport-style
 -- format). Same "one row per player, drawn at random at play time" shape as
 -- club_badge_questions above, not the category_defs pipeline. Derived (not
 -- hand-typed) from player_career_stats club stints by
@@ -241,13 +241,18 @@ CREATE INDEX IF NOT EXISTS idx_club_badge_questions_player ON club_badge_questio
 -- count, and being in the same national-team squad doesn't count at all.
 -- Year granularity is the current ceiling; exact transfer dates would let
 -- this be tighter still (only 18 players have them today, via transfers).
+--
+-- The clue set is chosen to be UNIQUE: the fewest of the mystery player's
+-- most-recognizable teammates such that no other researched player played
+-- with every one of them (so the question has one answer, not "any
+-- Chelsea player 2006-2009"). Clue count therefore varies per row, 2-5.
 CREATE TABLE IF NOT EXISTS teammate_questions (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	player_id INTEGER NOT NULL REFERENCES entities(id),
 	teammate_ids TEXT NOT NULL,
-		-- JSON array of exactly 3 entity ids, most recognizable first
-		-- (entity id ascending order == the same manual fame ranking used
-		-- for club-badge Sets -- lower id was curated as more famous).
+		-- JSON array of 2-5 entity ids, most recognizable first. The set is
+		-- unique within the researched player pool -- see
+		-- build_teammate_questions.py.
 	source TEXT NOT NULL DEFAULT 'player_career_stats'
 );
 CREATE INDEX IF NOT EXISTS idx_teammate_questions_player ON teammate_questions(player_id);

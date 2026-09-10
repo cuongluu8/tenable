@@ -15,12 +15,14 @@ interface QuestionRow {
 
 // GET /api/teammates/round  -- 10 random "who am I? I played with..."
 // questions. The mystery player's own name/id is never sent; only the
-// three teammate clue names (+ their country, for the little flag).
+// teammate clue names (+ their country, for the little flag). The clue
+// count varies per question (2-5) -- it's whatever uniquely identifies
+// the mystery player, see build_teammate_questions.py.
 //
 // D1 cost: teammate_questions is a small curated table (few hundred rows,
 // only grows by manual re-derivation) -- an unfiltered SELECT of it is
 // deliberate and cheap, same call shape as clubBadges /round. The name
-// lookup binds at most QUESTIONS_PER_ROUND * 3 = 30 ids in one IN(),
+// lookup binds at most QUESTIONS_PER_ROUND * 5 = 50 ids in one IN(),
 // well under D1's variable cap. Nothing here scans entities/entity_aliases.
 teammates.get("/round", async (c) => {
 	const { results: all } = await c.env.DB
