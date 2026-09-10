@@ -23,23 +23,10 @@
 }
 
 .tm-clue {
-	display: flex;
-	align-items: baseline;
-	justify-content: space-between;
-	gap: 0.75rem;
 	background: #1f2937;
 	border: 1px solid #374151;
 	border-radius: 10px;
 	padding: 0.7rem 0.9rem;
-}
-
-.tm-clue__name {
 	font-size: 1.15rem;
 	font-weight: 700;
-}
-
-.tm-clue__country {
-	color: #9ca3af;
-	font-size: 0.85rem;
-	white-space: nowrap;
 }

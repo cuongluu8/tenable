@@ -15,13 +15,9 @@ import { clubBadgesReducer, initialCbState, MAX_WRONG_LIVES, type CbQuestion } f
 // guess box, two-step give-up, reveal + score chip, round-over screen) is
 // the exact same components, so the two solo modes play identically.
 
-interface Clue {
-	name: string;
-	country: string | null;
-}
 interface RoundQuestion {
 	id: number;
-	teammates: Clue[];
+	teammates: string[]; // clue names only -- no nationality/flag by design
 }
 interface RoundResponse {
 	questions: RoundQuestion[];
@@ -47,9 +43,9 @@ export function Teammates({ onExit }: Props) {
 	const [state, dispatch] = useReducer(clubBadgesReducer, initialCbState);
 	const [submitting, setSubmitting] = useState(false);
 	const [loadError, setLoadError] = useState<string | null>(null);
-	// Clue cards per question, index-aligned with state.questions -- the
+	// Clue names per question, index-aligned with state.questions -- the
 	// only teammates-specific data ClubBadgesPlay's `middle` slot needs.
-	const [clueSets, setClueSets] = useState<Clue[][]>([]);
+	const [clueSets, setClueSets] = useState<string[][]>([]);
 
 	const startRound = useCallback(async () => {
 		setLoadError(null);
@@ -155,10 +151,9 @@ export function Teammates({ onExit }: Props) {
 						<>
 							<p className="tm-sub">I played with…</p>
 							<ul className="tm-clues">
-								{clues.map((c, i) => (
+								{clues.map((name, i) => (
 									<li key={i} className="tm-clue">
-										<span className="tm-clue__name">{c.name}</span>
-										{c.country && <span className="tm-clue__country">{c.country}</span>}
+										{name}
 									</li>
 								))}
 							</ul>

@@ -47,17 +47,18 @@ teammates.get("/round", async (c) => {
 
 	const clueIds = [...new Set(picked.flatMap((q) => JSON.parse(q.teammate_ids) as number[]))];
 	const { results: nameRows } = await c.env.DB
-		.prepare(`SELECT id, canonical_name, scope FROM entities WHERE id IN (${clueIds.map(() => "?").join(",")})`)
+		.prepare(`SELECT id, canonical_name FROM entities WHERE id IN (${clueIds.map(() => "?").join(",")})`)
 		.bind(...clueIds)
-		.all<{ id: number; canonical_name: string; scope: string | null }>();
-	const byId = new Map((nameRows ?? []).map((r) => [r.id, r]));
+		.all<{ id: number; canonical_name: string }>();
+	const nameById = new Map((nameRows ?? []).map((r) => [r.id, r.canonical_name]));
 
 	const questions = picked.map((q) => ({
 		id: q.id,
-		teammates: (JSON.parse(q.teammate_ids) as number[]).map((tid) => ({
-			name: byId.get(tid)?.canonical_name ?? "Unknown",
-			country: byId.get(tid)?.scope ?? null,
-		})),
+		// Names only -- deliberately no nationality/flag. It narrows the
+		// answer too hard (a Portuguese clue + a Portuguese mystery player
+		// is half a giveaway) and this mode is meant to be worked out from
+		// the club overlaps.
+		teammates: (JSON.parse(q.teammate_ids) as number[]).map((tid) => nameById.get(tid) ?? "Unknown"),
 	}));
 	return c.json({ questions });
 });
