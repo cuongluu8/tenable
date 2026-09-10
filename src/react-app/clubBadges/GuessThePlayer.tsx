@@ -1,4 +1,9 @@
 import { useCallback, useEffect, useReducer, useState } from "react";
+// Multiplayer-only entry point (multiplayer/Multiplayer.tsx is the sole
+// importer) -- so it keeps the multiplayer stylesheet for the roster
+// list ClubBadgesPlay renders when there's more than one player. The
+// purely-solo Sets screens dropped this import; they only ever render
+// one player.
 import "../multiplayer/multiplayer.css";
 import "../components/clubBadges.css";
 import { ClubBadgesPlay } from "../components/ClubBadgesPlay";
@@ -193,7 +198,7 @@ export function GuessThePlayer({ playerNames, setId, onExit }: Props) {
 						<button type="button" className="back-link" onClick={onExit}>
 							← Back
 						</button>
-						<p className="mp-setup__error">{loadError}</p>
+						<p className="load-error">{loadError}</p>
 						<button type="button" onClick={startRound}>
 							Try again
 						</button>

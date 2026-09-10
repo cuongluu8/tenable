@@ -7,7 +7,22 @@
    banner, the reveal) gets a class here, prefixed .cb- to avoid colliding
    with .mp-'s names. Same palette as both: surface #1f2937, border #374151,
    accent #4ade80, muted text #9ca3af.
+
+   This file is imported by every solo/teammates Sets screen, so the
+   handful of genuinely shared bits that aren't .cb- (a load-failure
+   message line) live here too rather than each screen pulling in
+   multiplayer.css just for one class.
 */
+
+/* "Couldn't load…" message on the Sets picker / a set's play view when
+   the round or index fetch fails. Was .mp-setup__error borrowed from
+   multiplayer.css; its own class here so those screens don't import that
+   whole stylesheet for one rule. */
+.load-error {
+	margin: 0;
+	color: #f87171;
+	font-size: 0.85rem;
+}
 
 /* Same flex column + gap treatment as multiplayer's .mp-play -- .cb-play
    never had its own layout rule, so every child (progress line, player

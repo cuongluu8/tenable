@@ -1,11 +1,10 @@
 import { useEffect, useReducer, useState } from "react";
-import "../multiplayer/multiplayer.css";
 import "../components/clubBadges.css";
 import "./teammates.css";
 import { ClubBadgesPlay } from "../components/ClubBadgesPlay";
 import { clubBadgesReducer, initialCbState, MAX_WRONG_LIVES, scoreBand, type CbQuestion } from "../components/clubBadgesState";
-import { getSetResults, recordResult } from "./teammateSetsStorage";
-import { shareTeammateSetViaWhatsApp } from "./shareTeammates";
+import { getSetResults, recordResult } from "./setsStorage";
+import { shareSetViaWhatsApp } from "./shareSet";
 
 interface CardHint {
 	club: string;
@@ -48,7 +47,7 @@ interface Props {
 	// per-question "Retry". Omitted for the normal "Play"/"Resume" path.
 	onlyQuestionId?: number;
 	// Leaves Sets mode, back to TeammateSets.tsx -- which re-reads
-	// teammateSetsStorage on its next render, no separate refresh signal.
+	// setsStorage on its next render, no separate refresh signal.
 	onExit: () => void;
 }
 
@@ -225,7 +224,7 @@ export function TeammateSetPlay({ setId, onlyQuestionId, onExit }: Props) {
 				<button type="button" className="back-link" onClick={onExit}>
 					← Back
 				</button>
-				<p className="mp-setup__error">{loadError}</p>
+				<p className="load-error">{loadError}</p>
 			</div>
 		);
 	}
@@ -241,7 +240,7 @@ export function TeammateSetPlay({ setId, onlyQuestionId, onExit }: Props) {
 				</h2>
 				<p className={`cb-score cb-score--${scoreBand(completionAverage)}`}>{completionAverage} avg</p>
 				<div className="cb-set-complete__actions">
-					<button type="button" onClick={() => shareTeammateSetViaWhatsApp(setId, setName, completionAverage)}>
+					<button type="button" onClick={() => shareSetViaWhatsApp(setId, setName, completionAverage)}>
 						Share via WhatsApp
 					</button>
 					<button type="button" className="back-link" onClick={onExit}>

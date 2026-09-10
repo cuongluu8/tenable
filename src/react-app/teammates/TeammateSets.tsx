@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
-import "../multiplayer/multiplayer.css";
 import "../components/clubBadges.css";
 import { scoreBand } from "../components/clubBadgesState";
-import { getSetResults, resetQuestion, resetSet, type SetQuestionResult } from "./teammateSetsStorage";
-import { shareTeammateSetViaWhatsApp } from "./shareTeammates";
+import { getSetResults, resetQuestion, resetSet, type SetQuestionResult } from "./setsStorage";
+import { shareSetViaWhatsApp } from "./shareSet";
 
 interface SetSummary {
 	id: number;
@@ -28,7 +27,7 @@ interface Props {
 // ClubBadgeSets.tsx (that file's doc covers the shared design): eleven
 // standing, curated rounds (see src/worker/lib/teammateSets.ts) a player
 // leaves and comes back to, all progress tracked locally
-// (teammateSetsStorage.ts), the only network call being the one-time
+// (setsStorage.ts), the only network call being the one-time
 // /sets index fetch mapping each slot to a teammate_questions.id.
 export function TeammateSets({ onPlay, onBack }: Props) {
 	const [sets, setSets] = useState<SetSummary[] | null>(null);
@@ -84,7 +83,7 @@ export function TeammateSets({ onPlay, onBack }: Props) {
 				<button type="button" className="back-link" onClick={onBack}>
 					← Back
 				</button>
-				<p className="mp-setup__error">{loadError}</p>
+				<p className="load-error">{loadError}</p>
 			</div>
 		);
 	}
@@ -169,7 +168,7 @@ export function TeammateSets({ onPlay, onBack }: Props) {
 								    TeammateSetPlay.tsx's own share button only shows once,
 								    right when a set first becomes complete. */}
 								{average !== null && (
-									<button type="button" onClick={() => shareTeammateSetViaWhatsApp(set.id, set.name, average)}>
+									<button type="button" onClick={() => shareSetViaWhatsApp(set.id, set.name, average)}>
 										Share
 									</button>
 								)}

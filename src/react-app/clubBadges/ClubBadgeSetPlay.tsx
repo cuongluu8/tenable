@@ -1,5 +1,4 @@
 import { useEffect, useReducer, useState } from "react";
-import "../multiplayer/multiplayer.css";
 import "../components/clubBadges.css";
 import { ClubBadgesPlay } from "../components/ClubBadgesPlay";
 import { clubBadgesReducer, initialCbState, MAX_WRONG_LIVES, scoreBand, type CbQuestion } from "../components/clubBadgesState";
@@ -231,7 +230,7 @@ export function ClubBadgeSetPlay({ setId, onlyQuestionId, onExit }: Props) {
 				<button type="button" className="back-link" onClick={onExit}>
 					← Back
 				</button>
-				<p className="mp-setup__error">{loadError}</p>
+				<p className="load-error">{loadError}</p>
 			</div>
 		);
 	}
