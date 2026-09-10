@@ -23,11 +23,12 @@ interface Hints {
 
 // GET /api/teammates/round  -- 10 random "who am I? I played with..."
 // questions. The mystery player's own name/id is never sent -- just the
-// clue names, plus the three hint pieces per question (clubHint with a
-// badge image per clue, the mystery player's nationality, the overlap
-// years), which the client reveals one at a time for a 15-point penalty
-// each, same as club-badges. Clue count varies 3-6, one per club the
-// mystery player was at -- see build_teammate_questions.py.
+// clue names, plus the hint pieces per question: `cardHints` (each clue's
+// club + badge + overlap years, shown IN its card by hints 1 and 3) and
+// `nationality` (hint 2, shown as text). The client reveals one hint at a
+// time for a 15-point penalty each, same as club-badges. Clue count
+// varies 3-6, one per club the mystery player was at -- see
+// build_teammate_questions.py.
 //
 // D1 cost: teammate_questions is a small curated table (few hundred rows,
 // only grows by manual re-derivation) -- an unfiltered SELECT of it is
@@ -70,19 +71,18 @@ teammates.get("/round", async (c) => {
 			// Clue cards show names only -- club/nationality/years withheld
 			// behind the hints.
 			teammates: names,
-			// Hint 1: the club each clue was a teammate at, with its badge,
-			// in the SAME order as `teammates` -- the client lines them up
-			// positionally, so no need to repeat the names. `image` is a
-			// ready /api/media URL (or null if not sourced).
-			clubHint: h
+			// The per-clue hint data, parallel to `teammates`: hint 1 drops
+			// the club + badge into each card, hint 3 the overlap years.
+			// `image` is a ready /api/media URL (or null if not sourced).
+			cardHints: h
 				? h.clubs.map((club, i) => ({
 						club: club ?? "?",
 						image: h.clubImages[i] ? `/api/media/${h.clubImages[i]}` : null,
+						years: h.years[i] ?? "?",
 					}))
 				: [],
-			// Hint 2 (raw) and hint 3 (pre-joined) -- the client wraps these.
+			// Hint 2 -- a single value, shown as text below the cards.
 			nationality: h?.nationality ?? null,
-			yearHint: h ? names.map((n, i) => `${n} — ${h.years[i] ?? "?"}`).join(" · ") : "",
 		};
 	});
 	return c.json({ questions });

@@ -38,10 +38,9 @@
 	font-weight: 700;
 }
 
-/* Hint 1 -- the club this clue was a teammate at, revealed inside the
-   card. Muted so it reads as an annotation on the name, not a second
-   headline. */
-.tm-clue__club {
+/* Hints 1 (club + badge) and 3 (overlap years) revealed inside the card,
+   right of the name. Muted so they read as annotations, not headlines. */
+.tm-clue__meta {
 	display: inline-flex;
 	align-items: center;
 	gap: 0.4rem;
@@ -54,4 +53,8 @@
 	width: 1.2em;
 	height: 1.2em;
 	object-fit: contain;
+}
+
+.tm-clue__years {
+	color: #6b7280;
 }

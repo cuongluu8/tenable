@@ -16,16 +16,16 @@ import { clubBadgesReducer, initialCbState, MAX_WRONG_LIVES, type CbQuestion } f
 // guess box, two-step give-up, reveal + score chip, round-over screen) is
 // the exact same components, so the two solo modes play identically.
 
-interface ClubClue {
+interface CardHint {
 	club: string;
 	image: string | null; // ready /api/media URL, or null if no badge sourced
+	years: string; // overlap years, e.g. "2019–2021" / "2021–present"
 }
 interface RoundQuestion {
 	id: number;
 	teammates: string[]; // clue names only -- club/nationality/years are hints
-	clubHint: ClubClue[]; // hint 1: each clue's club + badge, same order as teammates
-	nationality: string | null; // hint 2
-	yearHint: string; // hint 3, pre-joined
+	cardHints: CardHint[]; // hints 1 & 3 -- shown in each clue's card, same order as teammates
+	nationality: string | null; // hint 2 -- shown as text below
 }
 interface RoundResponse {
 	questions: RoundQuestion[];
@@ -55,7 +55,7 @@ export function Teammates({ onExit }: Props) {
 	// ClubBadgesPlay's `middle` slot) and the raw hint pieces (assembled
 	// into ClubBadgesPlay's `extraHints` nodes at render).
 	const [clueSets, setClueSets] = useState<string[][]>([]);
-	const [hintData, setHintData] = useState<Pick<RoundQuestion, "clubHint" | "nationality" | "yearHint">[]>([]);
+	const [hintData, setHintData] = useState<Pick<RoundQuestion, "cardHints" | "nationality">[]>([]);
 	// Running score total this round -- the reducer only tracks a correct
 	// COUNT (state.players[0].correct), not points, so accumulate it here
 	// for the WhatsApp share text.
@@ -72,7 +72,7 @@ export function Teammates({ onExit }: Props) {
 			}
 			setClueSets(data.questions.map((q) => q.teammates));
 			setHintData(
-				data.questions.map((q) => ({ clubHint: q.clubHint, nationality: q.nationality, yearHint: q.yearHint })),
+				data.questions.map((q) => ({ cardHints: q.cardHints, nationality: q.nationality })),
 			);
 			dispatch({ type: "start", playerNames: ["You"], questions: data.questions.map(toCbQuestion) });
 		} catch {
@@ -139,16 +139,16 @@ export function Teammates({ onExit }: Props) {
 	}
 
 	const clues = clueSets[state.questionIndex] ?? [];
-	// The 3 ordered hints for the current question. Hint 1 (each clue's
-	// club + badge) is `null` here -- its content goes INTO the clue cards
-	// (see the `middle` render prop below) rather than a list underneath,
-	// but the null still counts as a hint press (and -15). Hints 2 (the
-	// mystery player's country) and 3 (overlap years) render as text.
-	// Hint 2 is skipped if the country isn't on record; no hint data ->
-	// no hints at all.
+	// The ordered hints for the current question. Hints 1 (club + badge)
+	// and 3 (overlap years) are `null` here -- their content goes INTO the
+	// clue cards (the `middle` render prop below), not a list underneath,
+	// but each null still counts as a hint press (and -15). Only hint 2
+	// (the mystery player's country) renders as text, and it's skipped
+	// entirely if the country isn't on record -- so a question is 3 hints
+	// normally, 2 without a country. No hint data -> no hints.
 	const hd = hintData[state.questionIndex];
 	const hints: React.ReactNode[] = hd
-		? [null, ...(hd.nationality ? [`They represent ${hd.nationality}`] : []), hd.yearHint]
+		? [null, ...(hd.nationality ? [`They represent ${hd.nationality}`] : []), null]
 		: [];
 
 	return (
@@ -182,16 +182,25 @@ export function Teammates({ onExit }: Props) {
 							<p className="tm-sub">I played with…</p>
 							<ul className="tm-clues">
 								{clues.map((name, i) => {
-									// Hint 1 revealed -> show this clue's club + badge
-									// right in the card, next to the name.
-									const club = hintsRevealed >= 1 ? hd?.clubHint[i] : undefined;
+									const card = hd?.cardHints[i];
+									// Hint 1 -> club + badge in the card; hint 3 (the
+									// last hint) -> add the overlap years after it.
+									const showClub = hintsRevealed >= 1;
+									const showYears = hints.length > 0 && hintsRevealed >= hints.length;
 									return (
 										<li key={i} className="tm-clue">
 											<span className="tm-clue__name">{name}</span>
-											{club && (
-												<span className="tm-clue__club">
-													{club.image && <img src={club.image} alt="" className="tm-clue__badge" />}
-													{club.club}
+											{card && (showClub || showYears) && (
+												<span className="tm-clue__meta">
+													{showClub && (
+														<>
+															{card.image && (
+																<img src={card.image} alt="" className="tm-clue__badge" />
+															)}
+															{card.club}
+														</>
+													)}
+													{showYears && <span className="tm-clue__years">{card.years}</span>}
 												</span>
 											)}
 										</li>
