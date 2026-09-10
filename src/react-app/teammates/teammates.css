@@ -1,0 +1,54 @@
+/* "Who am I? I played with..." single-player mode (Teammates.tsx). Leans on
+   clubBadges.css / multiplayer.css for the shared bits (.cb-progress,
+   .cb-reveal, .give-up-link, GuessInput); only the clue list is its own. */
+
+.tm-heading {
+	margin: 0.5rem 0 0.15rem;
+	font-size: 1.9rem;
+	letter-spacing: -0.02em;
+}
+
+.tm-sub {
+	margin: 0 0 1rem;
+	color: #9ca3af;
+	font-size: 1rem;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+}
+
+.tm-clues {
+	list-style: none;
+	margin: 0 0 1.25rem;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+.tm-clue {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 0.75rem;
+	background: #1f2937;
+	border: 1px solid #374151;
+	border-radius: 10px;
+	padding: 0.7rem 0.9rem;
+}
+
+.tm-clue__name {
+	font-size: 1.15rem;
+	font-weight: 700;
+}
+
+.tm-clue__country {
+	color: #9ca3af;
+	font-size: 0.85rem;
+	white-space: nowrap;
+}
+
+.tm-final {
+	font-size: 1.1rem;
+	font-weight: 700;
+	margin: 0.5rem 0;
+}

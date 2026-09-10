@@ -225,6 +225,33 @@ CREATE TABLE IF NOT EXISTS club_badge_questions (
 );
 CREATE INDEX IF NOT EXISTS idx_club_badge_questions_player ON club_badge_questions(player_id);
 
+-- "Who am I? I played with..." quiz question pool -- a mystery player
+-- identified by three well-known former teammates (the GiveMeSport-style
+-- format). Same "one row per player, drawn at random at play time" shape as
+-- club_badge_questions above, not the category_defs pipeline. Derived (not
+-- hand-typed) from player_career_stats club stints by
+-- data/research/build_teammate_questions.py, committed as reviewable SQL
+-- like the rest of data/research/.
+--
+-- Fail-closed on doubt (see that script's docstring and
+-- agents.md's Content accuracy section): two players only count as
+-- teammates here if their listed years at the SAME resolved club overlap
+-- by at least one full shared season -- a season-boundary brush-past
+-- ("2018-2021" handing off to "2021-2024") is NOT enough, loans don't
+-- count, and being in the same national-team squad doesn't count at all.
+-- Year granularity is the current ceiling; exact transfer dates would let
+-- this be tighter still (only 18 players have them today, via transfers).
+CREATE TABLE IF NOT EXISTS teammate_questions (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	player_id INTEGER NOT NULL REFERENCES entities(id),
+	teammate_ids TEXT NOT NULL,
+		-- JSON array of exactly 3 entity ids, most recognizable first
+		-- (entity id ascending order == the same manual fame ranking used
+		-- for club-badge Sets -- lower id was curated as more famous).
+	source TEXT NOT NULL DEFAULT 'player_career_stats'
+);
+CREATE INDEX IF NOT EXISTS idx_teammate_questions_player ON teammate_questions(player_id);
+
 -- The query a category's Top N is computed from. One row per category
 -- (1:1). See src/worker/lib/rebuild.ts for what actually runs this.
 CREATE TABLE IF NOT EXISTS category_defs (

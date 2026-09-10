@@ -6,6 +6,7 @@ import { PlayScreen } from "./components/PlayScreen";
 import { ClubBadgeSetPlay } from "./clubBadges/ClubBadgeSetPlay";
 import { ClubBadgeSets } from "./clubBadges/ClubBadgeSets";
 import { Multiplayer } from "./multiplayer/Multiplayer";
+import { Teammates } from "./teammates/Teammates";
 import type { CategoriesResponse, Category } from "./types";
 
 type LoadState =
@@ -58,6 +59,14 @@ function isClubBadgeSetsPath(): boolean {
 	return window.location.pathname === "/single-player/club-badges";
 }
 
+// Solo "who am I? I played with..." -- one level under the single-player
+// picker, same shape as the club-badges entry. No sub-picker or per-set
+// state of its own (a round is just 10 random draws, like multiplayer's
+// club-badges), so it's a single flat path with nothing to slug.
+function isSoloTeammatesPath(): boolean {
+	return window.location.pathname === "/single-player/teammates";
+}
+
 // One level under the Sets picker -- actually playing a specific set.
 // Slugged by number (not a name) since CLUB_BADGE_SETS itself is 1-indexed
 // and unnamed beyond "Set N" (clubBadgeSets.ts). ?retry=<questionId>
@@ -83,6 +92,7 @@ function App() {
 	const [clubBadgeSetsActive, setClubBadgeSetsActive] = useState<boolean>(() => isClubBadgeSetsPath());
 	const [clubBadgeSetId, setClubBadgeSetId] = useState<number | null>(() => clubBadgeSetIdFromPath());
 	const [clubBadgeSetRetryId, setClubBadgeSetRetryId] = useState<number | undefined>(() => clubBadgeSetRetryQuestionId());
+	const [soloTeammatesActive, setSoloTeammatesActive] = useState<boolean>(() => isSoloTeammatesPath());
 
 	const loadCategories = useCallback(() => {
 		fetch("/api/categories")
@@ -118,6 +128,7 @@ function App() {
 			setClubBadgeSetsActive(isClubBadgeSetsPath());
 			setClubBadgeSetId(clubBadgeSetIdFromPath());
 			setClubBadgeSetRetryId(clubBadgeSetRetryQuestionId());
+			setSoloTeammatesActive(isSoloTeammatesPath());
 		}
 		window.addEventListener("popstate", handlePopState);
 		return () => window.removeEventListener("popstate", handlePopState);
@@ -143,6 +154,12 @@ function App() {
 		window.history.pushState(null, "", "/single-player/club-badges");
 		setSinglePlayerHomeActive(false);
 		setClubBadgeSetsActive(true);
+	}
+
+	function handleSoloTeammatesSelect() {
+		window.history.pushState(null, "", "/single-player/teammates");
+		setSinglePlayerHomeActive(false);
+		setSoloTeammatesActive(true);
 	}
 
 	// Enters a specific set's play view -- ClubBadgeSets.tsx's "Play"/
@@ -185,6 +202,7 @@ function App() {
 		setClubBadgeSetsActive(false);
 		setClubBadgeSetId(null);
 		setClubBadgeSetRetryId(undefined);
+		setSoloTeammatesActive(false);
 		setSinglePlayerHomeActive(true);
 	}
 
@@ -197,6 +215,7 @@ function App() {
 		setClubBadgeSetsActive(false);
 		setClubBadgeSetId(null);
 		setClubBadgeSetRetryId(undefined);
+		setSoloTeammatesActive(false);
 	}
 
 	if (activeSlug) {
@@ -219,6 +238,10 @@ function App() {
 
 	if (clubBadgeSetsActive) {
 		return <ClubBadgeSets onPlay={handlePlayClubBadgeSet} onBack={handleBackToSinglePlayerHome} />;
+	}
+
+	if (soloTeammatesActive) {
+		return <Teammates onExit={handleBackToSinglePlayerHome} />;
 	}
 
 	if (categoryListActive) {
@@ -268,6 +291,10 @@ function App() {
 					<button type="button" className="mode-button" onClick={handleSoloClubBadgesSelect}>
 						<strong>🛡️ Guess the player</strong>
 						<span>Name them from the clubs they've played for</span>
+					</button>
+					<button type="button" className="mode-button" onClick={handleSoloTeammatesSelect}>
+						<strong>🤝 Who am I?</strong>
+						<span>Name the mystery player from their former teammates</span>
 					</button>
 				</div>
 			</div>
