@@ -4,6 +4,7 @@ import "../clubBadges/clubBadges.css";
 import "./teammates.css";
 import { ClubBadgesPlay } from "../clubBadges/ClubBadgesPlay";
 import { ClubBadgesResult } from "../clubBadges/ClubBadgesResult";
+import { shareTeammatesViaWhatsApp } from "./shareTeammates";
 import { clubBadgesReducer, initialCbState, MAX_WRONG_LIVES, type CbQuestion } from "../clubBadges/state";
 
 // "Who am I? I played with..." single-player mode. Structurally a sibling
@@ -18,6 +19,7 @@ import { clubBadgesReducer, initialCbState, MAX_WRONG_LIVES, type CbQuestion } f
 interface RoundQuestion {
 	id: number;
 	teammates: string[]; // clue names only -- no nationality/flag by design
+	hints: string[]; // ordered hint texts (club / nationality / years), 0-3
 }
 interface RoundResponse {
 	questions: RoundQuestion[];
@@ -33,7 +35,7 @@ interface Props {
 
 // A teammates question carries no badge chain -- the reducer/ClubBadgesPlay
 // only ever read `id` off it here (badges/hints are replaced by the
-// `middle` slot + hideHints), so the rest is filled with the empty values
+// `middle` slot + extraHints), so the rest is filled with the empty values
 // their types demand.
 function toCbQuestion(q: RoundQuestion): CbQuestion {
 	return { id: q.id, badges: [], nationality: null, transferDates: [], loanMoves: [] };
@@ -43,9 +45,15 @@ export function Teammates({ onExit }: Props) {
 	const [state, dispatch] = useReducer(clubBadgesReducer, initialCbState);
 	const [submitting, setSubmitting] = useState(false);
 	const [loadError, setLoadError] = useState<string | null>(null);
-	// Clue names per question, index-aligned with state.questions -- the
-	// only teammates-specific data ClubBadgesPlay's `middle` slot needs.
+	// Per question, index-aligned with state.questions: the clue names (for
+	// ClubBadgesPlay's `middle` slot) and the ordered hint texts (for its
+	// `extraHints`).
 	const [clueSets, setClueSets] = useState<string[][]>([]);
+	const [hintSets, setHintSets] = useState<string[][]>([]);
+	// Running score total this round -- the reducer only tracks a correct
+	// COUNT (state.players[0].correct), not points, so accumulate it here
+	// for the WhatsApp share text.
+	const [totalPoints, setTotalPoints] = useState(0);
 
 	const startRound = useCallback(async () => {
 		setLoadError(null);
@@ -57,6 +65,7 @@ export function Teammates({ onExit }: Props) {
 				return;
 			}
 			setClueSets(data.questions.map((q) => q.teammates));
+			setHintSets(data.questions.map((q) => q.hints));
 			dispatch({ type: "start", playerNames: ["You"], questions: data.questions.map(toCbQuestion) });
 		} catch {
 			setLoadError("Couldn't load a round right now — try again in a moment.");
@@ -90,6 +99,7 @@ export function Teammates({ onExit }: Props) {
 				dispatch({ type: "wrongAttempt", guess: "guess" in body ? body.guess : "" });
 				return;
 			}
+			if (data.result === "correct") setTotalPoints((p) => p + points);
 			dispatch({
 				type: "guessResult",
 				guess: "guess" in body ? body.guess : "(gave up)",
@@ -116,10 +126,12 @@ export function Teammates({ onExit }: Props) {
 	}
 	function playAgain() {
 		dispatch({ type: "reset" });
+		setTotalPoints(0);
 		startRound();
 	}
 
 	const clues = clueSets[state.questionIndex] ?? [];
+	const hints = hintSets[state.questionIndex] ?? [];
 
 	return (
 		<div className="screen">
@@ -145,8 +157,8 @@ export function Teammates({ onExit }: Props) {
 					onNext={nextQuestion}
 					submitting={submitting}
 					onQuit={onExit}
-					hideHints
 					soloBanner="Who am I?"
+					extraHints={hints}
 					middle={
 						<>
 							<p className="tm-sub">I played with…</p>
@@ -161,7 +173,19 @@ export function Teammates({ onExit }: Props) {
 					}
 				/>
 			)}
-			{state.phase === "finished" && <ClubBadgesResult state={state} onPlayAgain={playAgain} onExit={onExit} />}
+			{state.phase === "finished" && (
+				<ClubBadgesResult
+					state={state}
+					onPlayAgain={playAgain}
+					onExit={onExit}
+					onShare={() =>
+						// questionIndex + 1 = questions actually played (a round
+						// ends early when the 5 lives run out) -- matches the
+						// "X / N correct" the result screen shows.
+						shareTeammatesViaWhatsApp(state.players[0].correct, state.questionIndex + 1, totalPoints)
+					}
+				/>
+			)}
 		</div>
 	);
 }

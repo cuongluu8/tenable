@@ -11,13 +11,22 @@ interface QuestionRow {
 	id: number;
 	player_id: number;
 	teammate_ids: string;
+	hints: string | null;
+}
+
+interface Hints {
+	clubs: string[];
+	nationality: string | null;
+	years: string[];
 }
 
 // GET /api/teammates/round  -- 10 random "who am I? I played with..."
-// questions. The mystery player's own name/id is never sent; only the
-// teammate clue names (+ their country, for the little flag). The clue
-// count varies per question (3-6) -- one recognizable teammate per club
-// the mystery player was at, see build_teammate_questions.py.
+// questions. The mystery player's own name/id is never sent -- just the
+// clue names, plus a `hints` object per question (the club each was a
+// teammate at, the mystery player's nationality, and the overlap years),
+// which the client reveals one at a time for a 15-point penalty each,
+// same as club-badges. Clue count varies 3-6, one per club the mystery
+// player was at -- see build_teammate_questions.py.
 //
 // D1 cost: teammate_questions is a small curated table (few hundred rows,
 // only grows by manual re-derivation) -- an unfiltered SELECT of it is
@@ -26,7 +35,7 @@ interface QuestionRow {
 // well under D1's variable cap. Nothing here scans entities/entity_aliases.
 teammates.get("/round", async (c) => {
 	const { results: all } = await c.env.DB
-		.prepare("SELECT id, player_id, teammate_ids FROM teammate_questions")
+		.prepare("SELECT id, player_id, teammate_ids, hints FROM teammate_questions")
 		.all<QuestionRow>();
 	if (!all || all.length === 0) {
 		return c.json({ error: "No teammate questions available" }, 500);
@@ -52,14 +61,28 @@ teammates.get("/round", async (c) => {
 		.all<{ id: number; canonical_name: string }>();
 	const nameById = new Map((nameRows ?? []).map((r) => [r.id, r.canonical_name]));
 
-	const questions = picked.map((q) => ({
-		id: q.id,
-		// Names only -- deliberately no nationality/flag. It narrows the
-		// answer too hard (a Portuguese clue + a Portuguese mystery player
-		// is half a giveaway) and this mode is meant to be worked out from
-		// the club overlaps.
-		teammates: (JSON.parse(q.teammate_ids) as number[]).map((tid) => nameById.get(tid) ?? "Unknown"),
-	}));
+	const questions = picked.map((q) => {
+		const names = (JSON.parse(q.teammate_ids) as number[]).map((tid) => nameById.get(tid) ?? "Unknown");
+		const h = q.hints ? (JSON.parse(q.hints) as Hints) : null;
+		// Ordered hint texts, revealed one at a time client-side (15-point
+		// penalty each): (1) which club each clue was a teammate at, (2) the
+		// mystery player's country, (3) the years each overlap ran. Hint 2
+		// is dropped if the country isn't on record; a row with no stored
+		// hints at all (pre-2026-09-10) just gets no hint button.
+		const hints: string[] = [];
+		if (h) {
+			hints.push(names.map((n, i) => `${n} — ${h.clubs[i] ?? "?"}`).join(" · "));
+			if (h.nationality) hints.push(`They represent ${h.nationality}`);
+			hints.push(names.map((n, i) => `${n} — ${h.years[i] ?? "?"}`).join(" · "));
+		}
+		return {
+			id: q.id,
+			// Clue cards show names only -- nationality/flag deliberately
+			// withheld until hint 2.
+			teammates: names,
+			hints,
+		};
+	});
 	return c.json({ questions });
 });
 

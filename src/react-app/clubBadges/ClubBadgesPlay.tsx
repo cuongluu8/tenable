@@ -141,15 +141,18 @@ interface Props {
 	progressLabel?: string;
 	isLastOverride?: boolean;
 	// "Who am I?" mode (Teammates.tsx) reuses this whole screen -- same
-	// reducer, lives, timer, guess box, give-up flow, reveal, score chip
-	// -- and only swaps the middle: `middle` renders in place of the badge
-	// chain + "may not show their full career" disclaimer, `hideHints`
-	// drops the hint button (that mode has no hints), and `soloBanner`
-	// changes the solo prompt from "Who is this?". All optional; club-
-	// badges itself passes none of them and is unchanged.
+	// reducer, lives, timer, guess box, give-up flow, reveal, score chip.
+	// `middle` renders in place of the badge chain + "may not show their
+	// full career" disclaimer; `soloBanner` changes the solo prompt from
+	// "Who is this?"; `extraHints` is that mode's own ordered hint texts
+	// (revealed one at a time, 15 points each, same as club-badges' own
+	// hints -- but plain text since there's no badge grid to annotate).
+	// Passing `extraHints` (even []) switches off club-badges' own
+	// HINT_KEYS button. All optional; club-badges passes none and is
+	// unchanged.
 	middle?: React.ReactNode;
-	hideHints?: boolean;
 	soloBanner?: string;
+	extraHints?: string[];
 }
 
 // Active-round screen. Two sub-views depending on state.lastResult: the
@@ -166,9 +169,12 @@ export function ClubBadgesPlay({
 	progressLabel,
 	isLastOverride,
 	middle,
-	hideHints,
 	soloBanner = "Who is this?",
+	extraHints,
 }: Props) {
+	// When extraHints is provided (teammates mode), club-badges' own
+	// HINT_KEYS button is off and the extraHints button drives scoring.
+	const useExtraHints = extraHints !== undefined;
 	const [guessInput, setGuessInput] = useState("");
 	// Same "confirm before it costs you" pattern as single-player's give-up
 	// (PlayScreen.tsx) -- a stray tap here loses a point on this question
@@ -197,6 +203,11 @@ export function ClubBadgesPlay({
 	// hint count both keep running against the same 100-point budget until
 	// this attempt is actually done, one way or another.
 	const [elapsedSeconds, setElapsedSeconds] = useState(0);
+	// "Who am I?" mode's own hints (see extraHints prop) -- how many of the
+	// ordered texts are shown so far. Separate from revealedHints (club-
+	// badges' badge-integrated hints); only ever one of the two is in use.
+	// Reset on the same turn-change check.
+	const [revealedExtra, setRevealedExtra] = useState(0);
 	// Keyed on question AND player, not just question -- since 2026-09-08
 	// every multiplayer player gets their own fresh turn at the SAME
 	// question (state.ts's playerIndex doc), so a new player showing up on
@@ -210,6 +221,7 @@ export function ClubBadgesPlay({
 	if (currentTurnKey !== turnKey) {
 		setTurnKey(currentTurnKey);
 		setRevealedHints(new Set());
+		setRevealedExtra(0);
 		setElapsedSeconds(0);
 	}
 	const question = state.questions[state.questionIndex];
@@ -278,9 +290,13 @@ export function ClubBadgesPlay({
 	// used to be able to assume every reveal was the question's only one.
 	const isRoundOver = isLastOverride ?? ((isLastQuestionOverall && isLastPlayerForQuestion) || outOfLives);
 
+	// Only one of revealedHints / revealedExtra is ever non-zero (a mode
+	// uses club-badges' hints XOR teammates' extraHints), so summing is safe.
+	const hintsUsed = revealedHints.size + revealedExtra;
+
 	function pick(name: string) {
 		setGuessInput(name);
-		onGuess(name, computeScore(elapsedSeconds, revealedHints.size));
+		onGuess(name, computeScore(elapsedSeconds, hintsUsed));
 		setGuessInput("");
 	}
 
@@ -291,7 +307,7 @@ export function ClubBadgesPlay({
 
 	function confirmGiveUp() {
 		setConfirmingGiveUp(false);
-		onGiveUp(computeScore(elapsedSeconds, revealedHints.size));
+		onGiveUp(computeScore(elapsedSeconds, hintsUsed));
 	}
 
 	return (
@@ -530,12 +546,35 @@ export function ClubBadgesPlay({
 				<p className="cb-hint-text">Nationality: {question.nationality}</p>
 			)}
 
+			{/* "Who am I?" mode's hints: plain ordered texts (from the round
+			    data), one revealed per press, each already-revealed one stays
+			    up. Same 15-point cost as club-badges' own hints -- see
+			    hintsUsed above. */}
+			{useExtraHints && (
+				<>
+					{extraHints.slice(0, revealedExtra).map((text, i) => (
+						<p key={i} className="cb-hint-text">
+							{text}
+						</p>
+					))}
+					{!state.lastResult && revealedExtra < extraHints.length && (
+						<button
+							type="button"
+							className="cb-hint-button"
+							onClick={() => setRevealedExtra((n) => n + 1)}
+						>
+							💡 Hint
+						</button>
+					)}
+				</>
+			)}
+
 			{/* One hint at a time, in HINT_KEYS order -- not every available hint
 			    at once, and no label naming what it is (that would itself be a
 			    hint). Already-revealed hints (their ribbon/text above) stay up
 			    regardless; only the button for whichever's next disappears once
 			    used, then the next hint's button (if any) takes its place. */}
-			{!hideHints &&
+			{!useExtraHints &&
 				!state.lastResult &&
 				(() => {
 					const nextHint = availableHints.find((key) => !revealedHints.has(key));

@@ -250,9 +250,17 @@ CREATE TABLE IF NOT EXISTS teammate_questions (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	player_id INTEGER NOT NULL REFERENCES entities(id),
 	teammate_ids TEXT NOT NULL,
-		-- JSON array of 2-5 entity ids, most recognizable first. The set is
-		-- unique within the researched player pool -- see
-		-- build_teammate_questions.py.
+		-- JSON array of 3-6 entity ids, most recognizable first, one per
+		-- club of the mystery player's. Unique within the researched pool
+		-- -- see build_teammate_questions.py.
+	hints TEXT,
+		-- JSON {clubs, nationality, years}. clubs[] and years[] are
+		-- parallel to teammate_ids -- the club each was a teammate at, and
+		-- the years they overlapped there ("2019", "2019-2021",
+		-- "2021-present"). nationality is the mystery player's own country.
+		-- Feeds the 3 progressive hints (Teammates.tsx), same 15-point-
+		-- each mechanism as club-badges. NULL only on rows generated
+		-- before hints existed (2026-09-10).
 	source TEXT NOT NULL DEFAULT 'player_career_stats'
 );
 CREATE INDEX IF NOT EXISTS idx_teammate_questions_player ON teammate_questions(player_id);

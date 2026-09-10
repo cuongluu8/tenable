@@ -4,9 +4,13 @@ interface Props {
 	state: CbState;
 	onPlayAgain: () => void;
 	onExit: () => void;
+	// When given, a "Share via WhatsApp" button appears next to Play again
+	// -- "Who am I?" mode (Teammates.tsx) passes it; club-badges doesn't
+	// (its Set-complete screen has its own share, see shareSet.ts).
+	onShare?: () => void;
 }
 
-export function ClubBadgesResult({ state, onPlayAgain, onExit }: Props) {
+export function ClubBadgesResult({ state, onPlayAgain, onExit, onShare }: Props) {
 	const solo = state.players.length === 1;
 	const standings = rankCbPlayers(state.players);
 	// Lives can end a solo round before all 10 questions -- state.questionIndex
@@ -51,6 +55,11 @@ export function ClubBadgesResult({ state, onPlayAgain, onExit }: Props) {
 				<button type="button" onClick={onPlayAgain}>
 					Play again
 				</button>
+				{onShare && (
+					<button type="button" onClick={onShare}>
+						Share via WhatsApp
+					</button>
+				)}
 				<button type="button" className="back-link" onClick={onExit}>
 					← Back
 				</button>
