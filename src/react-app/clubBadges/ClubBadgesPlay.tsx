@@ -144,15 +144,15 @@ interface Props {
 	// reducer, lives, timer, guess box, give-up flow, reveal, score chip.
 	// `middle` renders in place of the badge chain + "may not show their
 	// full career" disclaimer; `soloBanner` changes the solo prompt from
-	// "Who is this?"; `extraHints` is that mode's own ordered hint texts
+	// "Who is this?"; `extraHints` is that mode's own ordered hint nodes
 	// (revealed one at a time, 15 points each, same as club-badges' own
-	// hints -- but plain text since there's no badge grid to annotate).
+	// hints -- each is arbitrary JSX, e.g. hint 1 has inline club badges).
 	// Passing `extraHints` (even []) switches off club-badges' own
 	// HINT_KEYS button. All optional; club-badges passes none and is
 	// unchanged.
 	middle?: React.ReactNode;
 	soloBanner?: string;
-	extraHints?: string[];
+	extraHints?: React.ReactNode[];
 }
 
 // Active-round screen. Two sub-views depending on state.lastResult: the
@@ -546,16 +546,16 @@ export function ClubBadgesPlay({
 				<p className="cb-hint-text">Nationality: {question.nationality}</p>
 			)}
 
-			{/* "Who am I?" mode's hints: plain ordered texts (from the round
+			{/* "Who am I?" mode's hints: ordered JSX nodes (from the round
 			    data), one revealed per press, each already-revealed one stays
 			    up. Same 15-point cost as club-badges' own hints -- see
 			    hintsUsed above. */}
 			{useExtraHints && (
 				<>
-					{extraHints.slice(0, revealedExtra).map((text, i) => (
-						<p key={i} className="cb-hint-text">
-							{text}
-						</p>
+					{extraHints.slice(0, revealedExtra).map((node, i) => (
+						<div key={i} className="cb-hint-text">
+							{node}
+						</div>
 					))}
 					{!state.lastResult && revealedExtra < extraHints.length && (
 						<button

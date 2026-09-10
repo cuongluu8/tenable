@@ -16,17 +16,18 @@ interface QuestionRow {
 
 interface Hints {
 	clubs: string[];
+	clubImages: (string | null)[];
 	nationality: string | null;
 	years: string[];
 }
 
 // GET /api/teammates/round  -- 10 random "who am I? I played with..."
 // questions. The mystery player's own name/id is never sent -- just the
-// clue names, plus a `hints` object per question (the club each was a
-// teammate at, the mystery player's nationality, and the overlap years),
-// which the client reveals one at a time for a 15-point penalty each,
-// same as club-badges. Clue count varies 3-6, one per club the mystery
-// player was at -- see build_teammate_questions.py.
+// clue names, plus the three hint pieces per question (clubHint with a
+// badge image per clue, the mystery player's nationality, the overlap
+// years), which the client reveals one at a time for a 15-point penalty
+// each, same as club-badges. Clue count varies 3-6, one per club the
+// mystery player was at -- see build_teammate_questions.py.
 //
 // D1 cost: teammate_questions is a small curated table (few hundred rows,
 // only grows by manual re-derivation) -- an unfiltered SELECT of it is
@@ -64,23 +65,23 @@ teammates.get("/round", async (c) => {
 	const questions = picked.map((q) => {
 		const names = (JSON.parse(q.teammate_ids) as number[]).map((tid) => nameById.get(tid) ?? "Unknown");
 		const h = q.hints ? (JSON.parse(q.hints) as Hints) : null;
-		// Ordered hint texts, revealed one at a time client-side (15-point
-		// penalty each): (1) which club each clue was a teammate at, (2) the
-		// mystery player's country, (3) the years each overlap ran. Hint 2
-		// is dropped if the country isn't on record; a row with no stored
-		// hints at all (pre-2026-09-10) just gets no hint button.
-		const hints: string[] = [];
-		if (h) {
-			hints.push(names.map((n, i) => `${n} — ${h.clubs[i] ?? "?"}`).join(" · "));
-			if (h.nationality) hints.push(`They represent ${h.nationality}`);
-			hints.push(names.map((n, i) => `${n} — ${h.years[i] ?? "?"}`).join(" · "));
-		}
 		return {
 			id: q.id,
-			// Clue cards show names only -- nationality/flag deliberately
-			// withheld until hint 2.
+			// Clue cards show names only -- club/nationality/years withheld
+			// behind the hints.
 			teammates: names,
-			hints,
+			// Hint 1: the club each clue was a teammate at, with its badge.
+			// `image` is a ready /api/media URL (or null if not sourced).
+			clubHint: h
+				? names.map((n, i) => ({
+						name: n,
+						club: h.clubs[i] ?? "?",
+						image: h.clubImages[i] ? `/api/media/${h.clubImages[i]}` : null,
+					}))
+				: [],
+			// Hint 2 (raw) and hint 3 (pre-joined) -- the client wraps these.
+			nationality: h?.nationality ?? null,
+			yearHint: h ? names.map((n, i) => `${n} — ${h.years[i] ?? "?"}`).join(" · ") : "",
 		};
 	});
 	return c.json({ questions });

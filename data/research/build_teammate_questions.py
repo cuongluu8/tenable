@@ -186,6 +186,11 @@ def main():
     club_names = dict(
         conn.execute("SELECT id, canonical_name FROM entities WHERE entity_type = 'club'").fetchall()
     )
+    club_images = dict(
+        conn.execute(
+            "SELECT id, image_key FROM entities WHERE entity_type = 'club' AND image_key IS NOT NULL"
+        ).fetchall()
+    )
     # entities.scope for a player is their country -- the hint 2 value.
     player_country = dict(
         conn.execute(
@@ -212,7 +217,7 @@ def main():
         f.write("-- teammate at a different one of the mystery player's clubs), such\n")
         f.write("-- that no other researched player played with all of them. Count\n")
         f.write("-- varies 3-6 -- as many recognizable one-per-club teammates as exist.\n")
-        f.write("-- hints is {clubs, nationality, years}: clubs/years are parallel to\n")
+        f.write("-- hints is {clubs, clubImages, nationality, years}: clubs/clubImages/years\n")
         f.write("-- teammate_ids (the club each was a teammate at, and the years they\n")
         f.write("-- overlapped there); nationality is the mystery player's own country.\n")
         f.write("-- These feed the 3 progressive hints -- see Teammates.tsx.\n")
@@ -226,6 +231,7 @@ def main():
             ids_json = json.dumps(clue_ids, separators=(",", ":"))
             hints = {
                 "clubs": [club_names.get(cl, "?") for cl in clue_clubs],
+                "clubImages": [club_images.get(cl) for cl in clue_clubs],
                 "nationality": player_country.get(player_id),
                 "years": [overlap_years(player_id, t, cl) for t, cl in zip(clue_ids, clue_clubs)],
             }

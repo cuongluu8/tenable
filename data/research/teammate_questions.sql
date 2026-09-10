@@ -4,7 +4,7 @@
 -- teammate at a different one of the mystery player's clubs), such
 -- that no other researched player played with all of them. Count
 -- varies 3-6 -- as many recognizable one-per-club teammates as exist.
--- hints is {clubs, nationality, years}: clubs/years are parallel to
+-- hints is {clubs, clubImages, nationality, years}: clubs/clubImages/years
 -- teammate_ids (the club each was a teammate at, and the years they
 -- overlapped there); nationality is the mystery player's own country.
 -- These feed the 3 progressive hints -- see Teammates.tsx.
@@ -13,222 +13,222 @@
 
 INSERT INTO teammate_questions (player_id, teammate_ids, hints, source) VALUES
 	-- George Weah (3): Roberto Baggio, Lilian Thuram, William Gallas
-	(548, '[549,668,672]', '{"clubs":["AC Milan","AS Monaco","Marseille"],"nationality":"Liberia","years":["1995\u20131997","1991\u20131992","2000\u20132001"]}', 'player_career_stats'),
+	(548, '[549,668,672]', '{"clubs":["AC Milan","AS Monaco","Marseille"],"clubImages":["clubs/235.svg","clubs/264.svg","clubs/262.svg"],"nationality":"Liberia","years":["1995\u20131997","1991\u20131992","2000\u20132001"]}', 'player_career_stats'),
 	-- Roberto Baggio (3): George Weah, Alessandro Del Piero, Andrea Pirlo
-	(549, '[548,588,590]', '{"clubs":["AC Milan","Juventus","Inter Milan"],"nationality":"Italy","years":["1995\u20131997","1993\u20131995","1998\u20132000"]}', 'player_career_stats'),
+	(549, '[548,588,590]', '{"clubs":["AC Milan","Juventus","Inter Milan"],"clubImages":["clubs/235.svg","clubs/232.svg","clubs/231.svg"],"nationality":"Italy","years":["1995\u20131997","1993\u20131995","1998\u20132000"]}', 'player_career_stats'),
 	-- Michael Owen (5): Alan Shearer, Wayne Rooney, David Beckham, Steven Gerrard, Peter Crouch
-	(550, '[551,552,575,576,660]', '{"clubs":["Newcastle United","Manchester United","Real Madrid","Liverpool","Stoke City"],"nationality":"England","years":["2005\u20132006","2009\u20132012","2004\u20132005","1998\u20132004","2012\u20132013"]}', 'player_career_stats'),
+	(550, '[551,552,575,576,660]', '{"clubs":["Newcastle United","Manchester United","Real Madrid","Liverpool","Stoke City"],"clubImages":["clubs/197.svg","clubs/196.svg","clubs/217.svg","clubs/194.svg","clubs/314.svg"],"nationality":"England","years":["2005\u20132006","2009\u20132012","2004\u20132005","1998\u20132004","2012\u20132013"]}', 'player_career_stats'),
 	-- Fabio Cannavaro (4): Pavel Nedved, Ruud van Nistelrooy, Gianluigi Buffon, Gianfranco Zola
-	(555, '[554,572,586,591]', '{"clubs":["Juventus","Real Madrid","Parma","Napoli"],"nationality":"Italy","years":["2004\u20132009","2006\u20132009","1995\u20132002","1991\u20131993"]}', 'player_career_stats'),
+	(555, '[554,572,586,591]', '{"clubs":["Juventus","Real Madrid","Parma","Napoli"],"clubImages":["clubs/232.svg","clubs/217.svg","clubs/237.svg","clubs/236.svg"],"nationality":"Italy","years":["2004\u20132009","2006\u20132009","1995\u20132002","1991\u20131993"]}', 'player_career_stats'),
 	-- Rivaldo (3): Andriy Shevchenko, Xavi Hernandez, Roberto Carlos
-	(557, '[553,580,592]', '{"clubs":["AC Milan","Barcelona","Palmeiras"],"nationality":"Brazil","years":["2002\u20132003","1998\u20132002","1994\u20131995"]}', 'player_career_stats'),
+	(557, '[553,580,592]', '{"clubs":["AC Milan","Barcelona","Palmeiras"],"clubImages":["clubs/235.svg","clubs/206.svg","clubs/30.svg"],"nationality":"Brazil","years":["2002\u20132003","1998\u20132002","1994\u20131995"]}', 'player_career_stats'),
 	-- Ruud Gullit (3): Johan Cruyff, Marco van Basten, Gianfranco Zola
-	(569, '[561,568,591]', '{"clubs":["Feyenoord","AC Milan","Chelsea"],"nationality":"Netherlands","years":["1983\u20131984","1987\u20131994","1996\u20131998"]}', 'player_career_stats'),
+	(569, '[561,568,591]', '{"clubs":["Feyenoord","AC Milan","Chelsea"],"clubImages":["clubs/285.svg","clubs/235.svg","clubs/189.svg"],"nationality":"Netherlands","years":["1983\u20131984","1987\u20131994","1996\u20131998"]}', 'player_career_stats'),
 	-- Ruud van Nistelrooy (3): Wayne Rooney, Fabio Cannavaro, Son Heung-min
-	(572, '[552,555,627]', '{"clubs":["Manchester United","Real Madrid","Hamburger SV"],"nationality":"Netherlands","years":["2004\u20132006","2006\u20132009","2010\u20132011"]}', 'player_career_stats'),
+	(572, '[552,555,627]', '{"clubs":["Manchester United","Real Madrid","Hamburger SV"],"clubImages":["clubs/196.svg","clubs/217.svg","clubs/260.svg"],"nationality":"Netherlands","years":["2004\u20132006","2006\u20132009","2010\u20132011"]}', 'player_career_stats'),
 	-- Frank Lampard (4): Andriy Shevchenko, Rio Ferdinand, Andrea Pirlo, Sergio Aguero
-	(577, '[553,579,590,603]', '{"clubs":["Chelsea","West Ham United","New York City FC","Manchester City"],"nationality":"England","years":["2006\u20132009","1995\u20132000","2015\u20132016","2014\u20132015"]}', 'player_career_stats'),
+	(577, '[553,579,590,603]', '{"clubs":["Chelsea","West Ham United","New York City FC","Manchester City"],"clubImages":["clubs/189.svg","clubs/201.svg","clubs/19031.svg","clubs/195.svg"],"nationality":"England","years":["2006\u20132009","1995\u20132000","2015\u20132016","2014\u20132015"]}', 'player_career_stats'),
 	-- Andrea Pirlo (4): Roberto Baggio, Andriy Shevchenko, Frank Lampard, Gianluigi Buffon
-	(590, '[549,553,577,586]', '{"clubs":["Inter Milan","AC Milan","New York City FC","Juventus"],"nationality":"Italy","years":["1998\u20132000","2001\u20132006","2015\u20132016","2011\u20132015"]}', 'player_career_stats'),
+	(590, '[549,553,577,586]', '{"clubs":["Inter Milan","AC Milan","New York City FC","Juventus"],"clubImages":["clubs/231.svg","clubs/235.svg","clubs/19031.svg","clubs/232.svg"],"nationality":"Italy","years":["1998\u20132000","2001\u20132006","2015\u20132016","2011\u20132015"]}', 'player_career_stats'),
 	-- Gianfranco Zola (3): Fabio Cannavaro, Diego Maradona, Ruud Gullit
-	(591, '[555,560,569]', '{"clubs":["Parma","Napoli","Chelsea"],"nationality":"Italy","years":["1995\u20131996","1989\u20131991","1996\u20131998"]}', 'player_career_stats'),
+	(591, '[555,560,569]', '{"clubs":["Parma","Napoli","Chelsea"],"clubImages":["clubs/237.svg","clubs/236.svg","clubs/189.svg"],"nationality":"Italy","years":["1995\u20131996","1989\u20131991","1996\u20131998"]}', 'player_career_stats'),
 	-- Cafu (3): Andriy Shevchenko, Rivaldo, Francesco Totti
-	(593, '[553,557,589]', '{"clubs":["AC Milan","Palmeiras","Roma"],"nationality":"Brazil","years":["2003\u20132006","1995\u20131996","1997\u20132003"]}', 'player_career_stats'),
+	(593, '[553,557,589]', '{"clubs":["AC Milan","Palmeiras","Roma"],"clubImages":["clubs/235.svg","clubs/30.svg","clubs/239.svg"],"nationality":"Brazil","years":["2003\u20132006","1995\u20131996","1997\u20132003"]}', 'player_career_stats'),
 	-- Luis Suarez (4): Steven Gerrard, Xavi Hernandez, Jan Oblak, Sergio Busquets
-	(594, '[576,580,640,662]', '{"clubs":["Liverpool","Barcelona","Atletico Madrid","Inter Miami"],"nationality":"Uruguay","years":["2011\u20132014","2014\u20132015","2020\u20132022","2024\u20132025"]}', 'player_career_stats'),
+	(594, '[576,580,640,662]', '{"clubs":["Liverpool","Barcelona","Atletico Madrid","Inter Miami"],"clubImages":["clubs/194.svg","clubs/206.svg","clubs/205.svg","clubs/331.svg"],"nationality":"Uruguay","years":["2011\u20132014","2014\u20132015","2020\u20132022","2024\u20132025"]}', 'player_career_stats'),
 	-- Edinson Cavani (3): Gianluigi Buffon, Marcus Rashford, Cristhian Mosquera
-	(595, '[586,626,707]', '{"clubs":["Paris Saint-Germain","Manchester United","Valencia"],"nationality":"Uruguay","years":["2018\u20132019","2020\u20132022","2022\u20132023"]}', 'player_career_stats'),
+	(595, '[586,626,707]', '{"clubs":["Paris Saint-Germain","Manchester United","Valencia"],"clubImages":["clubs/261.svg","clubs/196.svg","clubs/221.svg"],"nationality":"Uruguay","years":["2018\u20132019","2020\u20132022","2022\u20132023"]}', 'player_career_stats'),
 	-- James Rodriguez (3): Sergio Ramos, Radamel Falcao, Richarlison
-	(597, '[582,596,805]', '{"clubs":["Real Madrid","AS Monaco","Everton"],"nationality":"Colombia","years":["2014\u20132020","2013\u20132014","2020\u20132021"]}', 'player_career_stats'),
+	(597, '[582,596,805]', '{"clubs":["Real Madrid","AS Monaco","Everton"],"clubImages":["clubs/217.svg","clubs/264.svg","clubs/191.svg"],"nationality":"Colombia","years":["2014\u20132020","2013\u20132014","2020\u20132021"]}', 'player_career_stats'),
 	-- Diego Forlan (6): Ruud van Nistelrooy, Sergio Aguero, Wesley Sneijder, Federico Valverde, Alisson Becker, Robert Pires
-	(598, '[572,603,607,633,637,664]', '{"clubs":["Manchester United","Atletico Madrid","Inter Milan","Penarol","Internacional","Villarreal"],"nationality":"Uruguay","years":["2002\u20132004","2007\u20132011","2011\u20132012","2015\u20132016","2013\u20132014","2006\u20132007"]}', 'player_career_stats'),
+	(598, '[572,603,607,633,637,664]', '{"clubs":["Manchester United","Atletico Madrid","Inter Milan","Penarol","Internacional","Villarreal"],"clubImages":["clubs/196.svg","clubs/205.svg","clubs/231.svg","clubs/66.svg","clubs/43.svg","clubs/222.svg"],"nationality":"Uruguay","years":["2002\u20132004","2007\u20132011","2011\u20132012","2015\u20132016","2013\u20132014","2006\u20132007"]}', 'player_career_stats'),
 	-- Zlatan Ibrahimovic (6): Wayne Rooney, Pavel Nedved, Xavi Hernandez, Edinson Cavani, Wesley Sneijder, Patrick Vieira
-	(599, '[552,554,580,595,607,665]', '{"clubs":["Manchester United","Juventus","Barcelona","Paris Saint-Germain","Ajax","Inter Milan"],"nationality":"Sweden","years":["2016\u20132017","2004\u20132006","2009\u20132011","2013\u20132016","2002\u20132004","2006\u20132009"]}', 'player_career_stats'),
+	(599, '[552,554,580,595,607,665]', '{"clubs":["Manchester United","Juventus","Barcelona","Paris Saint-Germain","Ajax","Inter Milan"],"clubImages":["clubs/196.svg","clubs/232.svg","clubs/206.svg","clubs/261.svg","clubs/283.png","clubs/231.svg"],"nationality":"Sweden","years":["2016\u20132017","2004\u20132006","2009\u20132011","2013\u20132016","2002\u20132004","2006\u20132009"]}', 'player_career_stats'),
 	-- Fernando Torres (4): Steven Gerrard, Frank Lampard, Sergio Aguero, Gianluigi Donnarumma
-	(605, '[576,577,603,688]', '{"clubs":["Liverpool","Chelsea","Atletico Madrid","AC Milan"],"nationality":"Spain","years":["2007\u20132011","2011\u20132014","2006\u20132011","2015\u20132016"]}', 'player_career_stats'),
+	(605, '[576,577,603,688]', '{"clubs":["Liverpool","Chelsea","Atletico Madrid","AC Milan"],"clubImages":["clubs/194.svg","clubs/189.svg","clubs/205.svg","clubs/235.svg"],"nationality":"Spain","years":["2007\u20132011","2011\u20132014","2006\u20132011","2015\u20132016"]}', 'player_career_stats'),
 	-- Xabi Alonso (3): Kaka, Steven Gerrard, Thomas Muller
-	(606, '[556,576,600]', '{"clubs":["Real Madrid","Liverpool","Bayern Munich"],"nationality":"Spain","years":["2009\u20132013","2004\u20132009","2014\u20132017"]}', 'player_career_stats'),
+	(606, '[556,576,600]', '{"clubs":["Real Madrid","Liverpool","Bayern Munich"],"clubImages":["clubs/217.svg","clubs/194.svg","clubs/243.svg"],"nationality":"Spain","years":["2009\u20132013","2004\u20132009","2014\u20132017"]}', 'player_career_stats'),
 	-- Wesley Sneijder (3): Fabio Cannavaro, Diego Forlan, Zlatan Ibrahimovic
-	(607, '[555,598,599]', '{"clubs":["Real Madrid","Inter Milan","Ajax"],"nationality":"Netherlands","years":["2007\u20132009","2011\u20132012","2002\u20132004"]}', 'player_career_stats'),
+	(607, '[555,598,599]', '{"clubs":["Real Madrid","Inter Milan","Ajax"],"clubImages":["clubs/217.svg","clubs/231.svg","clubs/283.png"],"nationality":"Netherlands","years":["2007\u20132009","2011\u20132012","2002\u20132004"]}', 'player_career_stats'),
 	-- Arjen Robben (3): Andriy Shevchenko, Fabio Cannavaro, Thomas Muller
-	(608, '[553,555,600]', '{"clubs":["Chelsea","Real Madrid","Bayern Munich"],"nationality":"Netherlands","years":["2006\u20132007","2007\u20132009","2009\u20132019"]}', 'player_career_stats'),
+	(608, '[553,555,600]', '{"clubs":["Chelsea","Real Madrid","Bayern Munich"],"clubImages":["clubs/189.svg","clubs/217.svg","clubs/243.svg"],"nationality":"Netherlands","years":["2006\u20132007","2007\u20132009","2009\u20132019"]}', 'player_career_stats'),
 	-- Mario Gotze (4): Thomas Muller, Marco Reus, Cody Gakpo, Hugo Ekitike
-	(610, '[600,609,685,734]', '{"clubs":["Bayern Munich","Borussia Dortmund","PSV Eindhoven","Eintracht Frankfurt"],"nationality":"Germany","years":["2013\u20132016","2012\u20132020","2020\u20132022","2024\u20132025"]}', 'player_career_stats'),
+	(610, '[600,609,685,734]', '{"clubs":["Bayern Munich","Borussia Dortmund","PSV Eindhoven","Eintracht Frankfurt"],"clubImages":["clubs/243.svg","clubs/244.svg","clubs/284.svg","clubs/248.svg"],"nationality":"Germany","years":["2013\u20132016","2012\u20132020","2020\u20132022","2024\u20132025"]}', 'player_career_stats'),
 	-- Mesut Ozil (3): Kaka, Manuel Neuer, Bukayo Saka
-	(611, '[556,601,623]', '{"clubs":["Real Madrid","Schalke 04","Arsenal"],"nationality":"Germany","years":["2010\u20132013","2006\u20132008","2018\u20132021"]}', 'player_career_stats'),
+	(611, '[556,601,623]', '{"clubs":["Real Madrid","Schalke 04","Arsenal"],"clubImages":["clubs/217.svg","clubs/19057.svg","clubs/183.svg"],"nationality":"Germany","years":["2010\u20132013","2006\u20132008","2018\u20132021"]}', 'player_career_stats'),
 	-- Ilkay Gundogan (4): Sergio Aguero, Marco Reus, Victor Osimhen, Pedri
-	(612, '[603,609,617,621]', '{"clubs":["Manchester City","Borussia Dortmund","Galatasaray","Barcelona"],"nationality":"Germany","years":["2016\u20132021","2012\u20132016","2025\u2013present","2023\u20132024"]}', 'player_career_stats'),
+	(612, '[603,609,617,621]', '{"clubs":["Manchester City","Borussia Dortmund","Galatasaray","Barcelona"],"clubImages":["clubs/195.svg","clubs/244.svg","clubs/289.svg","clubs/206.svg"],"nationality":"Germany","years":["2016\u20132021","2012\u20132016","2025\u2013present","2023\u20132024"]}', 'player_career_stats'),
 	-- N'Golo Kante (3): John Terry, Riyad Mahrez, Fabinho
-	(613, '[578,616,635]', '{"clubs":["Chelsea","Leicester City","Al-Ittihad"],"nationality":"France","years":["2016\u20132017","2015\u20132016","2023\u2013present"]}', 'player_career_stats'),
+	(613, '[578,616,635]', '{"clubs":["Chelsea","Leicester City","Al-Ittihad"],"clubImages":["clubs/189.svg","clubs/305.svg","clubs/329.svg"],"nationality":"France","years":["2016\u20132017","2015\u20132016","2023\u2013present"]}', 'player_career_stats'),
 	-- Ousmane Dembele (3): Andres Iniesta, Marco Reus, Achraf Hakimi
-	(615, '[581,609,618]', '{"clubs":["Barcelona","Borussia Dortmund","Paris Saint-Germain"],"nationality":"France","years":["2017\u20132018","2016\u20132017","2023\u2013present"]}', 'player_career_stats'),
+	(615, '[581,609,618]', '{"clubs":["Barcelona","Borussia Dortmund","Paris Saint-Germain"],"clubImages":["clubs/206.svg","clubs/244.svg","clubs/261.svg"],"nationality":"France","years":["2017\u20132018","2016\u20132017","2023\u2013present"]}', 'player_career_stats'),
 	-- Riyad Mahrez (3): Sergio Aguero, N'Golo Kante, Roberto Firmino
-	(616, '[603,613,682]', '{"clubs":["Manchester City","Leicester City","Al-Ahli"],"nationality":"Algeria","years":["2018\u20132021","2015\u20132016","2023\u20132025"]}', 'player_career_stats'),
+	(616, '[603,613,682]', '{"clubs":["Manchester City","Leicester City","Al-Ahli"],"clubImages":["clubs/195.svg","clubs/305.svg","clubs/330.svg"],"nationality":"Algeria","years":["2018\u20132021","2015\u20132016","2023\u20132025"]}', 'player_career_stats'),
 	-- Victor Osimhen (3): Ilkay Gundogan, Khvicha Kvaratskhelia, Gabriel Magalhaes
-	(617, '[612,693,709]', '{"clubs":["Galatasaray","Napoli","Lille"],"nationality":"Nigeria","years":["2025\u2013present","2022\u20132025","2019\u20132020"]}', 'player_career_stats'),
+	(617, '[612,693,709]', '{"clubs":["Galatasaray","Napoli","Lille"],"clubImages":["clubs/289.svg","clubs/236.svg","clubs/265.svg"],"nationality":"Nigeria","years":["2025\u2013present","2022\u20132025","2019\u20132020"]}', 'player_career_stats'),
 	-- Achraf Hakimi (3): Sergio Ramos, James Rodriguez, Lautaro Martinez
-	(618, '[582,597,630]', '{"clubs":["Paris Saint-Germain","Real Madrid","Inter Milan"],"nationality":"Morocco","years":["2021\u20132023","2017\u20132020","2020\u20132021"]}', 'player_career_stats'),
+	(618, '[582,597,630]', '{"clubs":["Paris Saint-Germain","Real Madrid","Inter Milan"],"clubImages":["clubs/261.svg","clubs/217.svg","clubs/231.svg"],"nationality":"Morocco","years":["2021\u20132023","2017\u20132020","2020\u20132021"]}', 'player_career_stats'),
 	-- Son Heung-min (3): Ruud van Nistelrooy, Hugo Lloris, Bernd Leno
-	(627, '[572,674,874]', '{"clubs":["Hamburger SV","Tottenham Hotspur","Bayer Leverkusen"],"nationality":"South Korea","years":["2010\u20132011","2015\u20132024","2013\u20132015"]}', 'player_career_stats'),
+	(627, '[572,674,874]', '{"clubs":["Hamburger SV","Tottenham Hotspur","Bayer Leverkusen"],"clubImages":["clubs/260.svg","clubs/200.svg","clubs/246.svg"],"nationality":"South Korea","years":["2010\u20132011","2015\u20132024","2013\u20132015"]}', 'player_career_stats'),
 	-- Julian Alvarez (3): Ilkay Gundogan, Antoine Griezmann, Enzo Fernandez
-	(631, '[612,614,780]', '{"clubs":["Manchester City","Atletico Madrid","River Plate"],"nationality":"Argentina","years":["2022\u20132024","2024\u2013present","2019\u20132022"]}', 'player_career_stats'),
+	(631, '[612,614,780]', '{"clubs":["Manchester City","Atletico Madrid","River Plate"],"clubImages":["clubs/195.svg","clubs/205.svg","clubs/23.svg"],"nationality":"Argentina","years":["2022\u20132024","2024\u2013present","2019\u20132022"]}', 'player_career_stats'),
 	-- Fabinho (4): Radamel Falcao, N'Golo Kante, Virgil van Dijk, Ederson
-	(635, '[596,613,636,638]', '{"clubs":["AS Monaco","Al-Ittihad","Liverpool","Rio Ave"],"nationality":"Brazil","years":["2015\u20132018","2023\u2013present","2018\u20132023","2013\u20132015"]}', 'player_career_stats'),
+	(635, '[596,613,636,638]', '{"clubs":["AS Monaco","Al-Ittihad","Liverpool","Rio Ave"],"clubImages":["clubs/264.svg","clubs/329.svg","clubs/194.svg","clubs/18987.svg"],"nationality":"Brazil","years":["2015\u20132018","2023\u2013present","2018\u20132023","2013\u20132015"]}', 'player_career_stats'),
 	-- Alisson Becker (3): Francesco Totti, Diego Forlan, Fabinho
-	(637, '[589,598,635]', '{"clubs":["Roma","Internacional","Liverpool"],"nationality":"Brazil","years":["2016\u20132017","2013\u20132014","2018\u20132023"]}', 'player_career_stats'),
+	(637, '[589,598,635]', '{"clubs":["Roma","Internacional","Liverpool"],"clubImages":["clubs/239.svg","clubs/43.svg","clubs/194.svg"],"nationality":"Brazil","years":["2016\u20132017","2013\u20132014","2018\u20132023"]}', 'player_career_stats'),
 	-- Ederson (3): Sergio Aguero, Fabinho, Raul Jimenez
-	(638, '[603,635,879]', '{"clubs":["Manchester City","Rio Ave","Benfica"],"nationality":"Brazil","years":["2017\u20132021","2013\u20132015","2015\u20132017"]}', 'player_career_stats'),
+	(638, '[603,635,879]', '{"clubs":["Manchester City","Rio Ave","Benfica"],"clubImages":["clubs/195.svg","clubs/18987.svg","clubs/280.svg"],"nationality":"Brazil","years":["2017\u20132021","2013\u20132015","2015\u20132017"]}', 'player_career_stats'),
 	-- Edwin van der Sar (3): Michael Owen, Frank Rijkaard, Alessandro Del Piero
-	(643, '[550,570,588]', '{"clubs":["Manchester United","Ajax","Juventus"],"nationality":"Netherlands","years":["2009\u20132011","1990\u20131995","1999\u20132001"]}', 'player_career_stats'),
+	(643, '[550,570,588]', '{"clubs":["Manchester United","Ajax","Juventus"],"clubImages":["clubs/196.svg","clubs/283.png","clubs/232.svg"],"nationality":"Netherlands","years":["2009\u20132011","1990\u20131995","1999\u20132001"]}', 'player_career_stats'),
 	-- Fabien Barthez (3): Ruud van Nistelrooy, Rudi Voller, Lilian Thuram
-	(649, '[572,653,668]', '{"clubs":["Manchester United","Marseille","AS Monaco"],"nationality":"France","years":["2001\u20132004","1992\u20131994","1995\u20131996"]}', 'player_career_stats'),
+	(649, '[572,653,668]', '{"clubs":["Manchester United","Marseille","AS Monaco"],"clubImages":["clubs/196.svg","clubs/262.svg","clubs/264.svg"],"nationality":"France","years":["2001\u20132004","1992\u20131994","1995\u20131996"]}', 'player_career_stats'),
 	-- Jurgen Klinsmann (3): Oliver Kahn, Lothar Matthaus, Lilian Thuram
-	(652, '[644,651,668]', '{"clubs":["Bayern Munich","Inter Milan","AS Monaco"],"nationality":"Germany","years":["1995\u20131997","1989\u20131992","1992\u20131994"]}', 'player_career_stats'),
+	(652, '[644,651,668]', '{"clubs":["Bayern Munich","Inter Milan","AS Monaco"],"clubImages":["clubs/243.svg","clubs/231.svg","clubs/264.svg"],"nationality":"Germany","years":["1995\u20131997","1989\u20131992","1992\u20131994"]}', 'player_career_stats'),
 	-- Peter Crouch (3): Michael Owen, Steven Gerrard, William Gallas
-	(660, '[550,576,672]', '{"clubs":["Stoke City","Liverpool","Tottenham Hotspur"],"nationality":"England","years":["2012\u20132013","2005\u20132008","2010\u20132011"]}', 'player_career_stats'),
+	(660, '[550,576,672]', '{"clubs":["Stoke City","Liverpool","Tottenham Hotspur"],"clubImages":["clubs/314.svg","clubs/194.svg","clubs/200.svg"],"nationality":"England","years":["2012\u20132013","2005\u20132008","2010\u20132011"]}', 'player_career_stats'),
 	-- Robert Pires (3): Dennis Bergkamp, Diego Forlan, William Gallas
-	(664, '[571,598,672]', '{"clubs":["Arsenal","Villarreal","Marseille"],"nationality":"France","years":["2000\u20132006","2006\u20132007","1998\u20132000"]}', 'player_career_stats'),
+	(664, '[571,598,672]', '{"clubs":["Arsenal","Villarreal","Marseille"],"clubImages":["clubs/183.svg","clubs/222.svg","clubs/262.svg"],"nationality":"France","years":["2000\u20132006","2006\u20132007","1998\u20132000"]}', 'player_career_stats'),
 	-- Patrick Vieira (5): George Weah, Pavel Nedved, Dennis Bergkamp, Zlatan Ibrahimovic, Kieran Trippier
-	(665, '[548,554,571,599,832]', '{"clubs":["AC Milan","Juventus","Arsenal","Inter Milan","Manchester City"],"nationality":"France","years":["1995\u20131996","2005\u20132006","1996\u20132005","2006\u20132009","2010\u20132011"]}', 'player_career_stats'),
+	(665, '[548,554,571,599,832]', '{"clubs":["AC Milan","Juventus","Arsenal","Inter Milan","Manchester City"],"clubImages":["clubs/235.svg","clubs/232.svg","clubs/183.svg","clubs/231.svg","clubs/195.svg"],"nationality":"France","years":["1995\u20131996","2005\u20132006","1996\u20132005","2006\u20132009","2010\u20132011"]}', 'player_career_stats'),
 	-- Claude Makelele (4): Andriy Shevchenko, Iker Casillas, Marcel Desailly, William Gallas
-	(666, '[553,585,667,672]', '{"clubs":["Chelsea","Real Madrid","Nantes","Marseille"],"nationality":"France","years":["2006\u20132008","2000\u20132003","1991\u20131992","1997\u20131998"]}', 'player_career_stats'),
+	(666, '[553,585,667,672]', '{"clubs":["Chelsea","Real Madrid","Nantes","Marseille"],"clubImages":["clubs/189.svg","clubs/217.svg","clubs/271.svg","clubs/262.svg"],"nationality":"France","years":["2006\u20132008","2000\u20132003","1991\u20131992","1997\u20131998"]}', 'player_career_stats'),
 	-- Marcel Desailly (4): George Weah, Frank Lampard, Fabien Barthez, Claude Makelele
-	(667, '[548,577,649,666]', '{"clubs":["AC Milan","Chelsea","Marseille","Nantes"],"nationality":"France","years":["1995\u20131998","2001\u20132004","1992\u20131993","1991\u20131992"]}', 'player_career_stats'),
+	(667, '[548,577,649,666]', '{"clubs":["AC Milan","Chelsea","Marseille","Nantes"],"clubImages":["clubs/235.svg","clubs/189.svg","clubs/262.svg","clubs/271.svg"],"nationality":"France","years":["1995\u20131998","2001\u20132004","1992\u20131993","1991\u20131992"]}', 'player_career_stats'),
 	-- Lilian Thuram (4): George Weah, Pavel Nedved, Fabio Cannavaro, Xavi Hernandez
-	(668, '[548,554,555,580]', '{"clubs":["AS Monaco","Juventus","Parma","Barcelona"],"nationality":"France","years":["1991\u20131992","2001\u20132006","1996\u20132001","2006\u20132008"]}', 'player_career_stats'),
+	(668, '[548,554,555,580]', '{"clubs":["AS Monaco","Juventus","Parma","Barcelona"],"clubImages":["clubs/264.svg","clubs/232.svg","clubs/237.svg","clubs/206.svg"],"nationality":"France","years":["1991\u20131992","2001\u20132006","1996\u20132001","2006\u20132008"]}', 'player_career_stats'),
 	-- Nicolas Anelka (4): Andriy Shevchenko, Dennis Bergkamp, Iker Casillas, Peter Schmeichel
-	(671, '[553,571,585,645]', '{"clubs":["Chelsea","Arsenal","Real Madrid","Manchester City"],"nationality":"France","years":["2008\u20132009","1997\u20131999","1999\u20132000","2002\u20132003"]}', 'player_career_stats'),
+	(671, '[553,571,585,645]', '{"clubs":["Chelsea","Arsenal","Real Madrid","Manchester City"],"clubImages":["clubs/189.svg","clubs/183.svg","clubs/217.svg","clubs/195.svg"],"nationality":"France","years":["2008\u20132009","1997\u20131999","1999\u20132000","2002\u20132003"]}', 'player_career_stats'),
 	-- William Gallas (4): George Weah, Frank Lampard, Peter Crouch, Bacary Sagna
-	(672, '[548,577,660,673]', '{"clubs":["Marseille","Chelsea","Tottenham Hotspur","Arsenal"],"nationality":"France","years":["2000\u20132001","2001\u20132006","2010\u20132011","2007\u20132010"]}', 'player_career_stats'),
+	(672, '[548,577,660,673]', '{"clubs":["Marseille","Chelsea","Tottenham Hotspur","Arsenal"],"clubImages":["clubs/262.svg","clubs/189.svg","clubs/200.svg","clubs/183.svg"],"nationality":"France","years":["2000\u20132001","2001\u20132006","2010\u20132011","2007\u20132010"]}', 'player_career_stats'),
 	-- Hugo Lloris (3): Son Heung-min, Olivier Giroud, Alexandre Lacazette
-	(674, '[627,677,678]', '{"clubs":["Tottenham Hotspur","LAFC","Lyon"],"nationality":"France","years":["2015\u20132024","2024\u20132025","2010\u20132012"]}', 'player_career_stats'),
+	(674, '[627,677,678]', '{"clubs":["Tottenham Hotspur","LAFC","Lyon"],"clubImages":["clubs/200.svg","clubs/333.svg","clubs/263.svg"],"nationality":"France","years":["2015\u20132024","2024\u20132025","2010\u20132012"]}', 'player_career_stats'),
 	-- Olivier Giroud (4): Zlatan Ibrahimovic, Mesut Ozil, N'Golo Kante, Hugo Lloris
-	(677, '[599,611,613,674]', '{"clubs":["AC Milan","Arsenal","Chelsea","LAFC"],"nationality":"France","years":["2021\u20132023","2013\u20132018","2018\u20132021","2024\u20132025"]}', 'player_career_stats'),
+	(677, '[599,611,613,674]', '{"clubs":["AC Milan","Arsenal","Chelsea","LAFC"],"clubImages":["clubs/235.svg","clubs/183.svg","clubs/189.svg","clubs/333.svg"],"nationality":"France","years":["2021\u20132023","2013\u20132018","2018\u20132021","2024\u20132025"]}', 'player_career_stats'),
 	-- Moussa Dembele (3): Alexandre Lacazette, Dan Burn, Ryan Christie
-	(680, '[678,833,896]', '{"clubs":["Lyon","Fulham","Celtic"],"nationality":"France","years":["2018\u20132023","2013\u20132016","2016\u20132018"]}', 'player_career_stats'),
+	(680, '[678,833,896]', '{"clubs":["Lyon","Fulham","Celtic"],"clubImages":["clubs/263.svg","clubs/192.svg","clubs/287.svg"],"nationality":"France","years":["2018\u20132023","2013\u20132016","2016\u20132018"]}', 'player_career_stats'),
 	-- Diogo Jota (3): Fernando Torres, Fabinho, Pedro Neto
-	(683, '[605,635,791]', '{"clubs":["Atletico Madrid","Liverpool","Wolverhampton Wanderers"],"nationality":"Portugal","years":["2016\u20132018","2020\u20132023","2019\u20132020"]}', 'player_career_stats'),
+	(683, '[605,635,791]', '{"clubs":["Atletico Madrid","Liverpool","Wolverhampton Wanderers"],"clubImages":["clubs/205.svg","clubs/194.svg","clubs/202.svg"],"nationality":"Portugal","years":["2016\u20132018","2020\u20132023","2019\u20132020"]}', 'player_career_stats'),
 	-- Bruno Fernandes (3): Edinson Cavani, Raphinha, Guglielmo Vicario
-	(686, '[595,700,810]', '{"clubs":["Manchester United","Sporting CP","Udinese"],"nationality":"Portugal","years":["2020\u20132022","2018\u20132019","2014\u20132016"]}', 'player_career_stats'),
+	(686, '[595,700,810]', '{"clubs":["Manchester United","Sporting CP","Udinese"],"clubImages":["clubs/196.svg","clubs/281.svg","clubs/242.svg"],"nationality":"Portugal","years":["2020\u20132022","2018\u20132019","2014\u20132016"]}', 'player_career_stats'),
 	-- Gianluigi Donnarumma (3): Sergio Ramos, Zlatan Ibrahimovic, Phil Foden
-	(688, '[582,599,624]', '{"clubs":["Paris Saint-Germain","AC Milan","Manchester City"],"nationality":"Italy","years":["2021\u20132023","2015\u20132021","2025\u2013present"]}', 'player_career_stats'),
+	(688, '[582,599,624]', '{"clubs":["Paris Saint-Germain","AC Milan","Manchester City"],"clubImages":["clubs/261.svg","clubs/235.svg","clubs/195.svg"],"nationality":"Italy","years":["2021\u20132023","2015\u20132021","2025\u2013present"]}', 'player_career_stats'),
 	-- Christian Norgaard (3): Bukayo Saka, David Raya, Federico Chiesa
-	(715, '[623,705,733]', '{"clubs":["Arsenal","Brentford","Fiorentina"],"nationality":"Denmark","years":["2025\u2013present","2019\u20132024","2018\u20132019"]}', 'player_career_stats'),
+	(715, '[623,705,733]', '{"clubs":["Arsenal","Brentford","Fiorentina"],"clubImages":["clubs/183.svg","clubs/186.svg","clubs/228.svg"],"nationality":"Denmark","years":["2025\u2013present","2019\u20132024","2018\u20132019"]}', 'player_career_stats'),
 	-- Noni Madueke (3): Mario Gotze, Bukayo Saka, Cole Palmer
-	(718, '[610,623,699]', '{"clubs":["PSV Eindhoven","Arsenal","Chelsea"],"nationality":"England","years":["2020\u20132022","2025\u2013present","2023\u20132025"]}', 'player_career_stats'),
+	(718, '[610,623,699]', '{"clubs":["PSV Eindhoven","Arsenal","Chelsea"],"clubImages":["clubs/284.svg","clubs/183.svg","clubs/189.svg"],"nationality":"England","years":["2020\u20132022","2025\u2013present","2023\u20132025"]}', 'player_career_stats'),
 	-- Mikel Merino (4): Marco Reus, Bukayo Saka, Takefusa Kubo, Jacob Murphy
-	(719, '[609,623,629,827]', '{"clubs":["Borussia Dortmund","Arsenal","Real Sociedad","Newcastle United"],"nationality":"Spain","years":["2016\u20132017","2024\u2013present","2022\u20132024","2017\u20132018"]}', 'player_career_stats'),
+	(719, '[609,623,629,827]', '{"clubs":["Borussia Dortmund","Arsenal","Real Sociedad","Newcastle United"],"clubImages":["clubs/244.svg","clubs/183.svg","clubs/219.svg","clubs/197.svg"],"nationality":"Spain","years":["2016\u20132017","2024\u2013present","2022\u20132024","2017\u20132018"]}', 'player_career_stats'),
 	-- Riccardo Calafiori (3): Bukayo Saka, Joshua Zirkzee, Justin Kluivert
-	(721, '[623,777,894]', '{"clubs":["Arsenal","Bologna","Roma"],"nationality":"Italy","years":["2024\u2013present","2023\u20132024","2020\u20132022"]}', 'player_career_stats'),
+	(721, '[623,777,894]', '{"clubs":["Arsenal","Bologna","Roma"],"clubImages":["clubs/183.svg","clubs/224.svg","clubs/239.svg"],"nationality":"Italy","years":["2024\u2013present","2023\u20132024","2020\u20132022"]}', 'player_career_stats'),
 	-- Dominik Szoboszlai (3): Virgil van Dijk, Josko Gvardiol, Benjamin Sesko
-	(729, '[636,746,772]', '{"clubs":["Liverpool","RB Leipzig","Red Bull Salzburg"],"nationality":"Hungary","years":["2023\u2013present","2021\u20132023","2019\u20132021"]}', 'player_career_stats'),
+	(729, '[636,746,772]', '{"clubs":["Liverpool","RB Leipzig","Red Bull Salzburg"],"clubImages":["clubs/194.svg","clubs/245.svg","clubs/294.svg"],"nationality":"Hungary","years":["2023\u2013present","2021\u20132023","2019\u20132021"]}', 'player_career_stats'),
 	-- Ryan Gravenberch (3): Thomas Muller, Virgil van Dijk, Jurrien Timber
-	(730, '[600,636,712]', '{"clubs":["Bayern Munich","Liverpool","Ajax"],"nationality":"Netherlands","years":["2022\u20132023","2023\u2013present","2020\u20132022"]}', 'player_career_stats'),
+	(730, '[600,636,712]', '{"clubs":["Bayern Munich","Liverpool","Ajax"],"clubImages":["clubs/243.svg","clubs/194.svg","clubs/283.png"],"nationality":"Netherlands","years":["2022\u20132023","2023\u2013present","2020\u20132022"]}', 'player_career_stats'),
 	-- Luis Diaz (3): Iker Casillas, Manuel Neuer, Fabinho
-	(732, '[585,601,635]', '{"clubs":["Porto","Bayern Munich","Liverpool"],"nationality":"Colombia","years":["2019\u20132020","2025\u2013present","2022\u20132023"]}', 'player_career_stats'),
+	(732, '[585,601,635]', '{"clubs":["Porto","Bayern Munich","Liverpool"],"clubImages":["clubs/279.svg","clubs/243.svg","clubs/194.svg"],"nationality":"Colombia","years":["2019\u20132020","2025\u2013present","2022\u20132023"]}', 'player_career_stats'),
 	-- Federico Chiesa (3): Virgil van Dijk, Paul Pogba, Christian Norgaard
-	(733, '[636,676,715]', '{"clubs":["Liverpool","Juventus","Fiorentina"],"nationality":"Italy","years":["2024\u2013present","2022\u20132024","2018\u20132019"]}', 'player_career_stats'),
+	(733, '[636,676,715]', '{"clubs":["Liverpool","Juventus","Fiorentina"],"clubImages":["clubs/194.svg","clubs/232.svg","clubs/228.svg"],"nationality":"Italy","years":["2024\u2013present","2022\u20132024","2018\u20132019"]}', 'player_career_stats'),
 	-- Hugo Ekitike (3): Mario Gotze, Ousmane Dembele, Virgil van Dijk
-	(734, '[610,615,636]', '{"clubs":["Eintracht Frankfurt","Paris Saint-Germain","Liverpool"],"nationality":"France","years":["2024\u20132025","2023\u20132024","2025\u2013present"]}', 'player_career_stats'),
+	(734, '[610,615,636]', '{"clubs":["Eintracht Frankfurt","Paris Saint-Germain","Liverpool"],"clubImages":["clubs/248.svg","clubs/261.svg","clubs/194.svg"],"nationality":"France","years":["2024\u20132025","2023\u20132024","2025\u2013present"]}', 'player_career_stats'),
 	-- Alexander Isak (4): Marco Reus, Virgil van Dijk, Mikel Merino, Bruno Guimaraes
-	(735, '[609,636,719,822]', '{"clubs":["Borussia Dortmund","Liverpool","Real Sociedad","Newcastle United"],"nationality":"Sweden","years":["2017\u20132019","2025\u2013present","2019\u20132022","2022\u20132025"]}', 'player_career_stats'),
+	(735, '[609,636,719,822]', '{"clubs":["Borussia Dortmund","Liverpool","Real Sociedad","Newcastle United"],"clubImages":["clubs/244.svg","clubs/194.svg","clubs/219.svg","clubs/197.svg"],"nationality":"Sweden","years":["2017\u20132019","2025\u2013present","2019\u20132022","2022\u20132025"]}', 'player_career_stats'),
 	-- Milos Kerkez (4): Zlatan Ibrahimovic, Virgil van Dijk, Tijjani Reijnders, Dominic Solanke
-	(737, '[599,636,753,803]', '{"clubs":["AC Milan","Liverpool","AZ Alkmaar","Bournemouth"],"nationality":"Hungary","years":["2021\u20132022","2025\u2013present","2022\u20132023","2023\u20132024"]}', 'player_career_stats'),
+	(737, '[599,636,753,803]', '{"clubs":["AC Milan","Liverpool","AZ Alkmaar","Bournemouth"],"clubImages":["clubs/235.svg","clubs/194.svg","clubs/286.svg","clubs/185.svg"],"nationality":"Hungary","years":["2021\u20132022","2025\u2013present","2022\u20132023","2023\u20132024"]}', 'player_career_stats'),
 	-- Bernardo Silva (3): Radamel Falcao, Sergio Aguero, Jan Oblak
-	(744, '[596,603,640]', '{"clubs":["AS Monaco","Manchester City","Benfica"],"nationality":"Portugal","years":["2015\u20132017","2017\u20132021","2013\u20132014"]}', 'player_career_stats'),
+	(744, '[596,603,640]', '{"clubs":["AS Monaco","Manchester City","Benfica"],"clubImages":["clubs/264.svg","clubs/195.svg","clubs/280.svg"],"nationality":"Portugal","years":["2015\u20132017","2017\u20132021","2013\u20132014"]}', 'player_career_stats'),
 	-- Tijjani Reijnders (3): Phil Foden, Olivier Giroud, Milos Kerkez
-	(753, '[624,677,737]', '{"clubs":["Manchester City","AC Milan","AZ Alkmaar"],"nationality":"Netherlands","years":["2025\u2013present","2023\u20132024","2022\u20132023"]}', 'player_career_stats'),
+	(753, '[624,677,737]', '{"clubs":["Manchester City","AC Milan","AZ Alkmaar"],"clubImages":["clubs/195.svg","clubs/235.svg","clubs/286.svg"],"nationality":"Netherlands","years":["2025\u2013present","2023\u20132024","2022\u20132023"]}', 'player_career_stats'),
 	-- Omar Marmoush (3): Mario Gotze, Phil Foden, Micky van de Ven
-	(754, '[610,624,808]', '{"clubs":["Eintracht Frankfurt","Manchester City","VfL Wolfsburg"],"nationality":"Egypt","years":["2023\u20132025","2025\u2013present","2021\u20132023"]}', 'player_career_stats'),
+	(754, '[610,624,808]', '{"clubs":["Eintracht Frankfurt","Manchester City","VfL Wolfsburg"],"clubImages":["clubs/248.svg","clubs/195.svg","clubs/256.svg"],"nationality":"Egypt","years":["2023\u20132025","2025\u2013present","2021\u20132023"]}', 'player_career_stats'),
 	-- Matheus Nunes (3): Ilkay Gundogan, Bruno Fernandes, Pedro Neto
-	(755, '[612,686,791]', '{"clubs":["Manchester City","Sporting CP","Wolverhampton Wanderers"],"nationality":"Portugal","years":["2023\u20132025","2019\u20132020","2022\u20132023"]}', 'player_career_stats'),
+	(755, '[612,686,791]', '{"clubs":["Manchester City","Sporting CP","Wolverhampton Wanderers"],"clubImages":["clubs/195.svg","clubs/281.svg","clubs/202.svg"],"nationality":"Portugal","years":["2023\u20132025","2019\u20132020","2022\u20132023"]}', 'player_career_stats'),
 	-- Matthijs de Ligt (4): Gianluigi Buffon, Thomas Muller, Marcus Rashford, Ryan Gravenberch
-	(762, '[586,600,626,730]', '{"clubs":["Juventus","Bayern Munich","Manchester United","Ajax"],"nationality":"Netherlands","years":["2019\u20132021","2022\u20132024","2024\u2013present","2018\u20132019"]}', 'player_career_stats'),
+	(762, '[586,600,626,730]', '{"clubs":["Juventus","Bayern Munich","Manchester United","Ajax"],"clubImages":["clubs/232.svg","clubs/243.svg","clubs/196.svg","clubs/283.png"],"nationality":"Netherlands","years":["2019\u20132021","2022\u20132024","2024\u2013present","2018\u20132019"]}', 'player_career_stats'),
 	-- Harry Maguire (3): Edinson Cavani, Riyad Mahrez, Andrew Robertson
-	(764, '[595,616,727]', '{"clubs":["Manchester United","Leicester City","Hull City"],"nationality":"England","years":["2020\u20132022","2017\u20132018","2014\u20132017"]}', 'player_career_stats'),
+	(764, '[595,616,727]', '{"clubs":["Manchester United","Leicester City","Hull City"],"clubImages":["clubs/196.svg","clubs/305.svg","clubs/322.svg"],"nationality":"England","years":["2020\u20132022","2017\u20132018","2014\u20132017"]}', 'player_career_stats'),
 	-- Noussair Mazraoui (3): Thomas Muller, Marcus Rashford, Jurrien Timber
-	(767, '[600,626,712]', '{"clubs":["Bayern Munich","Manchester United","Ajax"],"nationality":"Morocco","years":["2022\u20132024","2024\u2013present","2020\u20132022"]}', 'player_career_stats'),
+	(767, '[600,626,712]', '{"clubs":["Bayern Munich","Manchester United","Ajax"],"clubImages":["clubs/243.svg","clubs/196.svg","clubs/283.png"],"nationality":"Morocco","years":["2022\u20132024","2024\u2013present","2020\u20132022"]}', 'player_career_stats'),
 	-- Matheus Cunha (4): Luis Suarez, Marcus Rashford, Ibrahima Konate, Pedro Neto
-	(771, '[594,626,728,791]', '{"clubs":["Atletico Madrid","Manchester United","RB Leipzig","Wolverhampton Wanderers"],"nationality":"Brazil","years":["2021\u20132022","2025\u2013present","2018\u20132020","2023\u20132024"]}', 'player_career_stats'),
+	(771, '[594,626,728,791]', '{"clubs":["Atletico Madrid","Manchester United","RB Leipzig","Wolverhampton Wanderers"],"clubImages":["clubs/205.svg","clubs/196.svg","clubs/245.svg","clubs/202.svg"],"nationality":"Brazil","years":["2021\u20132022","2025\u2013present","2018\u20132020","2023\u20132024"]}', 'player_career_stats'),
 	-- Andre Onana (3): Marcus Rashford, Lautaro Martinez, Jurrien Timber
-	(775, '[626,630,712]', '{"clubs":["Manchester United","Inter Milan","Ajax"],"nationality":"Cameroon","years":["2023\u2013present","2022\u20132023","2020\u20132022"]}', 'player_career_stats'),
+	(775, '[626,630,712]', '{"clubs":["Manchester United","Inter Milan","Ajax"],"clubImages":["clubs/196.svg","clubs/231.svg","clubs/283.png"],"nationality":"Cameroon","years":["2023\u2013present","2022\u20132023","2020\u20132022"]}', 'player_career_stats'),
 	-- Joshua Zirkzee (3): Thomas Muller, Marcus Rashford, Riccardo Calafiori
-	(777, '[600,626,721]', '{"clubs":["Bayern Munich","Manchester United","Bologna"],"nationality":"Netherlands","years":["2019\u20132022","2024\u2013present","2023\u20132024"]}', 'player_career_stats'),
+	(777, '[600,626,721]', '{"clubs":["Bayern Munich","Manchester United","Bologna"],"clubImages":["clubs/243.svg","clubs/196.svg","clubs/224.svg"],"nationality":"Netherlands","years":["2019\u20132022","2024\u2013present","2023\u20132024"]}', 'player_career_stats'),
 	-- Enzo Fernandez (3): Julian Alvarez, Joao Neves, Cole Palmer
-	(780, '[631,697,699]', '{"clubs":["River Plate","Benfica","Chelsea"],"nationality":"Argentina","years":["2019\u20132022","2022\u20132023","2023\u2013present"]}', 'player_career_stats'),
+	(780, '[631,697,699]', '{"clubs":["River Plate","Benfica","Chelsea"],"clubImages":["clubs/23.svg","clubs/280.svg","clubs/189.svg"],"nationality":"Argentina","years":["2019\u20132022","2022\u20132023","2023\u2013present"]}', 'player_career_stats'),
 	-- Marc Cucurella (3): Andres Iniesta, N'Golo Kante, Kaoru Mitoma
-	(786, '[581,613,628]', '{"clubs":["Barcelona","Chelsea","Brighton"],"nationality":"Spain","years":["2017\u20132018","2022\u20132023","2021\u20132022"]}', 'player_career_stats'),
+	(786, '[581,613,628]', '{"clubs":["Barcelona","Chelsea","Brighton"],"clubImages":["clubs/206.svg","clubs/189.svg","clubs/187.svg"],"nationality":"Spain","years":["2017\u20132018","2022\u20132023","2021\u20132022"]}', 'player_career_stats'),
 	-- Christopher Nkunku (3): Gianluigi Buffon, Cole Palmer, Ibrahima Konate
-	(790, '[586,699,728]', '{"clubs":["Paris Saint-Germain","Chelsea","RB Leipzig"],"nationality":"France","years":["2018\u20132019","2023\u20132025","2019\u20132021"]}', 'player_career_stats'),
+	(790, '[586,699,728]', '{"clubs":["Paris Saint-Germain","Chelsea","RB Leipzig"],"clubImages":["clubs/261.svg","clubs/189.svg","clubs/245.svg"],"nationality":"France","years":["2018\u20132019","2023\u20132025","2019\u20132021"]}', 'player_career_stats'),
 	-- Joao Pedro (3): Kaoru Mitoma, Cole Palmer, Ismaila Sarr
-	(793, '[628,699,863]', '{"clubs":["Brighton","Chelsea","Watford"],"nationality":"Brazil","years":["2023\u20132025","2025\u2013present","2020\u20132023"]}', 'player_career_stats'),
+	(793, '[628,699,863]', '{"clubs":["Brighton","Chelsea","Watford"],"clubImages":["clubs/187.svg","clubs/189.svg","clubs/311.svg"],"nationality":"Brazil","years":["2023\u20132025","2025\u2013present","2020\u20132023"]}', 'player_career_stats'),
 	-- Raheem Sterling (3): Steven Gerrard, Sergio Aguero, N'Golo Kante
-	(798, '[576,603,613]', '{"clubs":["Liverpool","Manchester City","Chelsea"],"nationality":"England","years":["2012\u20132015","2015\u20132021","2022\u20132023"]}', 'player_career_stats'),
+	(798, '[576,603,613]', '{"clubs":["Liverpool","Manchester City","Chelsea"],"clubImages":["clubs/194.svg","clubs/195.svg","clubs/189.svg"],"nationality":"England","years":["2012\u20132015","2015\u20132021","2022\u20132023"]}', 'player_career_stats'),
 	-- Eden Hazard (3): Frank Lampard, Sergio Ramos, Lucas Digne
-	(800, '[577,582,849]', '{"clubs":["Chelsea","Real Madrid","Lille"],"nationality":"Belgium","years":["2012\u20132014","2019\u20132021","2011\u20132012"]}', 'player_career_stats'),
+	(800, '[577,582,849]', '{"clubs":["Chelsea","Real Madrid","Lille"],"clubImages":["clubs/189.svg","clubs/217.svg","clubs/265.svg"],"nationality":"Belgium","years":["2012\u20132014","2019\u20132021","2011\u20132012"]}', 'player_career_stats'),
 	-- James Maddison (3): Son Heung-min, Jamie Vardy, Jacob Murphy
-	(801, '[627,661,827]', '{"clubs":["Tottenham Hotspur","Leicester City","Norwich City"],"nationality":"England","years":["2023\u20132025","2018\u20132023","2016\u20132017"]}', 'player_career_stats'),
+	(801, '[627,661,827]', '{"clubs":["Tottenham Hotspur","Leicester City","Norwich City"],"clubImages":["clubs/200.svg","clubs/305.svg","clubs/310.svg"],"nationality":"England","years":["2023\u20132025","2018\u20132023","2016\u20132017"]}', 'player_career_stats'),
 	-- Dejan Kulusevski (3): Gianluigi Buffon, Son Heung-min, Amad Diallo
-	(802, '[586,627,773]', '{"clubs":["Juventus","Tottenham Hotspur","Atalanta"],"nationality":"Sweden","years":["2020\u20132021","2023\u20132025","2019\u20132020"]}', 'player_career_stats'),
+	(802, '[586,627,773]', '{"clubs":["Juventus","Tottenham Hotspur","Atalanta"],"clubImages":["clubs/232.svg","clubs/200.svg","clubs/223.svg"],"nationality":"Sweden","years":["2020\u20132021","2023\u20132025","2019\u20132020"]}', 'player_career_stats'),
 	-- Dominic Solanke (4): John Terry, Son Heung-min, Fabinho, Milos Kerkez
-	(803, '[578,627,635,737]', '{"clubs":["Chelsea","Tottenham Hotspur","Liverpool","Bournemouth"],"nationality":"England","years":["2014\u20132017","2024\u20132025","2018\u20132019","2023\u20132024"]}', 'player_career_stats'),
+	(803, '[578,627,635,737]', '{"clubs":["Chelsea","Tottenham Hotspur","Liverpool","Bournemouth"],"clubImages":["clubs/189.svg","clubs/200.svg","clubs/194.svg","clubs/185.svg"],"nationality":"England","years":["2014\u20132017","2024\u20132025","2018\u20132019","2023\u20132024"]}', 'player_career_stats'),
 	-- Yves Bissouma (3): Son Heung-min, Kaoru Mitoma, Gabriel Magalhaes
-	(811, '[627,628,709]', '{"clubs":["Tottenham Hotspur","Brighton","Lille"],"nationality":"Mali","years":["2022\u20132025","2021\u20132022","2017\u20132018"]}', 'player_career_stats'),
+	(811, '[627,628,709]', '{"clubs":["Tottenham Hotspur","Brighton","Lille"],"clubImages":["clubs/200.svg","clubs/187.svg","clubs/265.svg"],"nationality":"Mali","years":["2022\u20132025","2021\u20132022","2017\u20132018"]}', 'player_career_stats'),
 	-- Mathys Tel (3): Thomas Muller, Serhou Guirassy, James Maddison
-	(815, '[600,691,801]', '{"clubs":["Bayern Munich","Rennes","Tottenham Hotspur"],"nationality":"France","years":["2022\u20132025","2021\u20132022","2025\u2013present"]}', 'player_career_stats'),
+	(815, '[600,691,801]', '{"clubs":["Bayern Munich","Rennes","Tottenham Hotspur"],"clubImages":["clubs/243.svg","clubs/268.svg","clubs/200.svg"],"nationality":"France","years":["2022\u20132025","2021\u20132022","2025\u2013present"]}', 'player_career_stats'),
 	-- Mohammed Kudus (3): Jurrien Timber, James Maddison, Jarrod Bowen
-	(816, '[712,801,854]', '{"clubs":["Ajax","Tottenham Hotspur","West Ham United"],"nationality":"Ghana","years":["2020\u20132023","2025\u2013present","2023\u20132025"]}', 'player_career_stats'),
+	(816, '[712,801,854]', '{"clubs":["Ajax","Tottenham Hotspur","West Ham United"],"clubImages":["clubs/283.png","clubs/200.svg","clubs/201.svg"],"nationality":"Ghana","years":["2020\u20132023","2025\u2013present","2023\u20132025"]}', 'player_career_stats'),
 	-- Xavi Simons (3): Sergio Ramos, Cody Gakpo, James Maddison
-	(817, '[582,685,801]', '{"clubs":["Paris Saint-Germain","PSV Eindhoven","Tottenham Hotspur"],"nationality":"Netherlands","years":["2021\u20132023","2022\u20132023","2025\u2013present"]}', 'player_career_stats'),
+	(817, '[582,685,801]', '{"clubs":["Paris Saint-Germain","PSV Eindhoven","Tottenham Hotspur"],"clubImages":["clubs/261.svg","clubs/284.svg","clubs/200.svg"],"nationality":"Netherlands","years":["2021\u20132023","2022\u20132023","2025\u2013present"]}', 'player_career_stats'),
 	-- Joao Palhinha (3): Thomas Muller, Bruno Fernandes, Tosin Adarabioyo
-	(821, '[600,686,797]', '{"clubs":["Bayern Munich","Sporting CP","Fulham"],"nationality":"Portugal","years":["2024\u20132025","2017\u20132020","2022\u20132024"]}', 'player_career_stats'),
+	(821, '[600,686,797]', '{"clubs":["Bayern Munich","Sporting CP","Fulham"],"clubImages":["clubs/243.svg","clubs/281.svg","clubs/192.svg"],"nationality":"Portugal","years":["2024\u20132025","2017\u20132020","2022\u20132024"]}', 'player_career_stats'),
 	-- Nick Pope (3): Alexander Isak, Joe Gomez, Dwight McNeil
-	(828, '[735,739,869]', '{"clubs":["Newcastle United","Charlton Athletic","Burnley"],"nationality":"England","years":["2022\u20132025","2014\u20132015","2018\u20132022"]}', 'player_career_stats'),
+	(828, '[735,739,869]', '{"clubs":["Newcastle United","Charlton Athletic","Burnley"],"clubImages":["clubs/197.svg","clubs/366.svg","clubs/188.svg"],"nationality":"England","years":["2022\u20132025","2014\u20132015","2018\u20132022"]}', 'player_career_stats'),
 	-- Aaron Ramsdale (3): Bukayo Saka, Nathan Ake, Iliman Ndiaye
-	(829, '[623,748,870]', '{"clubs":["Arsenal","Bournemouth","Sheffield United"],"nationality":"England","years":["2021\u20132024","2017\u20132020","2019\u20132021"]}', 'player_career_stats'),
+	(829, '[623,748,870]', '{"clubs":["Arsenal","Bournemouth","Sheffield United"],"clubImages":["clubs/183.svg","clubs/185.svg","clubs/308.svg"],"nationality":"England","years":["2021\u20132024","2017\u20132020","2019\u20132021"]}', 'player_career_stats'),
 	-- Kieran Trippier (4): Luis Suarez, Sergio Aguero, Son Heung-min, Alexander Isak
-	(832, '[594,603,627,735]', '{"clubs":["Atletico Madrid","Manchester City","Tottenham Hotspur","Newcastle United"],"nationality":"England","years":["2020\u20132022","2011\u20132012","2015\u20132019","2022\u20132025"]}', 'player_career_stats'),
+	(832, '[594,603,627,735]', '{"clubs":["Atletico Madrid","Manchester City","Tottenham Hotspur","Newcastle United"],"clubImages":["clubs/205.svg","clubs/195.svg","clubs/200.svg","clubs/197.svg"],"nationality":"England","years":["2020\u20132022","2011\u20132012","2015\u20132019","2022\u20132025"]}', 'player_career_stats'),
 	-- Dan Burn (3): Kaoru Mitoma, Moussa Dembele, Alexander Isak
-	(833, '[628,680,735]', '{"clubs":["Brighton","Fulham","Newcastle United"],"nationality":"England","years":["2021\u20132022","2013\u20132016","2022\u20132025"]}', 'player_career_stats'),
+	(833, '[628,680,735]', '{"clubs":["Brighton","Fulham","Newcastle United"],"clubImages":["clubs/187.svg","clubs/192.svg","clubs/197.svg"],"nationality":"England","years":["2021\u20132022","2013\u20132016","2022\u20132025"]}', 'player_career_stats'),
 	-- Yoane Wissa (3): David Raya, Bruno Guimaraes, Jean-Philippe Mateta
-	(836, '[705,822,859]', '{"clubs":["Brentford","Newcastle United","Chateauroux"],"nationality":"DR Congo","years":["2021\u20132024","2025\u2013present","2015\u20132016"]}', 'player_career_stats'),
+	(836, '[705,822,859]', '{"clubs":["Brentford","Newcastle United","Chateauroux"],"clubImages":["clubs/186.svg","clubs/197.svg","clubs/19137.svg"],"nationality":"DR Congo","years":["2021\u20132024","2025\u2013present","2015\u20132016"]}', 'player_career_stats'),
 	-- Youri Tielemans (3): Radamel Falcao, Jamie Vardy, Emiliano Martinez
-	(842, '[596,661,839]', '{"clubs":["AS Monaco","Leicester City","Aston Villa"],"nationality":"Belgium","years":["2017\u20132019","2019\u20132023","2023\u2013present"]}', 'player_career_stats'),
+	(842, '[596,661,839]', '{"clubs":["AS Monaco","Leicester City","Aston Villa"],"clubImages":["clubs/264.svg","clubs/305.svg","clubs/184.svg"],"nationality":"Belgium","years":["2017\u20132019","2019\u20132023","2023\u2013present"]}', 'player_career_stats'),
 	-- Amadou Onana (3): Anthony Gordon, Sven Botman, Emiliano Martinez
-	(845, '[825,830,839]', '{"clubs":["Everton","Lille","Aston Villa"],"nationality":"Belgium","years":["2022\u20132023","2021\u20132022","2024\u2013present"]}', 'player_career_stats'),
+	(845, '[825,830,839]', '{"clubs":["Everton","Lille","Aston Villa"],"clubImages":["clubs/191.svg","clubs/265.svg","clubs/184.svg"],"nationality":"Belgium","years":["2022\u20132023","2021\u20132022","2024\u2013present"]}', 'player_career_stats'),
 	-- Lucas Digne (5): Andres Iniesta, Edinson Cavani, James Rodriguez, Eden Hazard, Emiliano Martinez
-	(849, '[581,595,597,800,839]', '{"clubs":["Barcelona","Paris Saint-Germain","Everton","Lille","Aston Villa"],"nationality":"France","years":["2016\u20132018","2013\u20132020","2020\u20132021","2011\u20132012","2022\u2013present"]}', 'player_career_stats'),
+	(849, '[581,595,597,800,839]', '{"clubs":["Barcelona","Paris Saint-Germain","Everton","Lille","Aston Villa"],"clubImages":["clubs/206.svg","clubs/261.svg","clubs/191.svg","clubs/265.svg","clubs/184.svg"],"nationality":"France","years":["2016\u20132018","2013\u20132020","2020\u20132021","2011\u20132012","2022\u2013present"]}', 'player_career_stats'),
 	-- Donyell Malen (3): Marco Reus, Mario Gotze, Emiliano Martinez
-	(851, '[609,610,839]', '{"clubs":["Borussia Dortmund","PSV Eindhoven","Aston Villa"],"nationality":"Netherlands","years":["2021\u20132024","2020\u20132021","2025\u2013present"]}', 'player_career_stats'),
+	(851, '[609,610,839]', '{"clubs":["Borussia Dortmund","PSV Eindhoven","Aston Villa"],"clubImages":["clubs/244.svg","clubs/284.svg","clubs/184.svg"],"nationality":"Netherlands","years":["2021\u20132024","2020\u20132021","2025\u2013present"]}', 'player_career_stats'),
 	-- Leon Bailey (3): Florian Wirtz, Leandro Trossard, Emiliano Martinez
-	(853, '[703,717,839]', '{"clubs":["Bayer Leverkusen","Genk","Aston Villa"],"nationality":"Jamaica","years":["2020\u20132021","2015\u20132017","2021\u2013present"]}', 'player_career_stats'),
+	(853, '[703,717,839]', '{"clubs":["Bayer Leverkusen","Genk","Aston Villa"],"clubImages":["clubs/246.svg","clubs/18996.png","clubs/184.svg"],"nationality":"Jamaica","years":["2020\u20132021","2015\u20132017","2021\u2013present"]}', 'player_career_stats'),
 	-- Lucas Paqueta (4): Zlatan Ibrahimovic, Vinicius Junior, Declan Rice, Moussa Dembele
-	(855, '[599,619,625,680]', '{"clubs":["AC Milan","Flamengo","West Ham United","Lyon"],"nationality":"Brazil","years":["2019\u20132020","2017\u20132018","2022\u20132023","2020\u20132022"]}', 'player_career_stats'),
+	(855, '[599,619,625,680]', '{"clubs":["AC Milan","Flamengo","West Ham United","Lyon"],"clubImages":["clubs/235.svg","clubs/31.svg","clubs/201.svg","clubs/263.svg"],"nationality":"Brazil","years":["2019\u20132020","2017\u20132018","2022\u20132023","2020\u20132022"]}', 'player_career_stats'),
 	-- Niclas Fullkrug (3): Marco Reus, Mohammed Kudus, Nick Woltemade
-	(857, '[609,816,835]', '{"clubs":["Borussia Dortmund","West Ham United","Werder Bremen"],"nationality":"Germany","years":["2023\u20132024","2024\u20132025","2020\u20132023"]}', 'player_career_stats'),
+	(857, '[609,816,835]', '{"clubs":["Borussia Dortmund","West Ham United","Werder Bremen"],"clubImages":["clubs/244.svg","clubs/201.svg","clubs/255.svg"],"nationality":"Germany","years":["2023\u20132024","2024\u20132025","2020\u20132023"]}', 'player_career_stats'),
 	-- Jean-Philippe Mateta (3): Alexandre Lacazette, Michael Olise, Yoane Wissa
-	(859, '[678,698,836]', '{"clubs":["Lyon","Crystal Palace","Chateauroux"],"nationality":"France","years":["2016\u20132018","2022\u20132024","2015\u20132016"]}', 'player_career_stats'),
+	(859, '[678,698,836]', '{"clubs":["Lyon","Crystal Palace","Chateauroux"],"clubImages":["clubs/263.svg","clubs/190.svg","clubs/19137.svg"],"nationality":"France","years":["2016\u20132018","2022\u20132024","2015\u20132016"]}', 'player_career_stats'),
 	-- Ismaila Sarr (3): Eberechi Eze, Joao Pedro, Iliman Ndiaye
-	(863, '[725,793,870]', '{"clubs":["Crystal Palace","Watford","Marseille"],"nationality":"Senegal","years":["2024\u20132025","2020\u20132023","2023\u20132024"]}', 'player_career_stats'),
+	(863, '[725,793,870]', '{"clubs":["Crystal Palace","Watford","Marseille"],"clubImages":["clubs/190.svg","clubs/311.svg","clubs/262.svg"],"nationality":"Senegal","years":["2024\u20132025","2020\u20132023","2023\u20132024"]}', 'player_career_stats'),
 	-- Idrissa Gueye (4): Wayne Rooney, Sergio Ramos, Jack Grealish, Eden Hazard
-	(868, '[552,582,749,800]', '{"clubs":["Everton","Paris Saint-Germain","Aston Villa","Lille"],"nationality":"Senegal","years":["2016\u20132018","2021\u20132022","2015\u20132016","2010\u20132012"]}', 'player_career_stats'),
+	(868, '[552,582,749,800]', '{"clubs":["Everton","Paris Saint-Germain","Aston Villa","Lille"],"clubImages":["clubs/191.svg","clubs/261.svg","clubs/184.svg","clubs/265.svg"],"nationality":"Senegal","years":["2016\u20132018","2021\u20132022","2015\u20132016","2010\u20132012"]}', 'player_career_stats'),
 	-- Iliman Ndiaye (3): Aaron Ramsdale, Ismaila Sarr, Jordan Pickford
-	(870, '[829,863,867]', '{"clubs":["Sheffield United","Marseille","Everton"],"nationality":"Senegal","years":["2019\u20132021","2023\u20132024","2024\u2013present"]}', 'player_career_stats'),
+	(870, '[829,863,867]', '{"clubs":["Sheffield United","Marseille","Everton"],"clubImages":["clubs/308.svg","clubs/262.svg","clubs/191.svg"],"nationality":"Senegal","years":["2019\u20132021","2023\u20132024","2024\u2013present"]}', 'player_career_stats'),
 	-- Bernd Leno (3): Mesut Ozil, Son Heung-min, Tosin Adarabioyo
-	(874, '[611,627,797]', '{"clubs":["Arsenal","Bayer Leverkusen","Fulham"],"nationality":"Germany","years":["2018\u20132021","2013\u20132015","2022\u20132024"]}', 'player_career_stats'),
+	(874, '[611,627,797]', '{"clubs":["Arsenal","Bayer Leverkusen","Fulham"],"clubImages":["clubs/183.svg","clubs/246.svg","clubs/192.svg"],"nationality":"Germany","years":["2018\u20132021","2013\u20132015","2022\u20132024"]}', 'player_career_stats'),
 	-- Joachim Andersen (3): Moussa Dembele, Michael Olise, Bernd Leno
-	(876, '[680,698,874]', '{"clubs":["Lyon","Crystal Palace","Fulham"],"nationality":"Denmark","years":["2019\u20132021","2021\u20132024","2024\u2013present"]}', 'player_career_stats'),
+	(876, '[680,698,874]', '{"clubs":["Lyon","Crystal Palace","Fulham"],"clubImages":["clubs/263.svg","clubs/190.svg","clubs/192.svg"],"nationality":"Denmark","years":["2019\u20132021","2021\u20132024","2024\u2013present"]}', 'player_career_stats'),
 	-- Alex Iwobi (3): James Rodriguez, Mesut Ozil, Tosin Adarabioyo
-	(878, '[597,611,797]', '{"clubs":["Everton","Arsenal","Fulham"],"nationality":"Nigeria","years":["2020\u20132021","2015\u20132019","2023\u20132024"]}', 'player_career_stats'),
+	(878, '[597,611,797]', '{"clubs":["Everton","Arsenal","Fulham"],"clubImages":["clubs/191.svg","clubs/183.svg","clubs/192.svg"],"nationality":"Nigeria","years":["2020\u20132021","2015\u20132019","2023\u20132024"]}', 'player_career_stats'),
 	-- Raul Jimenez (4): Antoine Griezmann, Ederson, Diogo Jota, Tosin Adarabioyo
-	(879, '[614,638,683,797]', '{"clubs":["Atletico Madrid","Benfica","Wolverhampton Wanderers","Fulham"],"nationality":"Mexico","years":["2014\u20132015","2015\u20132017","2019\u20132020","2023\u20132024"]}', 'player_career_stats'),
+	(879, '[614,638,683,797]', '{"clubs":["Atletico Madrid","Benfica","Wolverhampton Wanderers","Fulham"],"clubImages":["clubs/205.svg","clubs/280.svg","clubs/202.svg","clubs/192.svg"],"nationality":"Mexico","years":["2014\u20132015","2015\u20132017","2019\u20132020","2023\u20132024"]}', 'player_career_stats'),
 	-- Georginio Rutter (3): Kaoru Mitoma, Serhou Guirassy, Archie Gray
-	(886, '[628,691,819]', '{"clubs":["Brighton","Rennes","Leeds United"],"nationality":"France","years":["2024\u2013present","2020\u20132021","2023\u20132024"]}', 'player_career_stats'),
+	(886, '[628,691,819]', '{"clubs":["Brighton","Rennes","Leeds United"],"clubImages":["clubs/187.svg","clubs/268.svg","clubs/193.svg"],"nationality":"France","years":["2024\u2013present","2020\u20132021","2023\u20132024"]}', 'player_career_stats'),
 	-- Danny Welbeck (4): Michael Owen, Mesut Ozil, Kaoru Mitoma, Ismaila Sarr
-	(887, '[550,611,628,863]', '{"clubs":["Manchester United","Arsenal","Brighton","Watford"],"nationality":"England","years":["2009\u20132012","2014\u20132019","2021\u2013present","2019\u20132020"]}', 'player_career_stats'),
+	(887, '[550,611,628,863]', '{"clubs":["Manchester United","Arsenal","Brighton","Watford"],"clubImages":["clubs/196.svg","clubs/183.svg","clubs/187.svg","clubs/311.svg"],"nationality":"England","years":["2009\u20132012","2014\u20132019","2021\u2013present","2019\u20132020"]}', 'player_career_stats'),
 	-- Nathan Collins (3): David Raya, Matheus Nunes, Nick Pope
-	(890, '[705,755,828]', '{"clubs":["Brentford","Wolverhampton Wanderers","Burnley"],"nationality":"Republic of Ireland","years":["2023\u20132024","2022\u20132023","2021\u20132022"]}', 'player_career_stats'),
+	(890, '[705,755,828]', '{"clubs":["Brentford","Wolverhampton Wanderers","Burnley"],"clubImages":["clubs/186.svg","clubs/202.svg","clubs/188.svg"],"nationality":"Republic of Ireland","years":["2023\u20132024","2022\u20132023","2021\u20132022"]}', 'player_career_stats'),
 	-- Justin Kluivert (3): Riccardo Calafiori, Milos Kerkez, Matthijs de Ligt
-	(894, '[721,737,762]', '{"clubs":["Roma","Bournemouth","Ajax"],"nationality":"Netherlands","years":["2020\u20132022","2023\u20132025","2016\u20132018"]}', 'player_career_stats'),
+	(894, '[721,737,762]', '{"clubs":["Roma","Bournemouth","Ajax"],"clubImages":["clubs/239.svg","clubs/185.svg","clubs/283.png"],"nationality":"Netherlands","years":["2020\u20132022","2023\u20132025","2016\u20132018"]}', 'player_career_stats'),
 	-- Dean Huijsen (3): Vinicius Junior, Paul Pogba, Milos Kerkez
-	(900, '[619,676,737]', '{"clubs":["Real Madrid","Juventus","Bournemouth"],"nationality":"Spain","years":["2025\u2013present","2023\u20132024","2024\u20132025"]}', 'player_career_stats');
+	(900, '[619,676,737]', '{"clubs":["Real Madrid","Juventus","Bournemouth"],"clubImages":["clubs/217.svg","clubs/232.svg","clubs/185.svg"],"nationality":"Spain","years":["2025\u2013present","2023\u20132024","2024\u20132025"]}', 'player_career_stats');

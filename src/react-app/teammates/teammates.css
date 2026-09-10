@@ -30,3 +30,25 @@
 	font-size: 1.15rem;
 	font-weight: 700;
 }
+
+/* Hint 1: "<badge> Name — Club" per clue, one per line. Sits inside
+   ClubBadgesPlay's .cb-hint-text. */
+.tm-hint-clubs {
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
+	align-items: center;
+}
+
+.tm-hint-club {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+}
+
+.tm-hint-badge {
+	width: 1.15em;
+	height: 1.15em;
+	object-fit: contain;
+	vertical-align: middle;
+}

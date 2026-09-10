@@ -16,10 +16,17 @@ import { clubBadgesReducer, initialCbState, MAX_WRONG_LIVES, type CbQuestion } f
 // guess box, two-step give-up, reveal + score chip, round-over screen) is
 // the exact same components, so the two solo modes play identically.
 
+interface ClubClue {
+	name: string;
+	club: string;
+	image: string | null; // ready /api/media URL, or null if no badge sourced
+}
 interface RoundQuestion {
 	id: number;
-	teammates: string[]; // clue names only -- no nationality/flag by design
-	hints: string[]; // ordered hint texts (club / nationality / years), 0-3
+	teammates: string[]; // clue names only -- club/nationality/years are hints
+	clubHint: ClubClue[]; // hint 1: each clue's club, with badge
+	nationality: string | null; // hint 2
+	yearHint: string; // hint 3, pre-joined
 }
 interface RoundResponse {
 	questions: RoundQuestion[];
@@ -46,10 +53,10 @@ export function Teammates({ onExit }: Props) {
 	const [submitting, setSubmitting] = useState(false);
 	const [loadError, setLoadError] = useState<string | null>(null);
 	// Per question, index-aligned with state.questions: the clue names (for
-	// ClubBadgesPlay's `middle` slot) and the ordered hint texts (for its
-	// `extraHints`).
+	// ClubBadgesPlay's `middle` slot) and the raw hint pieces (assembled
+	// into ClubBadgesPlay's `extraHints` nodes at render).
 	const [clueSets, setClueSets] = useState<string[][]>([]);
-	const [hintSets, setHintSets] = useState<string[][]>([]);
+	const [hintData, setHintData] = useState<Pick<RoundQuestion, "clubHint" | "nationality" | "yearHint">[]>([]);
 	// Running score total this round -- the reducer only tracks a correct
 	// COUNT (state.players[0].correct), not points, so accumulate it here
 	// for the WhatsApp share text.
@@ -65,7 +72,9 @@ export function Teammates({ onExit }: Props) {
 				return;
 			}
 			setClueSets(data.questions.map((q) => q.teammates));
-			setHintSets(data.questions.map((q) => q.hints));
+			setHintData(
+				data.questions.map((q) => ({ clubHint: q.clubHint, nationality: q.nationality, yearHint: q.yearHint })),
+			);
 			dispatch({ type: "start", playerNames: ["You"], questions: data.questions.map(toCbQuestion) });
 		} catch {
 			setLoadError("Couldn't load a round right now — try again in a moment.");
@@ -131,7 +140,25 @@ export function Teammates({ onExit }: Props) {
 	}
 
 	const clues = clueSets[state.questionIndex] ?? [];
-	const hints = hintSets[state.questionIndex] ?? [];
+	// Build the 3 ordered hint nodes for the current question: (1) each
+	// clue's club with its badge inline, (2) the mystery player's country,
+	// (3) the overlap years. Hint 2 is skipped if the country isn't on
+	// record; a question with no hint data at all yields [].
+	const hd = hintData[state.questionIndex];
+	const hints: React.ReactNode[] = hd
+		? [
+				<span className="tm-hint-clubs">
+					{hd.clubHint.map((c, i) => (
+						<span key={i} className="tm-hint-club">
+							{c.image && <img src={c.image} alt="" className="tm-hint-badge" />}
+							{c.name} — {c.club}
+						</span>
+					))}
+				</span>,
+				...(hd.nationality ? [`They represent ${hd.nationality}`] : []),
+				hd.yearHint,
+			]
+		: [];
 
 	return (
 		<div className="screen">
