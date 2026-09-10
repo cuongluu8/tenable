@@ -143,14 +143,17 @@ interface Props {
 	// "Who am I?" mode (Teammates.tsx) reuses this whole screen -- same
 	// reducer, lives, timer, guess box, give-up flow, reveal, score chip.
 	// `middle` renders in place of the badge chain + "may not show their
-	// full career" disclaimer; `soloBanner` changes the solo prompt from
-	// "Who is this?"; `extraHints` is that mode's own ordered hint nodes
-	// (revealed one at a time, 15 points each, same as club-badges' own
-	// hints -- each is arbitrary JSX, e.g. hint 1 has inline club badges).
-	// Passing `extraHints` (even []) switches off club-badges' own
-	// HINT_KEYS button. All optional; club-badges passes none and is
-	// unchanged.
-	middle?: React.ReactNode;
+	// full career" disclaimer; it may be a function of how many extra
+	// hints are revealed, so a hint can change the middle itself (hint 1
+	// drops each clue's club badge into its card rather than a list
+	// below). `soloBanner` changes the solo prompt from "Who is this?".
+	// `extraHints` is that mode's own ordered hint nodes, revealed one at
+	// a time, 15 points each -- a null/empty entry still counts as a hint
+	// press (and its cost) but renders nothing below, for a hint that
+	// lives in `middle` instead. Passing `extraHints` (even []) switches
+	// off club-badges' own HINT_KEYS button. All optional; club-badges
+	// passes none and is unchanged.
+	middle?: React.ReactNode | ((extraHintsRevealed: number) => React.ReactNode);
 	soloBanner?: string;
 	extraHints?: React.ReactNode[];
 }
@@ -294,6 +297,8 @@ export function ClubBadgesPlay({
 	// uses club-badges' hints XOR teammates' extraHints), so summing is safe.
 	const hintsUsed = revealedHints.size + revealedExtra;
 
+	const middleContent = typeof middle === "function" ? middle(revealedExtra) : middle;
+
 	function pick(name: string) {
 		setGuessInput(name);
 		onGuess(name, computeScore(elapsedSeconds, hintsUsed));
@@ -375,7 +380,7 @@ export function ClubBadgesPlay({
 			    useful to see. */}
 			<p className="cb-timer">⏱ {formatElapsed(elapsedSeconds)}</p>
 
-			{middle ?? (
+			{middleContent ?? (
 			<>
 			{/* useGridColumns computes how many tiles fit per row; chunking
 			    chainTiles into rows of that many (clubBadges.css's
@@ -549,14 +554,18 @@ export function ClubBadgesPlay({
 			{/* "Who am I?" mode's hints: ordered JSX nodes (from the round
 			    data), one revealed per press, each already-revealed one stays
 			    up. Same 15-point cost as club-badges' own hints -- see
-			    hintsUsed above. */}
+			    hintsUsed above. A null/empty entry renders nothing here
+			    (its content lives in `middle` instead) but still cost a
+			    press. */}
 			{useExtraHints && (
 				<>
-					{extraHints.slice(0, revealedExtra).map((node, i) => (
-						<div key={i} className="cb-hint-text">
-							{node}
-						</div>
-					))}
+					{extraHints.slice(0, revealedExtra).map((node, i) =>
+						node ? (
+							<div key={i} className="cb-hint-text">
+								{node}
+							</div>
+						) : null,
+					)}
 					{!state.lastResult && revealedExtra < extraHints.length && (
 						<button
 							type="button"

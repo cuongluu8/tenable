@@ -1,7 +1,7 @@
-/* "Who am I? I played with..." mode (Teammates.tsx). The entire play
-   screen is ClubBadgesPlay.tsx now -- lives, timer, guess box, give-up,
-   reveal, score chip, round-over screen are all shared with club-badges.
-   The only thing this mode owns is the clue list that fills
+/* "Who am I? I played with..." mode (Teammates.tsx). The whole play
+   screen is ClubBadgesPlay.tsx -- lives, timer, guess box, give-up,
+   reveal, score chip, hints, round-over screen are all shared with
+   club-badges. The only thing this mode owns is the clue list that fills
    ClubBadgesPlay's `middle` slot in place of the badge chain. */
 
 .tm-sub {
@@ -23,32 +23,35 @@
 }
 
 .tm-clue {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.75rem;
 	background: #1f2937;
 	border: 1px solid #374151;
 	border-radius: 10px;
 	padding: 0.7rem 0.9rem;
+}
+
+.tm-clue__name {
 	font-size: 1.15rem;
 	font-weight: 700;
 }
 
-/* Hint 1: "<badge> Name — Club" per clue, one per line. Sits inside
-   ClubBadgesPlay's .cb-hint-text. */
-.tm-hint-clubs {
-	display: flex;
-	flex-direction: column;
-	gap: 0.35rem;
-	align-items: center;
-}
-
-.tm-hint-club {
+/* Hint 1 -- the club this clue was a teammate at, revealed inside the
+   card. Muted so it reads as an annotation on the name, not a second
+   headline. */
+.tm-clue__club {
 	display: inline-flex;
 	align-items: center;
 	gap: 0.4rem;
+	color: #9ca3af;
+	font-size: 0.9rem;
+	white-space: nowrap;
 }
 
-.tm-hint-badge {
-	width: 1.15em;
-	height: 1.15em;
+.tm-clue__badge {
+	width: 1.2em;
+	height: 1.2em;
 	object-fit: contain;
-	vertical-align: middle;
 }

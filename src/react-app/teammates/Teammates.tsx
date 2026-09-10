@@ -139,24 +139,16 @@ export function Teammates({ onExit }: Props) {
 	}
 
 	const clues = clueSets[state.questionIndex] ?? [];
-	// Build the 3 ordered hint nodes for the current question: (1) each
-	// clue's club with its badge inline, (2) the mystery player's country,
-	// (3) the overlap years. Hint 2 is skipped if the country isn't on
-	// record; a question with no hint data at all yields [].
+	// The 3 ordered hints for the current question. Hint 1 (each clue's
+	// club + badge) is `null` here -- its content goes INTO the clue cards
+	// (see the `middle` render prop below) rather than a list underneath,
+	// but the null still counts as a hint press (and -15). Hints 2 (the
+	// mystery player's country) and 3 (overlap years) render as text.
+	// Hint 2 is skipped if the country isn't on record; no hint data ->
+	// no hints at all.
 	const hd = hintData[state.questionIndex];
 	const hints: React.ReactNode[] = hd
-		? [
-				<span className="tm-hint-clubs">
-					{hd.clubHint.map((c, i) => (
-						<span key={i} className="tm-hint-club">
-							{c.image && <img src={c.image} alt="" className="tm-hint-badge" />}
-							{c.club}
-						</span>
-					))}
-				</span>,
-				...(hd.nationality ? [`They represent ${hd.nationality}`] : []),
-				hd.yearHint,
-			]
+		? [null, ...(hd.nationality ? [`They represent ${hd.nationality}`] : []), hd.yearHint]
 		: [];
 
 	return (
@@ -185,18 +177,29 @@ export function Teammates({ onExit }: Props) {
 					onQuit={onExit}
 					soloBanner="Who am I?"
 					extraHints={hints}
-					middle={
+					middle={(hintsRevealed) => (
 						<>
 							<p className="tm-sub">I played with…</p>
 							<ul className="tm-clues">
-								{clues.map((name, i) => (
-									<li key={i} className="tm-clue">
-										{name}
-									</li>
-								))}
+								{clues.map((name, i) => {
+									// Hint 1 revealed -> show this clue's club + badge
+									// right in the card, next to the name.
+									const club = hintsRevealed >= 1 ? hd?.clubHint[i] : undefined;
+									return (
+										<li key={i} className="tm-clue">
+											<span className="tm-clue__name">{name}</span>
+											{club && (
+												<span className="tm-clue__club">
+													{club.image && <img src={club.image} alt="" className="tm-clue__badge" />}
+													{club.club}
+												</span>
+											)}
+										</li>
+									);
+								})}
 							</ul>
 						</>
-					}
+					)}
 				/>
 			)}
 			{state.phase === "finished" && (
