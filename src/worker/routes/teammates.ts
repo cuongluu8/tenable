@@ -70,12 +70,13 @@ teammates.get("/round", async (c) => {
 			// Clue cards show names only -- club/nationality/years withheld
 			// behind the hints.
 			teammates: names,
-			// Hint 1: the club each clue was a teammate at, with its badge.
-			// `image` is a ready /api/media URL (or null if not sourced).
+			// Hint 1: the club each clue was a teammate at, with its badge,
+			// in the SAME order as `teammates` -- the client lines them up
+			// positionally, so no need to repeat the names. `image` is a
+			// ready /api/media URL (or null if not sourced).
 			clubHint: h
-				? names.map((n, i) => ({
-						name: n,
-						club: h.clubs[i] ?? "?",
+				? h.clubs.map((club, i) => ({
+						club: club ?? "?",
 						image: h.clubImages[i] ? `/api/media/${h.clubImages[i]}` : null,
 					}))
 				: [],

@@ -17,14 +17,13 @@ import { clubBadgesReducer, initialCbState, MAX_WRONG_LIVES, type CbQuestion } f
 // the exact same components, so the two solo modes play identically.
 
 interface ClubClue {
-	name: string;
 	club: string;
 	image: string | null; // ready /api/media URL, or null if no badge sourced
 }
 interface RoundQuestion {
 	id: number;
 	teammates: string[]; // clue names only -- club/nationality/years are hints
-	clubHint: ClubClue[]; // hint 1: each clue's club, with badge
+	clubHint: ClubClue[]; // hint 1: each clue's club + badge, same order as teammates
 	nationality: string | null; // hint 2
 	yearHint: string; // hint 3, pre-joined
 }
@@ -151,7 +150,7 @@ export function Teammates({ onExit }: Props) {
 					{hd.clubHint.map((c, i) => (
 						<span key={i} className="tm-hint-club">
 							{c.image && <img src={c.image} alt="" className="tm-hint-badge" />}
-							{c.name} — {c.club}
+							{c.club}
 						</span>
 					))}
 				</span>,
