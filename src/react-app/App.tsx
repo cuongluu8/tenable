@@ -6,7 +6,8 @@ import { PlayScreen } from "./components/PlayScreen";
 import { ClubBadgeSetPlay } from "./clubBadges/ClubBadgeSetPlay";
 import { ClubBadgeSets } from "./clubBadges/ClubBadgeSets";
 import { Multiplayer } from "./multiplayer/Multiplayer";
-import { Teammates } from "./teammates/Teammates";
+import { TeammateSetPlay } from "./teammates/TeammateSetPlay";
+import { TeammateSets } from "./teammates/TeammateSets";
 import type { CategoriesResponse, Category } from "./types";
 
 type LoadState =
@@ -60,11 +61,28 @@ function isClubBadgeSetsPath(): boolean {
 }
 
 // Solo "who am I? I played with..." -- one level under the single-player
-// picker, same shape as the club-badges entry. No sub-picker or per-set
-// state of its own (a round is just 10 random draws, like multiplayer's
-// club-badges), so it's a single flat path with nothing to slug.
+// picker, exactly the same shape as the club-badges entry: this path is
+// the Sets picker (TeammateSets.tsx), not a round -- eleven curated,
+// nameable rounds a player returns to and completes at their own pace
+// (see src/worker/lib/teammateSets.ts), progress saved locally.
 function isSoloTeammatesPath(): boolean {
 	return window.location.pathname === "/single-player/teammates";
+}
+
+// One level under the "Who am I?" Sets picker -- actually playing a
+// specific set. Slugged by number since TEAMMATE_SETS is 1-indexed and
+// unnamed beyond "Set N" (teammateSets.ts). ?retry=<questionId> narrows
+// the session to replaying just that one already-answered question
+// (TeammateSets.tsx's per-question retry). Mirror of
+// clubBadgeSetIdFromPath.
+function teammateSetIdFromPath(): number | null {
+	const match = /^\/single-player\/teammates\/set\/(\d+)$/.exec(window.location.pathname);
+	return match ? Number(match[1]) : null;
+}
+function teammateSetRetryQuestionId(): number | undefined {
+	const raw = new URLSearchParams(window.location.search).get("retry");
+	const parsed = raw ? Number(raw) : NaN;
+	return Number.isInteger(parsed) ? parsed : undefined;
 }
 
 // One level under the Sets picker -- actually playing a specific set.
@@ -93,6 +111,8 @@ function App() {
 	const [clubBadgeSetId, setClubBadgeSetId] = useState<number | null>(() => clubBadgeSetIdFromPath());
 	const [clubBadgeSetRetryId, setClubBadgeSetRetryId] = useState<number | undefined>(() => clubBadgeSetRetryQuestionId());
 	const [soloTeammatesActive, setSoloTeammatesActive] = useState<boolean>(() => isSoloTeammatesPath());
+	const [teammateSetId, setTeammateSetId] = useState<number | null>(() => teammateSetIdFromPath());
+	const [teammateSetRetryId, setTeammateSetRetryId] = useState<number | undefined>(() => teammateSetRetryQuestionId());
 
 	const loadCategories = useCallback(() => {
 		fetch("/api/categories")
@@ -129,6 +149,8 @@ function App() {
 			setClubBadgeSetId(clubBadgeSetIdFromPath());
 			setClubBadgeSetRetryId(clubBadgeSetRetryQuestionId());
 			setSoloTeammatesActive(isSoloTeammatesPath());
+			setTeammateSetId(teammateSetIdFromPath());
+			setTeammateSetRetryId(teammateSetRetryQuestionId());
 		}
 		window.addEventListener("popstate", handlePopState);
 		return () => window.removeEventListener("popstate", handlePopState);
@@ -182,6 +204,23 @@ function App() {
 		setClubBadgeSetsActive(true);
 	}
 
+	// "Who am I?" Sets -- exact mirror of handlePlayClubBadgeSet /
+	// handleExitClubBadgeSetPlay above.
+	function handlePlayTeammateSet(setId: number, onlyQuestionId?: number) {
+		const query = onlyQuestionId ? `?retry=${onlyQuestionId}` : "";
+		window.history.pushState(null, "", `/single-player/teammates/set/${setId}${query}`);
+		setSoloTeammatesActive(false);
+		setTeammateSetId(setId);
+		setTeammateSetRetryId(onlyQuestionId);
+	}
+
+	function handleExitTeammateSetPlay() {
+		window.history.pushState(null, "", "/single-player/teammates");
+		setTeammateSetId(null);
+		setTeammateSetRetryId(undefined);
+		setSoloTeammatesActive(true);
+	}
+
 	function handleSelect(cat: Category) {
 		window.history.pushState(null, "", `/play/${cat.slug}`);
 		setActiveSlug(cat.slug);
@@ -203,6 +242,8 @@ function App() {
 		setClubBadgeSetId(null);
 		setClubBadgeSetRetryId(undefined);
 		setSoloTeammatesActive(false);
+		setTeammateSetId(null);
+		setTeammateSetRetryId(undefined);
 		setSinglePlayerHomeActive(true);
 	}
 
@@ -216,6 +257,8 @@ function App() {
 		setClubBadgeSetId(null);
 		setClubBadgeSetRetryId(undefined);
 		setSoloTeammatesActive(false);
+		setTeammateSetId(null);
+		setTeammateSetRetryId(undefined);
 	}
 
 	if (activeSlug) {
@@ -240,8 +283,18 @@ function App() {
 		return <ClubBadgeSets onPlay={handlePlayClubBadgeSet} onBack={handleBackToSinglePlayerHome} />;
 	}
 
+	if (teammateSetId !== null) {
+		return (
+			<TeammateSetPlay
+				setId={teammateSetId}
+				onlyQuestionId={teammateSetRetryId}
+				onExit={handleExitTeammateSetPlay}
+			/>
+		);
+	}
+
 	if (soloTeammatesActive) {
-		return <Teammates onExit={handleBackToSinglePlayerHome} />;
+		return <TeammateSets onPlay={handlePlayTeammateSet} onBack={handleBackToSinglePlayerHome} />;
 	}
 
 	if (categoryListActive) {

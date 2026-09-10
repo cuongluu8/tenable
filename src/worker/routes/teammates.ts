@@ -1,10 +1,12 @@
 import { Hono } from "hono";
 import { normalize, collapseToAlnum } from "../lib/normalize";
+import { TEAMMATE_SETS, TEAMMATE_SET_NAMES } from "../lib/teammateSets";
 
 const teammates = new Hono<{ Bindings: Env }>();
 
-// A full round's size -- same as club-badges, and same "10 random draws
-// from the whole pool at play time" model (no daily-locked set here).
+// A full round's size -- same as club-badges, and doubles as Sets mode's
+// "is this set actually complete" threshold below (/sets), same as
+// clubBadges.ts.
 const QUESTIONS_PER_ROUND = 10;
 
 interface QuestionRow {
@@ -21,14 +23,21 @@ interface Hints {
 	years: string[];
 }
 
-// GET /api/teammates/round  -- 10 random "who am I? I played with..."
-// questions. The mystery player's own name/id is never sent -- just the
-// clue names, plus the hint pieces per question: `cardHints` (each clue's
-// club + badge + overlap years, shown IN its card by hints 1 and 3) and
+// GET /api/teammates/round  -- 10 "who am I? I played with..." questions.
+// The mystery player's own name/id is never sent -- just the clue names,
+// plus the hint pieces per question: `cardHints` (each clue's club +
+// badge + overlap years, shown IN its card by hints 1 and 3) and
 // `nationality` (hint 2, shown as text). The client reveals one hint at a
 // time for a 15-point penalty each, same as club-badges. Clue count
 // varies 3-6, one per club the mystery player was at -- see
 // build_teammate_questions.py.
+//
+// ?setId=N (1-indexed) hands back exactly one curated set's questions (see
+// teammateSets.ts), in that FIXED order rather than shuffled, so "Set 3"
+// means the same ten every time -- TeammateSetPlay.tsx's own view. The
+// response then also carries `setName` ("Candid Ibex" etc). With no
+// setId it's a fresh random 10. ?playerId=N forces one player's question
+// (dev/test escape hatch, same as clubBadges /round).
 //
 // D1 cost: teammate_questions is a small curated table (few hundred rows,
 // only grows by manual re-derivation) -- an unfiltered SELECT of it is
@@ -43,11 +52,20 @@ teammates.get("/round", async (c) => {
 		return c.json({ error: "No teammate questions available" }, 500);
 	}
 
+	const rawSetId = c.req.query("setId");
+	const setIndex = rawSetId ? Number(rawSetId) - 1 : NaN;
+	const set = Number.isInteger(setIndex) ? TEAMMATE_SETS[setIndex] : undefined;
 	// Dev/test-only: ?playerId=552 forces that one player's question, same
 	// escape hatch clubBadges /round has.
 	const forcedPlayerId = c.req.query("playerId");
 	let picked: QuestionRow[];
-	if (forcedPlayerId) {
+	if (set) {
+		const byPlayerId = new Map(all.map((q) => [q.player_id, q]));
+		// .filter mirrors clubBadges /round: a set referencing a player
+		// whose teammate_questions row got deleted just shrinks that set by
+		// one, it doesn't 500 the page.
+		picked = set.map((pid) => byPlayerId.get(pid)).filter((q): q is QuestionRow => q !== undefined);
+	} else if (forcedPlayerId) {
 		picked = all.filter((q) => q.player_id === Number(forcedPlayerId));
 	} else {
 		picked = [...all].sort(() => Math.random() - 0.5).slice(0, QUESTIONS_PER_ROUND);
@@ -85,7 +103,35 @@ teammates.get("/round", async (c) => {
 			nationality: h?.nationality ?? null,
 		};
 	});
-	return c.json({ questions });
+	return c.json({ setName: set ? TEAMMATE_SET_NAMES[setIndex] : undefined, questions });
+});
+
+// GET /api/teammates/sets  -- Sets mode's index (TeammateSets.tsx, the
+// set-picker). One call to learn how many sets exist and which
+// teammate_questions.id sits in each slot, so the picker can show
+// "7/10 done" and a finished set's average score straight from
+// localStorage (teammateSetsStorage.ts) with no per-set round trip.
+// questionIds only, never a player id or name -- same non-spoiler
+// reasoning as clubBadges /sets. Small unfiltered SELECT, no scans.
+teammates.get("/sets", async (c) => {
+	const { results } = await c.env.DB
+		.prepare("SELECT id, player_id FROM teammate_questions")
+		.all<{ id: number; player_id: number }>();
+	const questionIdByPlayerId = new Map((results ?? []).map((r) => [r.player_id, r.id]));
+
+	const sets = TEAMMATE_SETS.map((playerIds, i) => ({
+		id: i + 1,
+		name: TEAMMATE_SET_NAMES[i],
+		// .filter mirrors clubBadges /sets: a set referencing a now-missing
+		// player quietly shrinks rather than crashing, and any set that
+		// ends up under a full ten is hidden from the picker (all 11 are a
+		// full ten today -- see teammateSets.ts).
+		questionIds: playerIds
+			.map((pid) => questionIdByPlayerId.get(pid))
+			.filter((id): id is number => id !== undefined),
+	})).filter((set) => set.questionIds.length === QUESTIONS_PER_ROUND);
+
+	return c.json({ sets });
 });
 
 interface CheckGuessBody {
