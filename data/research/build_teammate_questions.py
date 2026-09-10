@@ -28,51 +28,46 @@ teammates" was wrong, and so was "the smallest set that happens not to
 collide in our sample" (fragile -- pool-unique only because the rest of
 that squad isn't researched yet).
 
-Two hard rules now, both user instructions:
-  - At least MIN_CLUES teammates per question.
-  - Each clue from a DIFFERENT club of the mystery player's -- there must
-    be a way to assign each clue its own distinct club where it actually
-    overlapped them (a system of distinct representatives, has_distinct_
-    clubs below). So every question is a genuine multi-club bridge, never
-    a group from one squad.
+Rules, all user instructions:
+  - Each clue from a DIFFERENT club of the mystery player's -- built as
+    "one famous teammate per club", so this holds by construction.
+  - At least MIN_CLUES clues (3).
+  - As MANY clues as possible, up to MAX_CLUES (6) -- "include more
+    players where possible". So a player who was at six clubs, each with a
+    recognizable teammate, gets a six-clue question; one with only three
+    such clubs gets three.
+  - The set must be unique: no other researched player played with all of
+    them. (Superset of a unique set is unique, so if the biggest set
+    isn't unique, no subset is either -- the player is just ambiguous and
+    gets dropped.)
 
-Among the candidate sets that satisfy both rules AND are minimal (no
-redundant clue) AND unique (no other researched player played with all of
-them), the most discriminating one is picked:
+Construction: for each of the mystery player's clubs, take the single
+most-famous teammate they overlapped there (each teammate used once,
+clubs whose best teammate is more famous get first pick). Order those by
+fame, keep up to six. Drop the player if fewer than three, or if the set
+still isn't unique.
 
-  1. clue rarity, MAXIMISED -- prefer clues who themselves have few
-     verified teammates; a player who only ever overlapped 10 others is a
-     razor-sharp identifier, one who overlapped 90 is mush.
-  2. fame, MAXIMISED -- lower entity id (the manual fame ranking).
-  3. fewer clues -- elegance only, the final tie-break.
-
-A player with no such set among their famous teammates is dropped, not
-shipped ambiguous -- e.g. a one-club man, or one whose famous teammates
-are all from a single club. "Unique" is still within the researched pool
-(the boundary we can check); re-run when player_career_stats grows.
+"Unique" is within the researched pool (the boundary we can check);
+re-run when player_career_stats grows.
 
 Usage: python3 data/research/build_teammate_questions.py --db <local D1 sqlite path>
 Writes data/research/teammate_questions.sql.
 """
 import argparse
-import itertools
 import json
 import re
 import sqlite3
 
 CURRENT_YEAR = 2026
-# At least 3 teammate clues per question (user instruction 2026-09-10),
-# each from a different club (see has_distinct_clubs) -- so every question
-# is "played with X at club A, Y at club B, Z at club C".
+# 3 to 6 teammate clues per question, each from a different club of the
+# mystery player's -- as many as we can find, favouring the most famous
+# (user instructions 2026-09-10).
 MIN_CLUES = 3
-MAX_CLUES = 5
-# Clues are only ever drawn from a player's N most-famous (lowest entity
-# id) teammates -- keeps every question built from recognizable names and
-# keeps the combination search cheap. Widened from 14 to 20 when MIN_CLUES
-# went 2->3: needing 3 unique cross-club famous teammates is a much
-# tighter ask, and a curated star's 20th-most-famous teammate is still a
-# real name.
-CANDIDATE_POOL = 20
+MAX_CLUES = 6
+# A teammate is only eligible as a clue if they're among the mystery
+# player's N most-famous (lowest entity id) -- keeps every clue a
+# recognizable name.
+CANDIDATE_POOL = 30
 
 
 def parse_years(s):
@@ -88,28 +83,6 @@ def parse_years(s):
     if m:
         return int(m.group(1)), int(m.group(1))
     return None
-
-
-def has_distinct_clubs(clue_venues):
-    """True iff each clue can be assigned its OWN distinct club where it
-    overlapped the mystery player -- a system of distinct representatives,
-    via Kuhn's bipartite matching (clues <= MAX_CLUES, trivial)."""
-    match = {}  # club -> clue index
-
-    def augment(i, seen):
-        for club in clue_venues[i]:
-            if club in seen:
-                continue
-            seen.add(club)
-            if club not in match or augment(match[club], seen):
-                match[club] = i
-                return True
-        return False
-
-    for i in range(len(clue_venues)):
-        if not augment(i, set()):
-            return False
-    return True
 
 
 def main():
@@ -163,39 +136,40 @@ def main():
         return not any(cid != mystery_pid and clue_set <= mates for cid, mates in T.items())
 
     questions = []
+    dropped_too_few = 0
     dropped_not_unique = 0
     for pid, mates in T.items():
-        if len(mates) < MIN_CLUES:
+        famous = set(sorted(mates)[:CANDIDATE_POOL])  # eligibility gate: recognizable only
+
+        # club -> [famous teammates who overlapped pid there], most famous first
+        club_mates = {}
+        for c in mates:
+            if c not in famous:
+                continue
+            for club in pair_clubs[(min(pid, c), max(pid, c))] & player_clubs[pid]:
+                club_mates.setdefault(club, []).append(c)
+        for club in club_mates:
+            club_mates[club].sort()
+
+        # One distinct teammate per club: clubs whose best teammate is more
+        # famous choose first; each teammate used at most once.
+        used = set()
+        chosen = []  # teammate ids, one per club
+        for club in sorted(club_mates, key=lambda cl: club_mates[cl][0]):
+            for c in club_mates[club]:
+                if c not in used:
+                    used.add(c)
+                    chosen.append(c)
+                    break
+
+        clue_set = sorted(chosen)[:MAX_CLUES]  # most famous, up to 6, one per club
+        if len(clue_set) < MIN_CLUES:
+            dropped_too_few += 1
             continue
-        candidates = sorted(mates)[:CANDIDATE_POOL]  # most famous first
-
-        def venues_of(cs):
-            return [pair_clubs[(min(pid, c), max(pid, c))] & player_clubs[pid] for c in cs]
-
-        # All MINIMAL unique clue sets, filtered to clue-per-distinct-club.
-        # Once a k-subset qualifies, its supersets are redundant (skip
-        # anything containing an already-found one).
-        valid = []
-        for k in range(MIN_CLUES, MAX_CLUES + 1):
-            for combo in itertools.combinations(candidates, k):
-                cs = frozenset(combo)
-                if any(u <= cs for u in valid):
-                    continue
-                if not has_distinct_clubs(venues_of(cs)):
-                    continue
-                if is_unique(cs, pid):
-                    valid.append(cs)
-        if not valid:
+        if not is_unique(frozenset(clue_set), pid):
             dropped_not_unique += 1
             continue
-
-        def score(cs):
-            rarity = sum(len(T[c]) for c in cs)  # lower = sharper clues
-            fame = sum(cs)  # lower id = more famous
-            return (rarity, fame, len(cs))
-
-        best = min(valid, key=score)
-        questions.append((pid, sorted(best)))
+        questions.append((pid, clue_set))
     questions.sort()
 
     names = dict(
@@ -204,12 +178,11 @@ def main():
 
     with open(args.out, "w") as f:
         f.write("-- Generated by data/research/build_teammate_questions.py -- do not hand-edit.\n")
-        f.write("-- One row per mystery player. teammate_ids is the most discriminating\n")
-        f.write("-- minimal set of their most-recognizable former teammates such that\n")
-        f.write("--   (a) each clue was a teammate at a DIFFERENT one of the mystery\n")
-        f.write("--       player's clubs, and\n")
-        f.write("--   (b) no other researched player played with all of them.\n")
-        f.write("-- Count varies (2-5). See the script docstring for the tie-breaks.\n")
+        f.write("-- One row per mystery player. teammate_ids is up to 6 of their\n")
+        f.write("-- most-recognizable former teammates, ONE PER CLUB (each clue was a\n")
+        f.write("-- teammate at a different one of the mystery player's clubs), such\n")
+        f.write("-- that no other researched player played with all of them. Count\n")
+        f.write("-- varies 3-6 -- as many recognizable one-per-club teammates as exist.\n")
         f.write("-- Regenerate if player_career_stats changes -- new players can break\n")
         f.write("-- a set that used to be unique.\n\n")
         f.write("INSERT INTO teammate_questions (player_id, teammate_ids, source) VALUES\n")
@@ -227,8 +200,8 @@ def main():
         counts[len(clue_ids)] = counts.get(len(clue_ids), 0) + 1
     print(f"{len(rows)} club stint rows, {dropped_unparseable} dropped (unparseable years)")
     print(f"{len(T)} players have >=1 verified teammate")
-    print(f"{len(questions)} questions written; {dropped_not_unique} dropped (no unique clue-per-distinct-club set in {MIN_CLUES}-{MAX_CLUES} famous clues)")
-    print(f"clue-count distribution: {dict(sorted(counts.items()))}  (every clue from a different club of the mystery player)")
+    print(f"{len(questions)} questions written; {dropped_too_few} dropped (<{MIN_CLUES} one-per-club famous teammates), {dropped_not_unique} dropped (not unique)")
+    print(f"clue-count distribution: {dict(sorted(counts.items()))}  (each clue a different club of the mystery player)")
 
 
 if __name__ == "__main__":

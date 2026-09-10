@@ -7,8 +7,8 @@ import "../clubBadges/clubBadges.css";
 import "./teammates.css";
 
 // "Who am I? I played with..." -- single-player mode. A round is 10 mystery
-// players, each shown only by a set of well-known former teammates -- 2 to
-// 5 of them, whatever uniquely identifies the mystery player (see
+// players, each shown only by a set of well-known former teammates -- 3
+// to 6 of them, one per club the mystery player was at (see
 // db/schema.sql's teammate_questions + build_teammate_questions.py for how
 // those are derived, fail-closed). Guess who it is.
 //
@@ -17,7 +17,7 @@ import "./teammates.css";
 // LivesIndicator, .cb-turn-banner, .cb-timer, two-step give-up confirm,
 // .cb-reveal block with a score chip, .cb-next-button, and the shared
 // .wrong-guesses list -- so the two solo modes feel identical to play.
-// Only the middle (three teammate clue cards vs. a badge chain) differs.
+// Only the middle (the teammate clue cards vs. a badge chain) differs.
 // The lives budget is round-wide and ends the round early when spent,
 // matching solo club-badges (state.ts's MAX_WRONG_LIVES doc); wrongGuesses
 // clears per question.
