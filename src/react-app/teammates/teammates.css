@@ -1,17 +1,14 @@
-/* "Who am I? I played with..." single-player mode (Teammates.tsx). Leans on
-   clubBadges.css / multiplayer.css for the shared bits (.cb-progress,
-   .cb-reveal, .give-up-link, GuessInput); only the clue list is its own. */
-
-.tm-heading {
-	margin: 0.5rem 0 0.15rem;
-	font-size: 1.9rem;
-	letter-spacing: -0.02em;
-}
+/* "Who am I? I played with..." single-player mode (Teammates.tsx). The
+   screen chrome (.cb-play, .cb-progress, .cb-turn-banner, .cb-timer,
+   .cb-reveal, .cb-score, .cb-next-button, .give-up-*, .wrong-guesses,
+   LivesIndicator) is all shared with club-badges' ClubBadgesPlay.tsx so
+   the two solo modes play identically -- only the clue list and the two
+   small labels below are this mode's own. */
 
 .tm-sub {
-	margin: 0 0 1rem;
+	margin: -0.4rem 0 0.75rem;
 	color: #9ca3af;
-	font-size: 1rem;
+	font-size: 0.95rem;
 	text-transform: uppercase;
 	letter-spacing: 0.08em;
 }
@@ -48,7 +45,7 @@
 }
 
 .tm-final {
-	font-size: 1.1rem;
+	font-size: 1.05rem;
 	font-weight: 700;
 	margin: 0.5rem 0;
 }
