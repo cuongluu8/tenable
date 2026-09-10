@@ -14,7 +14,7 @@
 // -- similar spirit (pass-and-play, lives, a give-up escape hatch),
 // different enough machinery that forcing it through the same reducer
 // would mean more special-casing than just having its own.
-import { colorForPlayerIndex } from "../multiplayer/state";
+import { colorForPlayerIndex } from "./playerColors";
 
 export interface CbPlayer {
 	name: string;

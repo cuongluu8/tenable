@@ -1,4 +1,4 @@
-import { MAX_WRONG_LIVES, rankCbPlayers, type CbState } from "./state";
+import { MAX_WRONG_LIVES, rankCbPlayers, type CbState } from "./clubBadgesState";
 
 interface Props {
 	state: CbState;

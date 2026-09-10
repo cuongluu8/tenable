@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { CbBadge } from "./state";
+import type { CbBadge } from "./clubBadgesState";
 
 interface Props {
 	badge: CbBadge;

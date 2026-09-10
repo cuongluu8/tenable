@@ -1,9 +1,9 @@
 import { useEffect, useReducer, useState } from "react";
 import "../multiplayer/multiplayer.css";
-import "../clubBadges/clubBadges.css";
+import "../components/clubBadges.css";
 import "./teammates.css";
-import { ClubBadgesPlay } from "../clubBadges/ClubBadgesPlay";
-import { clubBadgesReducer, initialCbState, MAX_WRONG_LIVES, scoreBand, type CbQuestion } from "../clubBadges/state";
+import { ClubBadgesPlay } from "../components/ClubBadgesPlay";
+import { clubBadgesReducer, initialCbState, MAX_WRONG_LIVES, scoreBand, type CbQuestion } from "../components/clubBadgesState";
 import { getSetResults, recordResult } from "./teammateSetsStorage";
 import { shareTeammateSetViaWhatsApp } from "./shareTeammates";
 

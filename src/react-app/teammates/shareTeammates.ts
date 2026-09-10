@@ -4,7 +4,7 @@
 // finished) and TeammateSets.tsx (re-sharing one done in an earlier
 // session). Plain words, no emoji -- wa.me's redirect corrupts astral-
 // plane characters into U+FFFD (confirmed 2026-09-08, WhatsApp's bug).
-import { scoreBand, type ScoreBand } from "../clubBadges/state";
+import { scoreBand, type ScoreBand } from "../components/clubBadgesState";
 
 const BAND_LABEL: Record<ScoreBand, string> = {
 	gold: "Gold",

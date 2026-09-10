@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useReducer, useState } from "react";
 import "../multiplayer/multiplayer.css";
-import "./clubBadges.css";
-import { ClubBadgesPlay } from "./ClubBadgesPlay";
-import { ClubBadgesResult } from "./ClubBadgesResult";
-import { clubBadgesReducer, initialCbState, MAX_WRONG_LIVES, type CbQuestion } from "./state";
+import "../components/clubBadges.css";
+import { ClubBadgesPlay } from "../components/ClubBadgesPlay";
+import { ClubBadgesResult } from "../components/ClubBadgesResult";
+import { clubBadgesReducer, initialCbState, MAX_WRONG_LIVES, type CbQuestion } from "../components/clubBadgesState";
 
 interface RoundResponse {
 	questions: CbQuestion[];

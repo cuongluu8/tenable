@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
-import { GuessInput } from "../components/GuessInput";
-import { LivesIndicator } from "../components/LivesIndicator";
+import { GuessInput } from "./GuessInput";
+import { LivesIndicator } from "./LivesIndicator";
 import { BadgeTile } from "./BadgeTile";
 import {
 	computeScore,
@@ -11,7 +11,7 @@ import {
 	type CbBadge,
 	type CbState,
 	type HintKey,
-} from "./state";
+} from "./clubBadgesState";
 
 // Rebuilt from scratch 2026-09-07, deleting an earlier version (manual
 // row-packing sized against a ResizeObserver-measured container, plus a

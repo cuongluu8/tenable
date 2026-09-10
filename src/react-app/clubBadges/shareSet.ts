@@ -2,7 +2,7 @@
 // ClubBadgeSets.tsx (re-sharing a set completed in an earlier session) --
 // one message format, built in one place, so the two don't quietly drift
 // apart.
-import { scoreBand, type ScoreBand } from "./state";
+import { scoreBand, type ScoreBand } from "../components/clubBadgesState";
 
 // Plain words, not emoji -- confirmed live (2026-09-08) that api.whatsapp.
 // com's own wa.me redirect corrupts any astral-plane character (a medal or

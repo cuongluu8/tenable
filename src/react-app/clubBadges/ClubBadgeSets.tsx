@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import "../multiplayer/multiplayer.css";
-import "./clubBadges.css";
-import { scoreBand } from "./state";
+import "../components/clubBadges.css";
+import { scoreBand } from "../components/clubBadgesState";
 import { getSetResults, resetQuestion, resetSet, type SetQuestionResult } from "./setsStorage";
 import { shareSetViaWhatsApp } from "./shareSet";
 

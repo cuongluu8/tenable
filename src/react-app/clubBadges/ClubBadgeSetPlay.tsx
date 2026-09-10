@@ -1,8 +1,8 @@
 import { useEffect, useReducer, useState } from "react";
 import "../multiplayer/multiplayer.css";
-import "./clubBadges.css";
-import { ClubBadgesPlay } from "./ClubBadgesPlay";
-import { clubBadgesReducer, initialCbState, MAX_WRONG_LIVES, scoreBand, type CbQuestion } from "./state";
+import "../components/clubBadges.css";
+import { ClubBadgesPlay } from "../components/ClubBadgesPlay";
+import { clubBadgesReducer, initialCbState, MAX_WRONG_LIVES, scoreBand, type CbQuestion } from "../components/clubBadgesState";
 import { getSetResults, recordResult } from "./setsStorage";
 import { shareSetViaWhatsApp } from "./shareSet";
 
