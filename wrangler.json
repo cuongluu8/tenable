@@ -12,7 +12,15 @@
 		// Raise deliberately if real traffic ever approaches these, don't
 		// delete the guardrail.
 		"DAILY_REQUEST_BUDGET": 20000,
-		"SUGGEST_RATE_LIMIT_PER_MINUTE": 30
+		"SUGGEST_RATE_LIMIT_PER_MINUTE": 30,
+		// The scrolling ticker banner's message (see routes/ticker.ts /
+		// components/Ticker.tsx) — change this value and redeploy to update
+		// it, or override it for the live Worker without a redeploy via the
+		// Cloudflare dashboard (Workers & Pages → this Worker → Settings →
+		// Variables); a dashboard override is reset back to this value the
+		// next time `wrangler deploy` runs, since deploy always re-applies
+		// what's declared here. Empty string hides the ticker entirely.
+		"TICKER_MESSAGE": "HAPPY BIRTHDAY LUKA"
 	},
 	"upload_source_maps": true,
 	"triggers": {

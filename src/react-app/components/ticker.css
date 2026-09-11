@@ -1,0 +1,48 @@
+/* Scrolling ticker banner (Ticker.tsx) -- shown across the very top of
+   every screen when TICKER_MESSAGE isn't empty. Two copies of the
+   message back to back in one flex track, animated left by exactly
+   half the track's width -- since both halves are identical, the loop
+   point is invisible, giving a seamless continuous scroll. */
+.ticker {
+	overflow: hidden;
+	background: #1f2937;
+	border-bottom: 1px solid #374151;
+	padding: 0.5rem 0;
+}
+
+.ticker__track {
+	display: flex;
+	width: max-content;
+	animation: ticker-scroll 18s linear infinite;
+}
+
+.ticker__item {
+	flex-shrink: 0;
+	padding: 0 2rem;
+	color: #4ade80;
+	font-weight: 700;
+	letter-spacing: 0.05em;
+	white-space: nowrap;
+}
+
+@keyframes ticker-scroll {
+	from {
+		transform: translateX(0);
+	}
+	to {
+		transform: translateX(-50%);
+	}
+}
+
+/* Vestibular-disorder-friendly: no continuous motion for anyone who's
+   asked for reduced motion at the OS level -- show the message once,
+   statically, instead of freezing mid-scroll (a hard pause on an
+   animation this slow would look broken, not intentional). */
+@media (prefers-reduced-motion: reduce) {
+	.ticker__track {
+		animation: none;
+	}
+	.ticker__item:nth-child(2) {
+		display: none;
+	}
+}

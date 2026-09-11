@@ -14,6 +14,7 @@ import reveal from "./routes/reveal";
 import stats from "./routes/stats";
 import suggest from "./routes/suggest";
 import teammates from "./routes/teammates";
+import ticker from "./routes/ticker";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -32,6 +33,7 @@ app.route("/api/reveal", reveal);
 app.route("/api/stats", stats);
 app.route("/api/suggest", suggest);
 app.route("/api/teammates", teammates);
+app.route("/api/ticker", ticker);
 
 // Unlisted admin page, no link to it anywhere in the app nav — see
 // mediaAudit.ts. Mounted under /api/* (not e.g. /admin/media-audit)
