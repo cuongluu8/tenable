@@ -3,6 +3,7 @@ import { normalize, collapseToAlnum, toFtsPrefixQuery } from "../lib/normalize";
 import { suggestNames } from "../lib/categories";
 import { enforceSuggestRateLimit } from "../lib/suggestRateLimit";
 import { CLUB_BADGE_SETS, CLUB_BADGE_SET_NAMES } from "../lib/clubBadgeSets";
+import { buildSetsIndex, resolveSetQuestions } from "../lib/setsIndex";
 
 const clubBadges = new Hono<{ Bindings: Env }>();
 
@@ -80,12 +81,7 @@ clubBadges.get("/round", async (c) => {
 	const set = Number.isInteger(setIndex) ? CLUB_BADGE_SETS[setIndex] : undefined;
 	let picked: QuestionRow[];
 	if (set) {
-		const byPlayerId = new Map((questions ?? []).map((q) => [q.player_id, q]));
-		// .filter(Boolean) rather than assuming every id resolves -- a set
-		// referencing a player whose club_badge_questions row got deleted
-		// out from under it should just quietly shrink that set by one
-		// question, not 500 the whole page.
-		picked = set.map((playerId) => byPlayerId.get(playerId)).filter((q): q is QuestionRow => q !== undefined);
+		picked = resolveSetQuestions(questions ?? [], set);
 	} else if (Number.isInteger(debugPlayerId)) {
 		picked = (questions ?? []).filter((q) => q.player_id === debugPlayerId);
 	} else {
@@ -405,15 +401,8 @@ clubBadges.get("/sets", async (c) => {
 	const { results } = await c.env.DB
 		.prepare(`SELECT id, player_id FROM club_badge_questions`)
 		.all<{ id: number; player_id: number }>();
-	const questionIdByPlayerId = new Map((results ?? []).map((r) => [r.player_id, r.id]));
 
-	const sets = CLUB_BADGE_SETS.map((playerIds, i) => ({
-		id: i + 1,
-		name: CLUB_BADGE_SET_NAMES[i],
-		// .filter(Boolean) mirrors /round's own "quietly shrink, don't
-		// crash" handling of a set referencing a now-missing player.
-		questionIds: playerIds.map((playerId) => questionIdByPlayerId.get(playerId)).filter((id): id is number => id !== undefined),
-	})).filter((set) => set.questionIds.length === QUESTIONS_PER_ROUND);
+	const sets = buildSetsIndex(results ?? [], CLUB_BADGE_SETS, CLUB_BADGE_SET_NAMES, QUESTIONS_PER_ROUND);
 
 	return c.json({ sets });
 });

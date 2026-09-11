@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { normalize, collapseToAlnum } from "../lib/normalize";
 import { TEAMMATE_SETS, TEAMMATE_SET_NAMES } from "../lib/teammateSets";
+import { buildSetsIndex, resolveSetQuestions } from "../lib/setsIndex";
 
 const teammates = new Hono<{ Bindings: Env }>();
 
@@ -60,11 +61,7 @@ teammates.get("/round", async (c) => {
 	const forcedPlayerId = c.req.query("playerId");
 	let picked: QuestionRow[];
 	if (set) {
-		const byPlayerId = new Map(all.map((q) => [q.player_id, q]));
-		// .filter mirrors clubBadges /round: a set referencing a player
-		// whose teammate_questions row got deleted just shrinks that set by
-		// one, it doesn't 500 the page.
-		picked = set.map((pid) => byPlayerId.get(pid)).filter((q): q is QuestionRow => q !== undefined);
+		picked = resolveSetQuestions(all, set);
 	} else if (forcedPlayerId) {
 		picked = all.filter((q) => q.player_id === Number(forcedPlayerId));
 	} else {
@@ -117,19 +114,8 @@ teammates.get("/sets", async (c) => {
 	const { results } = await c.env.DB
 		.prepare("SELECT id, player_id FROM teammate_questions")
 		.all<{ id: number; player_id: number }>();
-	const questionIdByPlayerId = new Map((results ?? []).map((r) => [r.player_id, r.id]));
 
-	const sets = TEAMMATE_SETS.map((playerIds, i) => ({
-		id: i + 1,
-		name: TEAMMATE_SET_NAMES[i],
-		// .filter mirrors clubBadges /sets: a set referencing a now-missing
-		// player quietly shrinks rather than crashing, and any set that
-		// ends up under a full ten is hidden from the picker (all 11 are a
-		// full ten today -- see teammateSets.ts).
-		questionIds: playerIds
-			.map((pid) => questionIdByPlayerId.get(pid))
-			.filter((id): id is number => id !== undefined),
-	})).filter((set) => set.questionIds.length === QUESTIONS_PER_ROUND);
+	const sets = buildSetsIndex(results ?? [], TEAMMATE_SETS, TEAMMATE_SET_NAMES, QUESTIONS_PER_ROUND);
 
 	return c.json({ sets });
 });
