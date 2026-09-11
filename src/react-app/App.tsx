@@ -3,6 +3,7 @@ import "./App.css";
 import { CategoryList } from "./components/CategoryList";
 import { Logo } from "./components/Logo";
 import { PlayScreen } from "./components/PlayScreen";
+import { SetsModeRoute } from "./components/SetsModeRoute";
 import { ClubBadgeSetPlay } from "./clubBadges/ClubBadgeSetPlay";
 import { ClubBadgeSets } from "./clubBadges/ClubBadgeSets";
 import { Multiplayer } from "./multiplayer/Multiplayer";
@@ -49,56 +50,17 @@ function isSinglePlayerHomePath(): boolean {
 	return window.location.pathname === "/single-player";
 }
 
-// Solo "guess the player" -- one level under the single-player picker.
-// Unlike multiplayer's own instance of this game (still a fresh random
-// draw every time, see GuessThePlayer.tsx), single player's now shows the
-// Sets picker (ClubBadgeSets.tsx, 2026-09-08) instead of jumping straight
-// into a round -- ten curated, nameable rounds a player returns to and
-// completes at their own pace, not a slug-worthy "session" of its own
-// either, same reasoning as before.
-function isClubBadgeSetsPath(): boolean {
-	return window.location.pathname === "/single-player/club-badges";
-}
+// Solo "guess the player" and "who am I?" are each a "Sets" mode -- a
+// picker plus one level of set-play underneath it (see components/
+// SetsModeRoute.tsx, which owns everything under these base paths).
+// This only has to answer "is the URL under here at all", not which of
+// the picker/play sub-views -- SetsModeRoute figures that out itself
+// once App.tsx mounts it.
+const CLUB_BADGES_BASE_PATH = "/single-player/club-badges";
+const TEAMMATES_BASE_PATH = "/single-player/teammates";
 
-// Solo "who am I? I played with..." -- one level under the single-player
-// picker, exactly the same shape as the club-badges entry: this path is
-// the Sets picker (TeammateSets.tsx), not a round -- eleven curated,
-// nameable rounds a player returns to and completes at their own pace
-// (see src/worker/lib/teammateSets.ts), progress saved locally.
-function isSoloTeammatesPath(): boolean {
-	return window.location.pathname === "/single-player/teammates";
-}
-
-// One level under the "Who am I?" Sets picker -- actually playing a
-// specific set. Slugged by number since TEAMMATE_SETS is 1-indexed and
-// unnamed beyond "Set N" (teammateSets.ts). ?retry=<questionId> narrows
-// the session to replaying just that one already-answered question
-// (TeammateSets.tsx's per-question retry). Mirror of
-// clubBadgeSetIdFromPath.
-function teammateSetIdFromPath(): number | null {
-	const match = /^\/single-player\/teammates\/set\/(\d+)$/.exec(window.location.pathname);
-	return match ? Number(match[1]) : null;
-}
-function teammateSetRetryQuestionId(): number | undefined {
-	const raw = new URLSearchParams(window.location.search).get("retry");
-	const parsed = raw ? Number(raw) : NaN;
-	return Number.isInteger(parsed) ? parsed : undefined;
-}
-
-// One level under the Sets picker -- actually playing a specific set.
-// Slugged by number (not a name) since CLUB_BADGE_SETS itself is 1-indexed
-// and unnamed beyond "Set N" (clubBadgeSets.ts). ?retry=<questionId>
-// narrows the session to replaying just that one already-answered
-// question (ClubBadgeSets.tsx's per-question retry) instead of whatever
-// else in the set is still unanswered.
-function clubBadgeSetIdFromPath(): number | null {
-	const match = /^\/single-player\/club-badges\/set\/(\d+)$/.exec(window.location.pathname);
-	return match ? Number(match[1]) : null;
-}
-function clubBadgeSetRetryQuestionId(): number | undefined {
-	const raw = new URLSearchParams(window.location.search).get("retry");
-	const parsed = raw ? Number(raw) : NaN;
-	return Number.isInteger(parsed) ? parsed : undefined;
+function isUnderPath(base: string): boolean {
+	return window.location.pathname === base || window.location.pathname.startsWith(`${base}/`);
 }
 
 function App() {
@@ -107,12 +69,8 @@ function App() {
 	const [categoryListActive, setCategoryListActive] = useState<boolean>(() => isCategoryListPath());
 	const [multiplayerActive, setMultiplayerActive] = useState<boolean>(() => isMultiplayerPath());
 	const [singlePlayerHomeActive, setSinglePlayerHomeActive] = useState<boolean>(() => isSinglePlayerHomePath());
-	const [clubBadgeSetsActive, setClubBadgeSetsActive] = useState<boolean>(() => isClubBadgeSetsPath());
-	const [clubBadgeSetId, setClubBadgeSetId] = useState<number | null>(() => clubBadgeSetIdFromPath());
-	const [clubBadgeSetRetryId, setClubBadgeSetRetryId] = useState<number | undefined>(() => clubBadgeSetRetryQuestionId());
-	const [soloTeammatesActive, setSoloTeammatesActive] = useState<boolean>(() => isSoloTeammatesPath());
-	const [teammateSetId, setTeammateSetId] = useState<number | null>(() => teammateSetIdFromPath());
-	const [teammateSetRetryId, setTeammateSetRetryId] = useState<number | undefined>(() => teammateSetRetryQuestionId());
+	const [clubBadgesActive, setClubBadgesActive] = useState<boolean>(() => isUnderPath(CLUB_BADGES_BASE_PATH));
+	const [teammatesActive, setTeammatesActive] = useState<boolean>(() => isUnderPath(TEAMMATES_BASE_PATH));
 
 	const loadCategories = useCallback(() => {
 		fetch("/api/categories")
@@ -139,18 +97,18 @@ function App() {
 	// (see handleBackToCategoryList) since categoryListActive never actually
 	// goes false while a round is active — it stays true underneath, so
 	// coming back to it isn't a state change the effect would see.
+	//
+	// clubBadgesActive/teammatesActive only ever need the prefix check --
+	// everything underneath (picker vs. a specific set, which set, a retry
+	// id) is SetsModeRoute's own popstate listener's job, not this one's.
 	useEffect(() => {
 		function handlePopState() {
 			setActiveSlug(slugFromPath());
 			setCategoryListActive(isCategoryListPath());
 			setMultiplayerActive(isMultiplayerPath());
 			setSinglePlayerHomeActive(isSinglePlayerHomePath());
-			setClubBadgeSetsActive(isClubBadgeSetsPath());
-			setClubBadgeSetId(clubBadgeSetIdFromPath());
-			setClubBadgeSetRetryId(clubBadgeSetRetryQuestionId());
-			setSoloTeammatesActive(isSoloTeammatesPath());
-			setTeammateSetId(teammateSetIdFromPath());
-			setTeammateSetRetryId(teammateSetRetryQuestionId());
+			setClubBadgesActive(isUnderPath(CLUB_BADGES_BASE_PATH));
+			setTeammatesActive(isUnderPath(TEAMMATES_BASE_PATH));
 		}
 		window.addEventListener("popstate", handlePopState);
 		return () => window.removeEventListener("popstate", handlePopState);
@@ -173,52 +131,15 @@ function App() {
 	}
 
 	function handleSoloClubBadgesSelect() {
-		window.history.pushState(null, "", "/single-player/club-badges");
+		window.history.pushState(null, "", CLUB_BADGES_BASE_PATH);
 		setSinglePlayerHomeActive(false);
-		setClubBadgeSetsActive(true);
+		setClubBadgesActive(true);
 	}
 
 	function handleSoloTeammatesSelect() {
-		window.history.pushState(null, "", "/single-player/teammates");
+		window.history.pushState(null, "", TEAMMATES_BASE_PATH);
 		setSinglePlayerHomeActive(false);
-		setSoloTeammatesActive(true);
-	}
-
-	// Enters a specific set's play view -- ClubBadgeSets.tsx's "Play"/
-	// "Resume" (no questionId) or its per-question "Retry" (with one).
-	function handlePlayClubBadgeSet(setId: number, onlyQuestionId?: number) {
-		const query = onlyQuestionId ? `?retry=${onlyQuestionId}` : "";
-		window.history.pushState(null, "", `/single-player/club-badges/set/${setId}${query}`);
-		setClubBadgeSetsActive(false);
-		setClubBadgeSetId(setId);
-		setClubBadgeSetRetryId(onlyQuestionId);
-	}
-
-	// Back from a set's play view to the Sets picker -- one level up, not
-	// all the way to the single-player mode picker, same "back goes up one
-	// step" reasoning as handleBackToCategoryList/handleBackToSinglePlayerHome.
-	function handleExitClubBadgeSetPlay() {
-		window.history.pushState(null, "", "/single-player/club-badges");
-		setClubBadgeSetId(null);
-		setClubBadgeSetRetryId(undefined);
-		setClubBadgeSetsActive(true);
-	}
-
-	// "Who am I?" Sets -- exact mirror of handlePlayClubBadgeSet /
-	// handleExitClubBadgeSetPlay above.
-	function handlePlayTeammateSet(setId: number, onlyQuestionId?: number) {
-		const query = onlyQuestionId ? `?retry=${onlyQuestionId}` : "";
-		window.history.pushState(null, "", `/single-player/teammates/set/${setId}${query}`);
-		setSoloTeammatesActive(false);
-		setTeammateSetId(setId);
-		setTeammateSetRetryId(onlyQuestionId);
-	}
-
-	function handleExitTeammateSetPlay() {
-		window.history.pushState(null, "", "/single-player/teammates");
-		setTeammateSetId(null);
-		setTeammateSetRetryId(undefined);
-		setSoloTeammatesActive(true);
+		setTeammatesActive(true);
 	}
 
 	function handleSelect(cat: Category) {
@@ -232,18 +153,17 @@ function App() {
 		loadCategories(); // refresh statuses/streak after playing
 	}
 
-	// One level up from either single-player mode (Daily Categories or Guess
-	// the Player) back to the picker between them — not all the way home,
-	// same "back goes up one step" reasoning as handleBackToCategoryList.
+	// One level up from either single-player mode (Daily Categories, Guess
+	// the Player, or Who am I?) back to the picker between them — not all
+	// the way home, same "back goes up one step" reasoning as
+	// handleBackToCategoryList. Just flips the two Sets modes off here --
+	// unmounting SetsModeRoute is itself the reset for whatever picker/
+	// play/retry state it was holding, nothing to clear by hand anymore.
 	function handleBackToSinglePlayerHome() {
 		window.history.pushState(null, "", "/single-player");
 		setCategoryListActive(false);
-		setClubBadgeSetsActive(false);
-		setClubBadgeSetId(null);
-		setClubBadgeSetRetryId(undefined);
-		setSoloTeammatesActive(false);
-		setTeammateSetId(null);
-		setTeammateSetRetryId(undefined);
+		setClubBadgesActive(false);
+		setTeammatesActive(false);
 		setSinglePlayerHomeActive(true);
 	}
 
@@ -253,12 +173,8 @@ function App() {
 		setCategoryListActive(false);
 		setMultiplayerActive(false);
 		setSinglePlayerHomeActive(false);
-		setClubBadgeSetsActive(false);
-		setClubBadgeSetId(null);
-		setClubBadgeSetRetryId(undefined);
-		setSoloTeammatesActive(false);
-		setTeammateSetId(null);
-		setTeammateSetRetryId(undefined);
+		setClubBadgesActive(false);
+		setTeammatesActive(false);
 	}
 
 	if (activeSlug) {
@@ -269,32 +185,26 @@ function App() {
 		return <Multiplayer onBack={handleBackToHome} />;
 	}
 
-	if (clubBadgeSetId !== null) {
+	if (clubBadgesActive) {
 		return (
-			<ClubBadgeSetPlay
-				setId={clubBadgeSetId}
-				onlyQuestionId={clubBadgeSetRetryId}
-				onExit={handleExitClubBadgeSetPlay}
+			<SetsModeRoute
+				basePath={CLUB_BADGES_BASE_PATH}
+				Picker={ClubBadgeSets}
+				Play={ClubBadgeSetPlay}
+				onExitToParent={handleBackToSinglePlayerHome}
 			/>
 		);
 	}
 
-	if (clubBadgeSetsActive) {
-		return <ClubBadgeSets onPlay={handlePlayClubBadgeSet} onBack={handleBackToSinglePlayerHome} />;
-	}
-
-	if (teammateSetId !== null) {
+	if (teammatesActive) {
 		return (
-			<TeammateSetPlay
-				setId={teammateSetId}
-				onlyQuestionId={teammateSetRetryId}
-				onExit={handleExitTeammateSetPlay}
+			<SetsModeRoute
+				basePath={TEAMMATES_BASE_PATH}
+				Picker={TeammateSets}
+				Play={TeammateSetPlay}
+				onExitToParent={handleBackToSinglePlayerHome}
 			/>
 		);
-	}
-
-	if (soloTeammatesActive) {
-		return <TeammateSets onPlay={handlePlayTeammateSet} onBack={handleBackToSinglePlayerHome} />;
 	}
 
 	if (categoryListActive) {
