@@ -1,7 +1,7 @@
 /* "Guess the player from their clubs" — reuses App.css's global classes
    (.screen, .back-link, .result-panel) and multiplayer.css's roster/player-
    list classes directly (.mp-setup, .mp-players, .mp-players--final,
-   .mp-result-hint — see GuessThePlayer.tsx/ClubBadgesPlay.tsx's imports)
+   .mp-result-hint — see GuessThePlayer.tsx/RoundPlay.tsx's imports)
    since the roster step and final standings list are visually the same
    shape as multiplayer's. Only genuinely new UI (the badge grid, the turn
    banner, the reveal) gets a class here, prefixed .cb- to avoid colliding
@@ -64,7 +64,7 @@
 	color: #9ca3af;
 }
 
-/* Badges shown all at once (no progressive reveal). ClubBadgesPlay.tsx's
+/* Badges shown all at once (no progressive reveal). RoundPlay.tsx's
    useGridColumns computes how many tiles fit per row from the real
    container width, then chunks the flat tile list into rows of that many
    -- this is just the column of those rows; each row is its own grid
@@ -82,7 +82,7 @@
 
 /* One row: an explicit alternating template -- a tile-width track, then
    an arrow-width track, repeating, ending on a tile -- set inline per row
-   (ClubBadgesPlay.tsx, since the last row can hold fewer tiles than the
+   (RoundPlay.tsx, since the last row can hold fewer tiles than the
    rest). An arrow renders in its own dedicated track between two tiles
    this way, rather than living inside either tile's own box. No gap on
    top of that -- the template's own tracks already account for every
@@ -100,7 +100,7 @@
 /* The boustrophedon ("snake") flip -- every other row reads right-to-left
    instead of left-to-right, so the path continues visually from wherever
    the row above it ended. `direction: rtl` reverses which end of the row
-   grid auto-placement fills first (ClubBadgesPlay.tsx's tile/arrow order
+   grid auto-placement fills first (RoundPlay.tsx's tile/arrow order
    in the markup is always chronological regardless -- this is a pure CSS
    flip, not a data reversal). Doesn't affect any of this game's own text
    rendering -- everything here already uses text-align: center rather
@@ -113,7 +113,7 @@
 
 /* Links one row to the next -- same grid template as a tile row (so its
    one real cell, the "↓" placed via inline grid-column-start in
-   ClubBadgesPlay.tsx, lines up with whichever tile it's actually
+   RoundPlay.tsx, lines up with whichever tile it's actually
    connecting), just shorter, since there's no 64px tile here to set the
    row's own height. */
 .cb-badges__connector {
@@ -122,7 +122,7 @@
 
 /* Wraps an arrow glyph and, once the transfer-date hint is revealed, a
    small date label above it. Fixed at exactly ARROW_WIDTH
-   (ClubBadgesPlay.tsx) rather than sized to content -- a "LOAN" tag or a
+   (RoundPlay.tsx) rather than sized to content -- a "LOAN" tag or a
    date string would otherwise render wider than what useGridColumns
    budgeted for every arrow, which is exactly the mismatch that caused a
    row to be undercounted before. 48px specifically (not just enough for
@@ -199,7 +199,7 @@
 	line-height: 1;
 }
 
-/* A loan move (ClubBadgesPlay.tsx's ChainTile.isLoan, sourced from
+/* A loan move (RoundPlay.tsx's ChainTile.isLoan, sourced from
    transfers.transfer_type -- see clubBadges.ts's loanMoves comment for why
    player_career_stats-sourced players never get this) reads as a normal
    permanent transfer otherwise, which is exactly the ambiguity that made a
@@ -279,7 +279,7 @@
 /* A loan club -- its own badge is half-size (.cb-badge--small below), so
    it visibly reads as a detour rather than a peer of the clubs either
    side of it, but the WRAP stays the full 64px like every other tile --
-   same width as its own grid column (ClubBadgesPlay.tsx's TILE_WIDTH), so
+   same width as its own grid column (RoundPlay.tsx's TILE_WIDTH), so
    it fills that column edge to edge instead of sitting inset with empty
    space on both sides (confirmed the hard way, 2026-09-07: a 32px-wide
    wrap centered in a 64px column left a 16px gap on each side, which is
@@ -402,7 +402,7 @@
 }
 
 /* Only ever one of these on screen at a time -- the next not-yet-revealed
-   hint (see ClubBadgesPlay.tsx) -- so this is a direct .cb-play child, not
+   hint (see RoundPlay.tsx) -- so this is a direct .cb-play child, not
    a row; align-self centers it the same way .give-up-link centers itself
    in App.css. */
 .cb-hint-button {
@@ -494,7 +494,7 @@
 	margin-top: 0.5rem;
 }
 
-/* Live per-question countdown (ClubBadgesPlay.tsx's ticking elapsedSeconds)
+/* Live per-question countdown (RoundPlay.tsx's ticking elapsedSeconds)
    -- same muted treatment as .cb-progress above it, since it's ambient
    status, not something to draw the eye the way the turn banner does.
    tabular-nums keeps every digit the same width so the line doesn't
@@ -508,7 +508,7 @@
 }
 
 /* This question's score (state.ts's computeScore), shown only on a
-   correct guess -- see ClubBadgesPlay.tsx. A pill like .cb-hint-button
+   correct guess -- see RoundPlay.tsx. A pill like .cb-hint-button
    rather than plain text so the color-coded band (below) actually reads
    as a distinct "result" chip instead of another line of body text. */
 .cb-score {
@@ -546,7 +546,7 @@
 }
 
 /* Explains a shorter-than-10 round on the result screen (see
-   ClubBadgesResult.tsx's outOfLives) -- muted, same treatment as
+   RoundResultScreen.tsx's outOfLives) -- muted, same treatment as
    .cb-disclaimer, since it's a footnote about why the score looks the way
    it does, not the headline result itself. */
 .cb-solo-lives-note {

@@ -1,7 +1,7 @@
-import { MAX_WRONG_LIVES, rankCbPlayers, type CbState } from "./clubBadgesState";
+import { MAX_WRONG_LIVES, rankRoundPlayers, type RoundState } from "./clubBadgesState";
 
 interface Props {
-	state: CbState;
+	state: RoundState;
 	onPlayAgain: () => void;
 	onExit: () => void;
 	// When given, a "Share via WhatsApp" button appears next to Play again
@@ -10,11 +10,11 @@ interface Props {
 	onShare?: () => void;
 }
 
-export function ClubBadgesResult({ state, onPlayAgain, onExit, onShare }: Props) {
+export function RoundResultScreen({ state, onPlayAgain, onExit, onShare }: Props) {
 	const solo = state.players.length === 1;
-	const standings = rankCbPlayers(state.players);
+	const standings = rankRoundPlayers(state.players);
 	// Lives can end a solo round before all 10 questions -- state.questionIndex
-	// is preserved as-is through the "finished" transition (state.ts), so
+	// is preserved as-is through the "finished" transition (clubBadgesState.ts), so
 	// +1 is exactly how many were actually played, same number whether the
 	// round ran its full length or got cut short.
 	const questionsPlayed = state.questionIndex + 1;

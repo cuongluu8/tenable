@@ -1,5 +1,5 @@
 import "../components/clubBadges.css";
-import { ClubBadgesPlay } from "../components/ClubBadgesPlay";
+import { RoundPlay } from "../components/RoundPlay";
 import { SetCompleteScreen } from "../components/SetCompleteScreen";
 import { useSetRound } from "../components/useSetRound";
 import type { CbQuestion } from "../components/clubBadgesState";
@@ -24,7 +24,7 @@ interface Props {
 // drives). This file owns nothing but the endpoints and the plain
 // render: club-badges has no per-question extras beyond what the
 // reducer already carries, so its raw round question already IS a
-// CbQuestion (`extra` is unused, typed `null`), and ClubBadgesPlay
+// CbQuestion (`extra` is unused, typed `null`), and RoundPlay
 // renders here with none of the soloBanner/extraHints/middle props only
 // teammates needs.
 export function ClubBadgeSetPlay({ setId, onlyQuestionId, onExit }: Props) {
@@ -86,12 +86,12 @@ export function ClubBadgeSetPlay({ setId, onlyQuestionId, onExit }: Props) {
 	return (
 		<div className="screen">
 			{/* Keyed on the question id so React fully remounts this component
-			    between questions -- ClubBadgesPlay's own hints/timer/guess-box
+			    between questions -- RoundPlay's own hints/timer/guess-box
 			    reset logic is keyed on state.questionIndex/playerIndex, which
 			    (deliberately, see useSetRound.ts's own doc) never actually
 			    change across our one-question-at-a-time mini-rounds, so nothing
 			    would otherwise tell it a genuinely new question has started. */}
-			<ClubBadgesPlay
+			<RoundPlay
 				key={current.question.id}
 				state={state}
 				onGuess={submitGuess}

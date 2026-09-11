@@ -1,8 +1,8 @@
 /* "Who am I? I played with..." mode (Teammates.tsx). The whole play
-   screen is ClubBadgesPlay.tsx -- lives, timer, guess box, give-up,
+   screen is RoundPlay.tsx -- lives, timer, guess box, give-up,
    reveal, score chip, hints, round-over screen are all shared with
    club-badges. The only thing this mode owns is the clue list that fills
-   ClubBadgesPlay's `middle` slot in place of the badge chain. */
+   RoundPlay's `middle` slot in place of the badge chain. */
 
 .tm-sub {
 	margin: -0.4rem 0 0.75rem;

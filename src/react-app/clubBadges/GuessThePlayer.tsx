@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useReducer, useState } from "react";
 // Multiplayer-only entry point (multiplayer/Multiplayer.tsx is the sole
 // importer) -- so it keeps the multiplayer stylesheet for the roster
-// list ClubBadgesPlay renders when there's more than one player. The
+// list RoundPlay renders when there's more than one player. The
 // purely-solo Sets screens dropped this import; they only ever render
 // one player.
 import "../multiplayer/multiplayer.css";
 import "../components/clubBadges.css";
-import { ClubBadgesPlay } from "../components/ClubBadgesPlay";
-import { ClubBadgesResult } from "../components/ClubBadgesResult";
-import { clubBadgesReducer, initialCbState, MAX_WRONG_LIVES, type CbQuestion } from "../components/clubBadgesState";
+import { RoundPlay } from "../components/RoundPlay";
+import { RoundResultScreen } from "../components/RoundResultScreen";
+import { roundReducer, initialRoundState, MAX_WRONG_LIVES, type CbQuestion } from "../components/clubBadgesState";
 
 interface RoundResponse {
 	questions: CbQuestion[];
@@ -30,8 +30,8 @@ interface Props {
 	// "You" entry for the solo Single Player variant, or a real multi-name
 	// roster collected by Multiplayer's own roster step. This component
 	// owns nothing about how the roster was gathered, only the game itself
-	// (round fetching, guessing, scoring) -- see ClubBadgesPlay.tsx/
-	// ClubBadgesResult.tsx for how they adapt their display for a
+	// (round fetching, guessing, scoring) -- see RoundPlay.tsx/
+	// RoundResultScreen.tsx for how they adapt their display for a
 	// single-player roster (no turn-passing, no per-player standings).
 	playerNames: string[];
 	// When given, plays through this fixed set (see clubBadgeSets.ts)
@@ -60,7 +60,7 @@ interface Props {
 // round-fetch-then-grade-guesses shape the previous single-entry-point
 // version had, just without owning its own roster-collection step anymore.
 export function GuessThePlayer({ playerNames, setId, onExit }: Props) {
-	const [state, dispatch] = useReducer(clubBadgesReducer, initialCbState);
+	const [state, dispatch] = useReducer(roundReducer, initialRoundState);
 	const [submitting, setSubmitting] = useState(false);
 	const [loadError, setLoadError] = useState<string | null>(null);
 	// "Crimson Falcon" etc, only ever set when setId is given -- see
@@ -121,7 +121,7 @@ export function GuessThePlayer({ playerNames, setId, onExit }: Props) {
 	// below, dispatched for solo AND multiplayer since 2026-09-08 -- fixing
 	// a real bug where multiplayer only ever got one guess), everything
 	// else does.
-	// `points` is whatever ClubBadgesPlay.tsx's computeScore(elapsedSeconds,
+	// `points` is whatever RoundPlay.tsx's computeScore(elapsedSeconds,
 	// hintsUsed) read at the moment the guess/give-up button was actually
 	// pressed -- not recomputed here after the fetch resolves, so the
 	// score reflects how long the player took to answer, not how long the
@@ -145,7 +145,7 @@ export function GuessThePlayer({ playerNames, setId, onExit }: Props) {
 			// ends the current player's turn, lives or not, unlike an actual
 			// wrong guess (which only ends it once their lives run out).
 			// wrongCount+1 here mirrors what the reducer is about to do to it
-			// (see "wrongAttempt"/"guessResult" in state.ts) so this can decide
+			// (see "wrongAttempt"/"guessResult" in clubBadgesState.ts) so this can decide
 			// which of the two to dispatch *before* that update lands. Applies
 			// equally to solo and multiplayer since 2026-09-08 -- multiplayer
 			// used to have no retry at all (every wrong guess ended the
@@ -207,7 +207,7 @@ export function GuessThePlayer({ playerNames, setId, onExit }: Props) {
 					<p>Loading a round…</p>
 				))}
 			{state.phase === "playing" && (
-				<ClubBadgesPlay
+				<RoundPlay
 					state={state}
 					onGuess={submitGuess}
 					onGiveUp={giveUp}
@@ -221,7 +221,7 @@ export function GuessThePlayer({ playerNames, setId, onExit }: Props) {
 					}
 				/>
 			)}
-			{state.phase === "finished" && <ClubBadgesResult state={state} onPlayAgain={playAgain} onExit={onExit} />}
+			{state.phase === "finished" && <RoundResultScreen state={state} onPlayAgain={playAgain} onExit={onExit} />}
 		</div>
 	);
 }

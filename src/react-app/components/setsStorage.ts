@@ -26,7 +26,7 @@ export interface SetQuestionResult {
 	// real score would reward, say, a fast wrong guess over a slow
 	// correct one). Only ever a real, positive-or-negative computeScore
 	// value when outcome is "correct" -- same non-guessed convention
-	// CbResult.points already uses elsewhere in this game.
+	// RoundResult.points already uses elsewhere in this game.
 	points: number;
 }
 

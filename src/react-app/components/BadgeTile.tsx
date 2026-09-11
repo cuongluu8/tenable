@@ -4,7 +4,7 @@ import type { CbBadge } from "./clubBadgesState";
 interface Props {
 	badge: CbBadge;
 	// Whether the country hint (the first of what's meant to grow into a
-	// small set of hints -- see ClubBadgesPlay.tsx) is currently revealed --
+	// small set of hints -- see RoundPlay.tsx) is currently revealed --
 	// a ribbon across the badge's top edge, plus (once a real image is
 	// showing -- see showPlaceholder below) the club's name underneath it,
 	// same non-spoiler reasoning as the placeholder case always showing it
@@ -12,7 +12,7 @@ interface Props {
 	// per-tile: every badge in a question shows or hides this together,
 	// driven by one button.
 	showCountryHint: boolean;
-	// A loan club (ClubBadgesPlay.tsx's ChainTile.isLoan), rendered at half
+	// A loan club (RoundPlay.tsx's ChainTile.isLoan), rendered at half
 	// size -- visually distinct from a real step in the chain, since it
 	// almost never was one.
 	small?: boolean;

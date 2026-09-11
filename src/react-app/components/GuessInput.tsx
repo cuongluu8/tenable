@@ -156,7 +156,7 @@ export function GuessInput({ value, onChange, onPick, disabled, suggestUrl, extr
 	// useMemo recomputing because its own excludeNames/suggestions inputs
 	// are themselves fresh references every render at every current caller
 	// -- PlayScreen.tsx's Array.from(...), MultiplayerPlay.tsx's .map(...),
-	// and ClubBadgesPlay.tsx's unpassed-prop default all produce one).
+	// and RoundPlay.tsx's unpassed-prop default all produce one).
 	// Depending on that reference here means this effect reruns on every
 	// render while the dropdown is open, calling reposition() ->
 	// setDropdownRect -> another render -> reruns again: a genuine infinite

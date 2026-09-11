@@ -103,7 +103,7 @@ clubBadges.get("/round", async (c) => {
 	// Every question is eligible regardless of badge coverage -- a club with
 	// no image_key (not sourced yet, or a stale URL that 404s at render
 	// time) degrades to a text placeholder client-side (see
-	// ClubBadgesPlay.tsx) rather than the question being excluded outright.
+	// RoundPlay.tsx) rather than the question being excluded outright.
 	// club names are sent alongside each badge on purpose: they're not the
 	// answer (the player is), so showing one as text when its image is
 	// missing gives away nothing a working badge wouldn't have anyway.
@@ -323,7 +323,7 @@ clubBadges.get("/round", async (c) => {
 				// `country` is entities.scope -- always sent (it's not a spoiler,
 				// same reasoning as club name), just held back from view
 				// client-side until the hint button reveals it (see
-				// ClubBadgesPlay.tsx).
+				// RoundPlay.tsx).
 				badges: (JSON.parse(q.club_sequence) as number[]).map((clubId) => {
 					const club = clubById.get(clubId);
 					return {
@@ -349,11 +349,11 @@ clubBadges.get("/round", async (c) => {
 				// fallback. Always sent alongside the rest -- like club names and
 				// country, a transfer date isn't the answer, so nothing here is
 				// held back for spoiler reasons, only by whether the hint's been
-				// used yet (ClubBadgesPlay.tsx).
+				// used yet (RoundPlay.tsx).
 				transferDates: transfers.map((t) => t.date),
 				// Not itself a hint (never gated behind the hint button, unlike
 				// the array above) -- a loan is drawn differently (dashed arrow,
-				// see ClubBadgesPlay.tsx) purely so the sequence doesn't read as
+				// see RoundPlay.tsx) purely so the sequence doesn't read as
 				// a normal permanent move when it wasn't one, same non-spoiler
 				// reasoning as club names/country: which clubs a player was at
 				// isn't the answer, so how they got between them isn't either.
@@ -458,7 +458,7 @@ clubBadges.post("/check-guess", async (c) => {
 	// question" applies to a wrong guess too, same as a normal quiz reveal)
 	// -- only the `result` field tells the client whether to count it as a
 	// point. The club sequence itself isn't repeated here -- the player
-	// already saw it, badge by badge, while answering (ClubBadgesPlay.tsx).
+	// already saw it, badge by badge, while answering (RoundPlay.tsx).
 	return c.json({
 		result: (isCorrect ? "correct" : "wrong") as "correct" | "wrong",
 		name: player.canonical_name,

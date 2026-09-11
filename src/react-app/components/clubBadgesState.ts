@@ -16,21 +16,21 @@
 // would mean more special-casing than just having its own.
 import { colorForPlayerIndex } from "./playerColors";
 
-export interface CbPlayer {
+export interface RoundPlayer {
 	name: string;
 	color: string;
 	correct: number;
 }
 
-export type CbPhase = "setup" | "playing" | "finished";
+export type RoundPhase = "setup" | "playing" | "finished";
 
 // One club within a question's sequence. `url` is null when that club has
-// no sourced badge yet -- ClubBadgesPlay.tsx renders `name` as a text
+// no sourced badge yet -- RoundPlay.tsx renders `name` as a text
 // placeholder in that case (and also falls back to it if a present url
 // 404s at render time). Showing the name isn't a spoiler: the club isn't
 // the answer, the player is. `country` is sent for the same non-spoiler
 // reason, always present in the response but only shown once the hint
-// button is used (see ClubBadgesPlay.tsx/BadgeTile.tsx) -- the first of
+// button is used (see RoundPlay.tsx/BadgeTile.tsx) -- the first of
 // what's meant to grow into a small set of hints.
 export interface CbBadge {
 	name: string;
@@ -48,7 +48,7 @@ export interface CbQuestion {
 	// clubBadges.ts's /round comment on why that fallback is currently a
 	// no-op). null means neither is known for this player -- the hint is
 	// skipped entirely rather than shown with nothing to reveal (see
-	// ClubBadgesPlay.tsx's availableHints).
+	// RoundPlay.tsx's availableHints).
 	nationality: string | null;
 	// Third hint: one entry per transfer (badges[i] -> badges[i+1]), so
 	// length is always badges.length - 1. Each entry is a formatted "Mon
@@ -56,7 +56,7 @@ export interface CbQuestion {
 	// pulled from a coarser year-only source when it isn't, or null when
 	// neither has anything usable for that specific transfer -- see
 	// clubBadges.ts's transferDatesFor. A null entry is skipped individually
-	// (ClubBadgesPlay.tsx) rather than blanking the whole hint; the hint
+	// (RoundPlay.tsx) rather than blanking the whole hint; the hint
 	// itself is only offered at all when at least one entry is non-null.
 	transferDates: (string | null)[];
 	// Same indexing as transferDates (one entry per transfer, badges[i] ->
@@ -72,11 +72,11 @@ export interface CbQuestion {
 // Every hint this game currently has, in the order their buttons appear.
 // A hint key here doesn't guarantee its button shows for a given question
 // (e.g. nationality is skipped when CbQuestion.nationality is null) -- see
-// ClubBadgesPlay.tsx's availableHints.
+// RoundPlay.tsx's availableHints.
 export const HINT_KEYS = ["country", "nationality", "transferDate"] as const;
 export type HintKey = (typeof HINT_KEYS)[number];
 
-export interface CbResult {
+export interface RoundResult {
 	playerName: string;
 	guess: string;
 	// Always "wrong" for a give-up (see GuessThePlayer.tsx's giveUp()) --
@@ -86,12 +86,12 @@ export interface CbResult {
 	gaveUp: boolean;
 	correctName: string;
 	// This question's score (see computeScore below), captured by
-	// ClubBadgesPlay.tsx at the moment the guess/give-up was actually
+	// RoundPlay.tsx at the moment the guess/give-up was actually
 	// submitted -- not recomputed here or on the tick after the server
 	// responds, so a slow network doesn't cost extra points on top of
 	// however long the player actually took to answer. Always populated
 	// (even for a wrong guess/give-up), but only ever displayed for a
-	// correct outcome -- ClubBadgesPlay.tsx's reveal branch -- per the
+	// correct outcome -- RoundPlay.tsx's reveal branch -- per the
 	// spec this shipped against: points are something you "got" for a
 	// correct answer, not a consolation number for a wrong one.
 	points: number;
@@ -112,13 +112,13 @@ export interface CbResult {
 //     had exactly one attempt before the question ended and revealed the
 //     answer to whoever was up next. A player running out of lives here
 //     only ends THEIR turn, never the round -- see isRoundOver's own doc
-//     in ClubBadgesPlay.tsx for why there's no multiplayer equivalent of
+//     in RoundPlay.tsx for why there's no multiplayer equivalent of
 //     solo's early round-ending.
 export const MAX_WRONG_LIVES = 5;
 
 // Per-question scoring. Starts at SCORE_START and decays two ways as the
 // question stays open -- SCORE_TIME_PENALTY every SCORE_TIME_INTERVAL_
-// SECONDS of wall-clock time (ClubBadgesPlay.tsx's own ticking timer,
+// SECONDS of wall-clock time (RoundPlay.tsx's own ticking timer,
 // not anything the server tracks -- see clubBadges.ts's /check-guess,
 // which has never known or cared how long a question took), and
 // SCORE_HINT_PENALTY per hint revealed (HINT_KEYS above). Deliberately
@@ -136,7 +136,7 @@ export function computeScore(elapsedSeconds: number, hintsUsed: number): number 
 	return SCORE_START - timePenalty - hintPenalty;
 }
 
-// Which color chip a score gets on the reveal (ClubBadgesPlay.tsx/
+// Which color chip a score gets on the reveal (RoundPlay.tsx/
 // clubBadges.css's .cb-score--*), per the exact bands specified: more
 // than 80 is gold, 50-79 silver, 30-49 yellow, 0-29 brown, less than 0
 // grey. Those five phrases leave a single-point gap at exactly 80
@@ -153,9 +153,9 @@ export function scoreBand(score: number): ScoreBand {
 	return "grey";
 }
 
-export interface CbState {
-	phase: CbPhase;
-	players: CbPlayer[];
+export interface RoundState {
+	phase: RoundPhase;
+	players: RoundPlayer[];
 	questions: CbQuestion[];
 	// Which question is currently up.
 	questionIndex: number;
@@ -176,12 +176,12 @@ export interface CbState {
 	// whenever playerIndex advances (multiplayer) or, for solo, never
 	// reset mid-round at all (only "start"/"reset") -- that split is what
 	// makes solo's 5 lives a round-wide budget but multiplayer's a fresh
-	// one per player per question. ClubBadgesPlay.tsx/ClubBadgesResult.tsx
+	// one per player per question. RoundPlay.tsx/RoundResultScreen.tsx
 	// compare it against MAX_WRONG_LIVES wherever that distinction matters.
 	wrongCount: number;
 	// Every wrong guess actually typed/picked for the CURRENT player's
 	// CURRENT attempt (not give-ups -- see the reducer cases), in order --
-	// same idea and same rendering (ClubBadgesPlay.tsx reuses App.css's
+	// same idea and same rendering (RoundPlay.tsx reuses App.css's
 	// .wrong-guesses classes directly) as the daily categories game's own
 	// incorrect-guesses list (PlayScreen.tsx), just scoped to one attempt
 	// instead of the whole round: a name that didn't work for this
@@ -194,16 +194,16 @@ export interface CbState {
 	// CURRENT player's turn at the current question* (correct, a give-up,
 	// or a wrong guess that was also their last life) -- cleared by
 	// "next". Its presence is what the Play screen uses to decide whether
-	// it's showing the guess box or a reveal -- see ClubBadgesPlay.tsx.
+	// it's showing the guess box or a reveal -- see RoundPlay.tsx.
 	// Note this does NOT mean the correct answer is necessarily shown:
 	// multiplayer only reveals it once every player has had their own
-	// turn at this question (ClubBadgesPlay.tsx's isRoundOver/
+	// turn at this question (RoundPlay.tsx's isRoundOver/
 	// isLastPlayerForQuestion), so an earlier player's wrong guess or
 	// give-up can't spoil it for whoever's still due to go.
-	lastResult: CbResult | null;
+	lastResult: RoundResult | null;
 }
 
-export const initialCbState: CbState = {
+export const initialRoundState: RoundState = {
 	phase: "setup",
 	players: [],
 	questions: [],
@@ -220,12 +220,12 @@ export const initialCbState: CbState = {
 // `state.playerIndex` at call sites purely for the doc comment landing
 // somewhere findable; the `players.length === 0` guard covers the brief
 // "setup" phase window before a real roster exists.
-export function currentTurnIndex(state: CbState): number {
+export function currentTurnIndex(state: RoundState): number {
 	if (state.players.length === 0) return 0;
 	return state.playerIndex;
 }
 
-export type CbAction =
+export type RoundAction =
 	| { type: "start"; playerNames: string[]; questions: CbQuestion[] }
 	// A wrong (non-give-up) guess with a life still left after it, for
 	// WHICHEVER player is currently up (solo or multiplayer, since
@@ -245,11 +245,11 @@ export type CbAction =
 	| { type: "next" }
 	| { type: "reset" };
 
-export function clubBadgesReducer(state: CbState, action: CbAction): CbState {
+export function roundReducer(state: RoundState, action: RoundAction): RoundState {
 	switch (action.type) {
 		case "start":
 			return {
-				...initialCbState,
+				...initialRoundState,
 				phase: "playing",
 				questions: action.questions,
 				players: action.playerNames.map((name, i) => ({ name, color: colorForPlayerIndex(i), correct: 0 })),
@@ -266,7 +266,7 @@ export function clubBadgesReducer(state: CbState, action: CbAction): CbState {
 				action.outcome === "correct"
 					? state.players.map((p, i) => (i === turnIndex ? { ...p, correct: p.correct + 1 } : p))
 					: state.players;
-			// A give-up is always outcome "wrong" (see CbResult's doc) but isn't
+			// A give-up is always outcome "wrong" (see RoundResult's doc) but isn't
 			// itself a guess -- same reasoning as categories' own list, which a
 			// give-up never adds to either -- so only an actual wrong guess (the
 			// one that happened to be the last life, since anything survivable
@@ -319,9 +319,9 @@ export function clubBadgesReducer(state: CbState, action: CbAction): CbState {
 			// is set either way). If anyone in the roster hasn't gone yet,
 			// it's simply their turn next, same question, with a completely
 			// fresh attempt (wrongCount/wrongGuesses reset, and
-			// ClubBadgesPlay.tsx's own turn-keyed effect resets hints/timer to
+			// RoundPlay.tsx's own turn-keyed effect resets hints/timer to
 			// match) -- nothing about this reveals the answer (see
-			// isLastPlayerForQuestion in ClubBadgesPlay.tsx, which gates that).
+			// isLastPlayerForQuestion in RoundPlay.tsx, which gates that).
 			const nextPlayerIndex = state.playerIndex + 1;
 			if (nextPlayerIndex < state.players.length) {
 				return { ...state, playerIndex: nextPlayerIndex, lastResult: null, wrongGuesses: [], wrongCount: 0 };
@@ -347,7 +347,7 @@ export function clubBadgesReducer(state: CbState, action: CbAction): CbState {
 		}
 
 		case "reset":
-			return initialCbState;
+			return initialRoundState;
 
 		default:
 			return state;
@@ -357,15 +357,15 @@ export function clubBadgesReducer(state: CbState, action: CbAction): CbState {
 // Winner (and full standings): most correct first, ties share a rank --
 // unlike multiplayer's rankPlayers() there's no time tiebreaker (this game
 // never tracked per-turn timing, and with a fixed number of questions per
-// player -- see ClubBadgesPlay.tsx's turn-count note -- speed was never
+// player -- see RoundPlay.tsx's turn-count note -- speed was never
 // part of the pitch the user asked for).
-export interface CbRankedPlayer {
-	player: CbPlayer;
+export interface RankedRoundPlayer {
+	player: RoundPlayer;
 	index: number;
 	rank: number;
 }
 
-export function rankCbPlayers(players: CbPlayer[]): CbRankedPlayer[] {
+export function rankRoundPlayers(players: RoundPlayer[]): RankedRoundPlayer[] {
 	const ordered = players.map((player, index) => ({ player, index })).sort((a, b) => b.player.correct - a.player.correct);
 
 	let rank = 0;

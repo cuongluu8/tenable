@@ -9,7 +9,7 @@ import {
 	MAX_WRONG_LIVES,
 	scoreBand,
 	type CbBadge,
-	type CbState,
+	type RoundState,
 	type HintKey,
 } from "./clubBadgesState";
 
@@ -23,7 +23,7 @@ import {
 // positioned.
 
 // One club actually shown in the chain, plus whether the move INTO it was
-// a loan (state.ts's loanMoves) and its index into question.badges (used
+// a loan (clubBadgesState.ts's loanMoves) and its index into question.badges (used
 // to look up its own incoming transfer date).
 interface ChainTile {
 	badge: CbBadge;
@@ -118,7 +118,7 @@ function chunkRows(tiles: ChainTile[], columns: number): ChainTile[][] {
 }
 
 interface Props {
-	state: CbState;
+	state: RoundState;
 	// `points` is this question's live score at the instant the guess/
 	// give-up was pressed (computeScore(elapsedSeconds, hints revealed) --
 	// see below) -- GuessThePlayer.tsx just carries it through to the
@@ -132,7 +132,7 @@ interface Props {
 	// below when omitted -- solo/multiplayer's own real multi-question
 	// rounds are completely unaffected. Exist for Sets mode
 	// (ClubBadgeSetPlay.tsx), which drives this component with a
-	// single-question "mini-round" per question (so state.ts's lives/
+	// single-question "mini-round" per question (so clubBadgesState.ts's lives/
 	// retry mechanics -- built around one round's own wrongCount, not an
 	// individual question's -- naturally scope to just the one being
 	// played, no changes needed there at all). Without these two
@@ -161,8 +161,8 @@ interface Props {
 // Active-round screen. Two sub-views depending on state.lastResult: the
 // guess box (nothing answered yet this question) or the reveal (answered,
 // waiting for "Next" to hand the device to the next player) -- see
-// state.ts's doc on why that's what lastResult's presence means.
-export function ClubBadgesPlay({
+// clubBadgesState.ts's doc on why that's what lastResult's presence means.
+export function RoundPlay({
 	state,
 	onGuess,
 	onGiveUp,
@@ -202,7 +202,7 @@ export function ClubBadgesPlay({
 	// moment of submission, not whenever the server happens to respond).
 	// Reset alongside revealedHints on the same "turn actually changed"
 	// check -- a retry that stays on the SAME player's SAME attempt
-	// (state.ts's "wrongAttempt") must NOT reset either one: the clock and
+	// (clubBadgesState.ts's "wrongAttempt") must NOT reset either one: the clock and
 	// hint count both keep running against the same 100-point budget until
 	// this attempt is actually done, one way or another.
 	const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -213,7 +213,7 @@ export function ClubBadgesPlay({
 	const [revealedExtra, setRevealedExtra] = useState(0);
 	// Keyed on question AND player, not just question -- since 2026-09-08
 	// every multiplayer player gets their own fresh turn at the SAME
-	// question (state.ts's playerIndex doc), so a new player showing up on
+	// question (clubBadgesState.ts's playerIndex doc), so a new player showing up on
 	// an unchanged questionIndex still needs a clean slate: no hints
 	// carried over from the previous player's attempt (that would be a
 	// real, unfair advantage, not just a display nicety), and a timer that
@@ -251,7 +251,7 @@ export function ClubBadgesPlay({
 	const rows = chunkRows(chainTiles, columns);
 	// A hint key existing (HINT_KEYS) doesn't guarantee it's offered for
 	// THIS question -- nationality is skipped outright when the server sent
-	// null for it (see state.ts's CbQuestion doc), and transferDate the same
+	// null for it (see clubBadgesState.ts's CbQuestion doc), and transferDate the same
 	// way when every entry in it is null, rather than showing a button that
 	// would reveal nothing. country has no such gate: every club in the
 	// actual game data has a real one (verified directly against production
@@ -267,12 +267,12 @@ export function ClubBadgesPlay({
 	// pass the device to and no roster worth listing, so that chrome only
 	// makes sense once there's a real multiplayer roster.
 	const solo = state.players.length === 1;
-	// Lives (solo only -- see state.ts's MAX_WRONG_LIVES) can end the round
+	// Lives (solo only -- see clubBadgesState.ts's MAX_WRONG_LIVES) can end the round
 	// on this question even though more are technically left in the deck,
-	// same "no Next question after this one" reveal ClubBadgesPlay already
+	// same "no Next question after this one" reveal RoundPlay already
 	// shows once questionIndex reaches the real end. Multiplayer has no
 	// equivalent: running out of lives there only ends the current
-	// player's own turn (state.ts's "next" case), never the round.
+	// player's own turn (clubBadgesState.ts's "next" case), never the round.
 	const outOfLives = solo && state.wrongCount >= MAX_WRONG_LIVES;
 	// Whether the player who JUST went (turnIndex, at the moment
 	// state.lastResult was set -- "next" hasn't advanced it yet) was the
@@ -324,7 +324,7 @@ export function ClubBadgesPlay({
 			<p className="cb-progress">{progressLabel ?? `Question ${state.questionIndex + 1} of ${state.questions.length}`}</p>
 
 			{/* Same 5-life budget shown for both modes since 2026-09-08, but
-			    what running out means differs (state.ts's MAX_WRONG_LIVES doc):
+			    what running out means differs (clubBadgesState.ts's MAX_WRONG_LIVES doc):
 			    solo, it's round-wide and ending it stops the whole round early,
 			    same as the daily categories game's tension mode (PlayScreen.tsx)
 			    this mirrors; multiplayer, it's just this player's own budget for
@@ -360,7 +360,7 @@ export function ClubBadgesPlay({
 								// question can take several turns: still mid-question (pass
 								// to whoever in the roster hasn't gone yet) vs. this player
 								// was the last one due, so the group moves on to a brand new
-								// question, which always starts back at player 0 (state.ts's
+								// question, which always starts back at player 0 (clubBadgesState.ts's
 								// "next" case -- fixed roster order every time, not a rotating
 								// starter, since there's no adaptive advantage to going first
 								// or last here for anyone to be shielded from).
@@ -669,7 +669,7 @@ export function ClubBadgesPlay({
 									? "You gave up on this one."
 									: "❌ Not quite — out of guesses for this one."}
 					</p>
-					{/* Only for a correct guess -- state.ts's CbResult doc on why a
+					{/* Only for a correct guess -- clubBadgesState.ts's RoundResult doc on why a
 					    wrong guess/give-up still carries a `points` value (the
 					    reducer/action shape stays uniform either way) without ever
 					    showing it: there's nothing to have "gotten" if the answer
@@ -694,7 +694,7 @@ export function ClubBadgesPlay({
 			    tried. Kept visible through the reveal too (not just while still
 			    guessing), same as categories' own placement -- it's still
 			    useful context for what didn't work on this question. Cleared by
-			    "next", not per-guess -- see state.ts's CbState doc. */}
+			    "next", not per-guess -- see clubBadgesState.ts's RoundState doc. */}
 			{state.wrongGuesses.length > 0 && (
 				<div className="wrong-guesses" aria-live="polite">
 					<h4 className="wrong-guesses__heading">Incorrect guesses</h4>

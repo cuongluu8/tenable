@@ -1,5 +1,5 @@
 import { useEffect, useReducer, useState } from "react";
-import { clubBadgesReducer, initialCbState, MAX_WRONG_LIVES, type CbQuestion, type CbState } from "./clubBadgesState";
+import { roundReducer, initialRoundState, MAX_WRONG_LIVES, type CbQuestion, type RoundState } from "./clubBadgesState";
 import type { SetsStore } from "./setsStorage";
 
 // One question actually due to be played THIS session, alongside its
@@ -46,7 +46,7 @@ export interface UseSetRoundOptions<RawQuestion, Extra> {
 }
 
 export interface UseSetRoundResult<Extra> {
-	state: CbState;
+	state: RoundState;
 	submitting: boolean;
 	loadError: string | null;
 	// null while the set's own question list hasn't loaded yet -- distinct
@@ -70,19 +70,19 @@ export interface UseSetRoundResult<Extra> {
 // Drives a single "Sets" mode Set, one question at a time -- shared by
 // club-badges' ClubBadgeSetPlay.tsx and teammates' TeammateSetPlay.tsx.
 // Each question is its own complete "mini-round" of the same
-// reducer/UI single-player already uses (clubBadgesReducer,
-// ClubBadgesPlay), never a real multi-question round -- deliberate, not
+// reducer/UI single-player already uses (roundReducer,
+// RoundPlay), never a real multi-question round -- deliberate, not
 // a shortcut: clubBadgesState.ts's lives/retry bookkeeping (wrongCount,
 // wrongGuesses) is scoped to "the current round," and Sets mode needs
 // each QUESTION to have its own independent 5-life budget that never
 // ends the rest of the set early -- exactly what a fresh one-question
 // round already gives for free, with zero changes to clubBadgesState.ts
-// itself. ClubBadgesPlay's progressLabel/isLastOverride props exist
+// itself. RoundPlay's progressLabel/isLastOverride props exist
 // specifically to keep this one-question-at-a-time approach from
 // reading as "Question 1 of 1" and "See results" on every question.
 //
 // This hook owns the queue/completion bookkeeping and the guess-check
-// round-trip; it does NOT render ClubBadgesPlay itself, since only
+// round-trip; it does NOT render RoundPlay itself, since only
 // teammates needs that component's extra soloBanner/extraHints/middle
 // props -- callers own their own render (and their own loadError/
 // completionAverage/loading branches), keeping this hook a plain state
@@ -98,7 +98,7 @@ export function useSetRound<RawQuestion extends { id: number }, Extra>(
 	opts: UseSetRoundOptions<RawQuestion, Extra>,
 ): UseSetRoundResult<Extra> {
 	const { setId, onlyQuestionId, roundUrl, checkGuessUrl, toQueueItem, store, onExit } = opts;
-	const [state, dispatch] = useReducer(clubBadgesReducer, initialCbState);
+	const [state, dispatch] = useReducer(roundReducer, initialRoundState);
 	const [submitting, setSubmitting] = useState(false);
 	const [loadError, setLoadError] = useState<string | null>(null);
 	const [queue, setQueue] = useState<SetQueueItem<Extra>[] | null>(null);

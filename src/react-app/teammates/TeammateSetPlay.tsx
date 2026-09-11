@@ -1,6 +1,6 @@
 import "../components/clubBadges.css";
 import "./teammates.css";
-import { ClubBadgesPlay } from "../components/ClubBadgesPlay";
+import { RoundPlay } from "../components/RoundPlay";
 import { SetCompleteScreen } from "../components/SetCompleteScreen";
 import { useSetRound } from "../components/useSetRound";
 import { getSetResults, recordResult } from "./setsStorage";
@@ -39,7 +39,7 @@ interface Props {
 // components/useSetRound.ts for the shared design (also driving
 // clubBadges/ClubBadgeSetPlay.tsx). This file owns the endpoints, how to
 // split a raw round question into a CbQuestion + this mode's own Extra,
-// and what fills ClubBadgesPlay's `middle` slot -- the "I played
+// and what fills RoundPlay's `middle` slot -- the "I played
 // with..." clue cards instead of a badge chain -- plus the mode's own
 // hint nodes (`extraHints`): hint 1 (club + badge) and hint 3 (overlap
 // years) render INSIDE each clue card, so they're null slots that still
@@ -120,7 +120,7 @@ export function TeammateSetPlay({ setId, onlyQuestionId, onExit }: Props) {
 		<div className="screen">
 			{/* Keyed on the question id so React fully remounts between
 			    questions -- see ClubBadgeSetPlay.tsx's own comment on why. */}
-			<ClubBadgesPlay
+			<RoundPlay
 				key={current.question.id}
 				state={state}
 				onGuess={submitGuess}
