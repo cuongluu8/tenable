@@ -1,7 +1,7 @@
 import { Hono } from "hono";
-import { normalize, collapseToAlnum } from "../lib/normalize";
 import { TEAMMATE_SETS, TEAMMATE_SET_NAMES } from "../lib/teammateSets";
 import { buildSetsIndex, resolveSetQuestions } from "../lib/setsIndex";
+import { checkPlayerGuess } from "../lib/checkPlayerGuess";
 
 const teammates = new Hono<{ Bindings: Env }>();
 
@@ -128,12 +128,13 @@ interface CheckGuessBody {
 
 // POST /api/teammates/check-guess  -- server-authoritative: the answer
 // (mystery player name) is never on the client, so this is the only place
-// a guess is validated. Same matching as clubBadges /check-guess
-// (canonical name OR any curated alias, compared on collapseToAlnum).
-// All three queries are id-keyed / indexed-FK lookups -- no scans.
+// a guess is validated. Grading itself (canonical name OR any curated
+// alias, collapseToAlnum-compared) is shared with clubBadges /check-guess
+// via lib/checkPlayerGuess.ts -- this route only owns request parsing.
 teammates.post("/check-guess", async (c) => {
 	const body = await c.req.json<CheckGuessBody>().catch(() => ({}) as CheckGuessBody);
-	if (!Number.isInteger(body.questionId)) {
+	const questionId = body.questionId;
+	if (typeof questionId !== "number" || !Number.isInteger(questionId)) {
 		return c.json({ error: "Missing question id" }, 400);
 	}
 	const givingUp = body.giveUp === true;
@@ -142,33 +143,17 @@ teammates.post("/check-guess", async (c) => {
 		return c.json({ error: "Missing guess" }, 400);
 	}
 
-	const question = await c.env.DB.prepare("SELECT player_id FROM teammate_questions WHERE id = ?")
-		.bind(body.questionId)
-		.first<{ player_id: number }>();
-	if (!question) {
+	const result = await checkPlayerGuess(
+		c.env.DB,
+		"teammate_questions",
+		questionId,
+		givingUp ? { giveUp: true } : { guess: rawGuess },
+	);
+	if (!result) {
 		return c.json({ error: "Unknown question" }, 404);
 	}
 
-	const [player, aliasRows] = await Promise.all([
-		c.env.DB.prepare("SELECT canonical_name FROM entities WHERE id = ?")
-			.bind(question.player_id)
-			.first<{ canonical_name: string }>(),
-		c.env.DB.prepare("SELECT alias FROM entity_aliases WHERE entity_id = ?")
-			.bind(question.player_id)
-			.all<{ alias: string }>(),
-	]);
-	if (!player) {
-		return c.json({ error: "Unknown question" }, 404);
-	}
-
-	const collapsedGuess = collapseToAlnum(normalize(rawGuess));
-	const matchStrings = [player.canonical_name, ...(aliasRows.results ?? []).map((r) => r.alias)];
-	const isCorrect = !givingUp && matchStrings.some((s) => collapseToAlnum(s) === collapsedGuess);
-
-	return c.json({
-		result: (isCorrect ? "correct" : "wrong") as "correct" | "wrong",
-		name: player.canonical_name,
-	});
+	return c.json(result);
 });
 
 export default teammates;

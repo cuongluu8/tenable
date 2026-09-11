@@ -231,8 +231,8 @@ export type RoundAction =
 	// WHICHEVER player is currently up (solo or multiplayer, since
 	// 2026-09-08 -- both get to keep retrying their own current attempt
 	// until they're right, give up, or run out of lives) -- see
-	// GuessThePlayer.tsx's checkQuestion for how it decides between this
-	// and "guessResult" for a wrong outcome.
+	// components/checkRoundGuess.ts for how it decides between this and
+	// "guessResult" for a wrong outcome.
 	| { type: "wrongAttempt"; guess: string }
 	| {
 			type: "guessResult";

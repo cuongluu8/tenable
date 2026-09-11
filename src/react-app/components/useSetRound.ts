@@ -1,5 +1,6 @@
 import { useEffect, useReducer, useState } from "react";
-import { roundReducer, initialRoundState, MAX_WRONG_LIVES, type CbQuestion, type RoundState } from "./clubBadgesState";
+import { roundReducer, initialRoundState, type CbQuestion, type RoundState } from "./clubBadgesState";
+import { checkRoundGuess } from "./checkRoundGuess";
 import type { SetsStore } from "./setsStorage";
 
 // One question actually due to be played THIS session, alongside its
@@ -23,11 +24,6 @@ export interface SetQueueItem<RawQuestion> {
 interface RoundResponse<RawQuestion> {
 	setName?: string;
 	questions: RawQuestion[];
-}
-
-interface CheckGuessResponse {
-	result: "correct" | "wrong";
-	name: string;
 }
 
 export interface UseSetRoundOptions<RawQuestion extends { id: number }> {
@@ -86,19 +82,15 @@ export interface UseSetRoundResult<RawQuestion> {
 // specifically to keep this one-question-at-a-time approach from
 // reading as "Question 1 of 1" and "See results" on every question.
 //
-// This hook owns the queue/completion bookkeeping and the guess-check
-// round-trip; it does NOT render RoundPlay itself, since only
-// teammates needs that component's extra soloBanner/extraHints/middle
-// props -- callers own their own render (and their own loadError/
-// completionAverage/loading branches), keeping this hook a plain state
-// machine.
-//
-// checkQuestion (submitGuess/giveUp below) is deliberately a
-// near-duplicate of GuessThePlayer.tsx's own version rather than
-// reusing it from here too -- GuessThePlayer is multiplayer's own round
-// engine (a REAL multi-question round with its own reducer usage), and
-// leaving it completely untouched is worth the small duplication over
-// bending this Sets-only hook to also cover it.
+// This hook owns the queue/completion bookkeeping; it does NOT render
+// RoundPlay itself, since only teammates needs that component's extra
+// soloBanner/extraHints/middle props -- callers own their own render
+// (and their own loadError/completionAverage/loading branches), keeping
+// this hook a plain state machine. The actual guess-check round-trip
+// (submitGuess/giveUp below) is components/checkRoundGuess.ts, shared
+// with GuessThePlayer.tsx's own real multi-question round -- despite the
+// very different round shapes, that round-trip only ever touches the
+// CURRENT question, so it doesn't care how many questions the round has.
 export function useSetRound<RawQuestion extends { id: number }>(
 	opts: UseSetRoundOptions<RawQuestion>,
 ): UseSetRoundResult<RawQuestion> {
@@ -169,49 +161,12 @@ export function useSetRound<RawQuestion extends { id: number }>(
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
-	async function checkQuestion(body: { guess: string } | { giveUp: true }, points: number) {
-		const question = state.questions[state.questionIndex];
-		if (!question || submitting) return;
-
-		setSubmitting(true);
-		try {
-			const res = await fetch(checkGuessUrl, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ questionId: question.id, ...body }),
-			});
-			const data = (await res.json()) as CheckGuessResponse | { error: string };
-			if (!res.ok || "error" in data) return;
-
-			const gaveUp = !("guess" in body);
-			const retryable = !gaveUp && data.result === "wrong" && state.wrongCount + 1 < MAX_WRONG_LIVES;
-
-			if (retryable) {
-				dispatch({ type: "wrongAttempt", guess: "guess" in body ? body.guess : "" });
-				return;
-			}
-
-			dispatch({
-				type: "guessResult",
-				guess: "guess" in body ? body.guess : "(gave up)",
-				outcome: data.result,
-				gaveUp,
-				correctName: data.name,
-				points,
-			});
-		} catch {
-			// Network error mid-question: nothing to apply, player just tries again.
-		} finally {
-			setSubmitting(false);
-		}
-	}
-
 	function submitGuess(guess: string, points: number) {
-		return checkQuestion({ guess }, points);
+		return checkRoundGuess({ checkGuessUrl, state, dispatch, submitting, setSubmitting, body: { guess }, points });
 	}
 
 	function giveUp(points: number) {
-		return checkQuestion({ giveUp: true }, points);
+		return checkRoundGuess({ checkGuessUrl, state, dispatch, submitting, setSubmitting, body: { giveUp: true }, points });
 	}
 
 	// The one piece of real Sets-mode logic GuessThePlayer.tsx has no

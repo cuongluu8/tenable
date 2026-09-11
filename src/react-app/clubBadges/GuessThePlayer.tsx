@@ -8,7 +8,8 @@ import "../multiplayer/multiplayer.css";
 import "../components/clubBadges.css";
 import { RoundPlay } from "../components/RoundPlay";
 import { RoundResultScreen } from "../components/RoundResultScreen";
-import { roundReducer, initialRoundState, MAX_WRONG_LIVES, type CbQuestion } from "../components/clubBadgesState";
+import { roundReducer, initialRoundState, type CbQuestion } from "../components/clubBadgesState";
+import { checkRoundGuess } from "../components/checkRoundGuess";
 
 interface RoundResponse {
 	questions: CbQuestion[];
@@ -18,11 +19,6 @@ interface RoundResponse {
 	// Wolf" sees which set they're actually on, same as solo's own
 	// ClubBadgeSetPlay.tsx does.
 	setName?: string;
-}
-
-interface CheckGuessResponse {
-	result: "correct" | "wrong";
-	name: string;
 }
 
 interface Props {
@@ -113,72 +109,32 @@ export function GuessThePlayer({ playerNames, setId, onExit }: Props) {
 		startRound();
 	}, [startRound]);
 
-	// Shared by submitGuess and giveUp below -- the server call is identical
-	// either way (giveUp just skips the matching entirely and always grades
-	// wrong -- see clubBadges.ts) -- but what happens to the result differs:
-	// a wrong guess with a life still left on the current player's current
-	// attempt doesn't end their turn at all (see the "wrongAttempt" branch
-	// below, dispatched for solo AND multiplayer since 2026-09-08 -- fixing
-	// a real bug where multiplayer only ever got one guess), everything
-	// else does.
-	// `points` is whatever RoundPlay.tsx's computeScore(elapsedSeconds,
-	// hintsUsed) read at the moment the guess/give-up button was actually
-	// pressed -- not recomputed here after the fetch resolves, so the
-	// score reflects how long the player took to answer, not how long the
-	// network took to grade it.
-	async function checkQuestion(body: { guess: string } | { giveUp: true }, points: number) {
-		const question = state.questions[state.questionIndex];
-		if (!question || submitting) return;
-
-		setSubmitting(true);
-		try {
-			const res = await fetch("/api/club-badges/check-guess", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ questionId: question.id, ...body }),
-			});
-			const data = (await res.json()) as CheckGuessResponse | { error: string };
-			if (!res.ok || "error" in data) return;
-
-			const gaveUp = !("guess" in body);
-			// A give-up is a deliberate "stop trying this one" -- it always
-			// ends the current player's turn, lives or not, unlike an actual
-			// wrong guess (which only ends it once their lives run out).
-			// wrongCount+1 here mirrors what the reducer is about to do to it
-			// (see "wrongAttempt"/"guessResult" in clubBadgesState.ts) so this can decide
-			// which of the two to dispatch *before* that update lands. Applies
-			// equally to solo and multiplayer since 2026-09-08 -- multiplayer
-			// used to have no retry at all (every wrong guess ended the
-			// question and revealed the answer after a single attempt), a real
-			// reported bug, not an intentional design difference from solo.
-			const retryable = !gaveUp && data.result === "wrong" && state.wrongCount + 1 < MAX_WRONG_LIVES;
-
-			if (retryable) {
-				dispatch({ type: "wrongAttempt", guess: "guess" in body ? body.guess : "" });
-				return;
-			}
-
-			dispatch({
-				type: "guessResult",
-				guess: "guess" in body ? body.guess : "(gave up)",
-				outcome: data.result,
-				gaveUp,
-				correctName: data.name,
-				points,
-			});
-		} catch {
-			// Network error mid-question: nothing to apply, player just tries again.
-		} finally {
-			setSubmitting(false);
-		}
-	}
-
+	// The actual guess-check round-trip is components/checkRoundGuess.ts,
+	// shared with the Sets modes' useSetRound.ts -- see that file's own
+	// doc for why a real multi-question round and a one-question
+	// mini-round can share it (it only ever touches the CURRENT question).
 	function submitGuess(guess: string, points: number) {
-		return checkQuestion({ guess }, points);
+		return checkRoundGuess({
+			checkGuessUrl: "/api/club-badges/check-guess",
+			state,
+			dispatch,
+			submitting,
+			setSubmitting,
+			body: { guess },
+			points,
+		});
 	}
 
 	function giveUp(points: number) {
-		return checkQuestion({ giveUp: true }, points);
+		return checkRoundGuess({
+			checkGuessUrl: "/api/club-badges/check-guess",
+			state,
+			dispatch,
+			submitting,
+			setSubmitting,
+			body: { giveUp: true },
+			points,
+		});
 	}
 
 	function nextQuestion() {

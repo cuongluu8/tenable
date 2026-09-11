@@ -1,9 +1,10 @@
 import { Hono } from "hono";
-import { normalize, collapseToAlnum, toFtsPrefixQuery } from "../lib/normalize";
+import { normalize, toFtsPrefixQuery } from "../lib/normalize";
 import { suggestNames } from "../lib/categories";
 import { enforceSuggestRateLimit } from "../lib/suggestRateLimit";
 import { CLUB_BADGE_SETS, CLUB_BADGE_SET_NAMES } from "../lib/clubBadgeSets";
 import { buildSetsIndex, resolveSetQuestions } from "../lib/setsIndex";
+import { checkPlayerGuess } from "../lib/checkPlayerGuess";
 
 const clubBadges = new Hono<{ Bindings: Env }>();
 
@@ -421,7 +422,7 @@ clubBadges.post("/check-guess", async (c) => {
 	const body = await c.req.json<CheckGuessBody>().catch(() => ({}) as CheckGuessBody);
 
 	const questionId = body.questionId;
-	if (!Number.isInteger(questionId)) {
+	if (typeof questionId !== "number" || !Number.isInteger(questionId)) {
 		return c.json({ error: "Missing question id" }, 400);
 	}
 	const givingUp = body.giveUp === true;
@@ -430,39 +431,22 @@ clubBadges.post("/check-guess", async (c) => {
 		return c.json({ error: "Missing guess" }, 400);
 	}
 
-	const question = await c.env.DB.prepare("SELECT player_id FROM club_badge_questions WHERE id = ?")
-		.bind(questionId)
-		.first<{ player_id: number }>();
-	if (!question) {
+	const result = await checkPlayerGuess(
+		c.env.DB,
+		"club_badge_questions",
+		questionId,
+		givingUp ? { giveUp: true } : { guess: rawGuess },
+	);
+	if (!result) {
 		return c.json({ error: "Unknown question" }, 404);
 	}
-
-	const [player, aliasRows] = await Promise.all([
-		c.env.DB.prepare("SELECT canonical_name FROM entities WHERE id = ?").bind(question.player_id).first<{
-			canonical_name: string;
-		}>(),
-		c.env.DB.prepare("SELECT alias FROM entity_aliases WHERE entity_id = ?").bind(question.player_id).all<{
-			alias: string;
-		}>(),
-	]);
-
-	if (!player) {
-		return c.json({ error: "Unknown question" }, 404);
-	}
-
-	const collapsedGuess = collapseToAlnum(normalize(rawGuess));
-	const matchStrings = [player.canonical_name, ...(aliasRows.results ?? []).map((r) => r.alias)];
-	const isCorrect = !givingUp && matchStrings.some((s) => collapseToAlnum(s) === collapsedGuess);
 
 	// The correct name is revealed either way ("results shown after each
 	// question" applies to a wrong guess too, same as a normal quiz reveal)
 	// -- only the `result` field tells the client whether to count it as a
 	// point. The club sequence itself isn't repeated here -- the player
 	// already saw it, badge by badge, while answering (RoundPlay.tsx).
-	return c.json({
-		result: (isCorrect ? "correct" : "wrong") as "correct" | "wrong",
-		name: player.canonical_name,
-	});
+	return c.json(result);
 });
 
 // Typeahead scoped to players, for the guess box -- reuses the same
