@@ -1,48 +1,60 @@
 /* Scrolling ticker banner (Ticker.tsx) -- shown across the very top of
-   every screen when TICKER_MESSAGE isn't empty. Two copies of the
-   message back to back in one flex track, animated left by exactly
-   half the track's width -- since both halves are identical, the loop
-   point is invisible, giving a seamless continuous scroll. */
+   every screen when TICKER_MESSAGE isn't empty. A single copy of the
+   message, absolutely positioned so it can travel the full width of the
+   bar: it enters fully off-screen at the right edge, crosses, and exits
+   fully off-screen at the left edge before looping back to the start --
+   a carousel, not a continuous marquee (no second copy following behind
+   it). `.ticker` spans the full viewport width (mounted outside
+   App.tsx's own max-width .screen wrapper), so `100vw` is a safe stand-in
+   for "the bar's own width" in the keyframes below without needing to
+   measure it in JS.
+*/
 .ticker {
+	position: relative;
 	overflow: hidden;
+	height: 2.25rem;
 	background: #1f2937;
 	border-bottom: 1px solid #374151;
-	padding: 0.5rem 0;
-}
-
-.ticker__track {
-	display: flex;
-	width: max-content;
-	animation: ticker-scroll 18s linear infinite;
 }
 
 .ticker__item {
-	flex-shrink: 0;
-	padding: 0 2rem;
+	position: absolute;
+	top: 0;
+	left: 0;
+	display: flex;
+	align-items: center;
+	height: 100%;
+	white-space: nowrap;
 	color: #4ade80;
 	font-weight: 700;
 	letter-spacing: 0.05em;
-	white-space: nowrap;
+	animation: ticker-scroll 14s linear infinite;
 }
 
 @keyframes ticker-scroll {
+	/* Start: the item's own LEFT edge sits at the bar's right edge (one
+	   whole bar-width to the right of its untransformed position) -- the
+	   text itself, extending further right from there, is fully hidden. */
 	from {
-		transform: translateX(0);
+		transform: translateX(100vw);
 	}
+	/* End: translateX(-100%) is relative to the ITEM's own width (that's
+	   what percentages mean for `transform`, unlike the 100vw above) --
+	   shifting it left by exactly its own width puts its RIGHT edge at
+	   the bar's left edge, i.e. fully hidden on the other side. */
 	to {
-		transform: translateX(-50%);
+		transform: translateX(-100%);
 	}
 }
 
 /* Vestibular-disorder-friendly: no continuous motion for anyone who's
-   asked for reduced motion at the OS level -- show the message once,
-   statically, instead of freezing mid-scroll (a hard pause on an
-   animation this slow would look broken, not intentional). */
+   asked for reduced motion at the OS level -- show the message
+   centered and static instead. */
 @media (prefers-reduced-motion: reduce) {
-	.ticker__track {
+	.ticker__item {
+		position: static;
+		width: 100%;
+		justify-content: center;
 		animation: none;
-	}
-	.ticker__item:nth-child(2) {
-		display: none;
 	}
 }

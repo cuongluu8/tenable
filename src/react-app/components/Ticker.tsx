@@ -37,10 +37,9 @@ export function Ticker() {
 
 	return (
 		<div className="ticker" aria-label={message}>
-			<div className="ticker__track" aria-hidden="true">
-				<span className="ticker__item">{message}</span>
-				<span className="ticker__item">{message}</span>
-			</div>
+			<span className="ticker__item" aria-hidden="true">
+				{message}
+			</span>
 		</div>
 	);
 }
