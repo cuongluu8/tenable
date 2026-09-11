@@ -276,27 +276,38 @@ sandbox) so nothing from this session's work is lost:
 | `clubs_stats.sql` | **Fully applied to production already** — matches production exactly (205 clubs). Kept here as a durable, reviewable record only. **Do not re-run this file.** |
 | `clubs_remaining.csv` / `clubs_remaining_stats.sql` | **Fully applied to production already** (2026-09-04) — the 48 remaining club candidates, matches production exactly (206/206 club candidates now have stats). Kept as a durable, reviewable record only. **Do not re-run this file.** Club candidate research is now fully complete — nothing left in this tier. |
 | `players_batch1_transfers.sql` / `players_batch1_stats.sql` | **Fully applied to production already** (18 players, ids 530-547) — matches production exactly. **Do not re-run these files.** |
+| `candidate_players_batch2_part1.csv` / `players_batch2_part1_stats.sql` | **Fully applied to production already** (2026-09-09/10) — 247 of 250 candidates in ids 651-900 (3 fatal, no usable Wikipedia infobox — see `players_batch2_part1_review.md`). No transfers research done for this batch yet. **Do not re-run these files.** |
+| `players_batch1_remaining.csv` / `players_batch1_remaining_stats.sql` | **Career stats fully applied to production already** (2026-09-11) — all 103 remaining batch-1 candidates (ids 530-650), 0 fatal. **Transfers not yet researched** for these 103 -- see "What's left" below. **Do not re-run the stats file.** |
 
 ## What's left, in priority order
 
-1. **Research the 103 remaining batch-1 players** in
-   `players_batch1_remaining.csv` — same process, new output files
-   (don't touch the existing `players_batch1_*.sql`, already applied).
-2. **Extend player coverage past batch 1** — the "notable tier" scope
-   (id 530-1500ish) has ~850 players beyond batch 1 that have never had a
-   candidate list generated. Generate one the same way this session did:
+1. **Research transfers (fee/date history) for the 103 players in
+   `players_batch1_remaining_stats.sql`** -- career stats are done and
+   live; transfers are the harder, judgment-requiring half
+   (`scripts/research_player_stats.py` deliberately doesn't attempt this
+   -- see its own doc). Same sourcing rules as the original 18 (see
+   `players_batch1_transfers.sql` for the pattern): one clear, sourced
+   fee/date per move, never estimated: flag and skip rather than guess
+   when a source disagrees or is ambiguous.
+2. **Do the same for batch 2's 247 players** (ids 651-900,
+   `candidate_players_batch2_part1.csv`) -- career stats are done, no
+   transfers research has been done for this batch at all yet.
+3. **Extend player coverage past id 900** -- the "notable tier" scope
+   (id 530-1500ish) has ~600 players beyond batches 1+2 that have never
+   had a candidate list generated. Generate one the same way this
+   project has each time:
    ```sql
    SELECT id, canonical_name, scope FROM entities
-   WHERE entity_type='player' AND id BETWEEN 651 AND 1500 ORDER BY id;
+   WHERE entity_type='player' AND id BETWEEN 901 AND 1500 ORDER BY id;
    ```
-   then apply the same fame-decay judgment call this session made (the
-   "obviously famous" quality fades well before 1500 — sample a few dozen
-   ids first to find a sensible real cutoff for a given batch, the same
-   way this session sampled ids 900-1500 before settling on batch 1's
-   530-650 range).
-3. After each new batch is applied to production, **repeat the
+   then apply the same fame-decay judgment call each prior batch made
+   (the "obviously famous" quality fades well before 1500 -- sample a
+   few dozen ids first to find a sensible real cutoff for this batch,
+   the same way earlier batches did before settling on their own
+   ranges).
+4. After each new batch is applied to production, **repeat the
    `db/seed.sql` regeneration** so it never drifts from production again
-   (same one-line export command above).
+   (same export command as this doc's own "Where things stand" section).
 
 ## A note on how this session applied data (don't repeat this)
 
