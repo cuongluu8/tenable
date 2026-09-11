@@ -46,7 +46,10 @@
 		"verify:content-source": "node --experimental-strip-types scripts/verify-content-source.ts",
 		"verify:club-badges": "node --experimental-strip-types scripts/verify-club-badges.ts",
 		"verify:query-plans": "node --experimental-strip-types scripts/verify-query-plans.ts",
-		"playtest": "node --experimental-strip-types scripts/playtest.ts"
+		"playtest": "node --experimental-strip-types scripts/playtest.ts",
+		"apply:content-refresh": "node --experimental-strip-types scripts/apply-content-refresh.ts",
+		"db:seed:regen": "node --experimental-strip-types scripts/regen-seed.ts",
+		"db:local:reset": "node --experimental-strip-types scripts/reset-local-d1.ts"
 	},
 	"type": "module"
 }

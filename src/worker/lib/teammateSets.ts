@@ -20,6 +20,17 @@
 // of teammate_questions should be re-chunked from the tail the same way
 // (see build_teammate_questions.py), not just appended, to keep the
 // difficulty ordering meaningful across the sets as well as within them.
+//
+// A 2026-09-11 rebuild (after the player_career_stats growth that also
+// triggered clubBadgeSets.ts's own re-chunk) found teammate_questions had
+// grown to 111 -- one more than these 11 full sets cover (player 604).
+// Deliberately left OUT of every Set rather than either forcing an
+// eleventh-slot "Set 12" of just one question or renumbering all 11
+// existing sets to re-sort one extra id in -- both cost more (an awkward
+// near-empty set, or the same kind of local-progress-losing renumbering
+// clubBadgeSets.ts accepted for 61 players, not 1) than holding a single
+// player back until the next real batch gives the tail something
+// meaningful to re-chunk into.
 export const TEAMMATE_SETS: number[][] = [
 	[548, 549, 550, 555, 557, 569, 572, 577, 590, 591],
 	[593, 594, 595, 597, 598, 599, 605, 606, 607, 608],
