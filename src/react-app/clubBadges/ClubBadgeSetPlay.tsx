@@ -22,11 +22,10 @@ interface Props {
 // its own mini-round, why the queue/completion bookkeeping works the
 // way it does; that hook is also what teammates/TeammateSetPlay.tsx
 // drives). This file owns nothing but the endpoints and the plain
-// render: club-badges has no per-question extras beyond what the
-// reducer already carries, so its raw round question already IS a
-// CbQuestion (`extra` is unused, typed `null`), and RoundPlay
-// renders here with none of the soloBanner/extraHints/middle props only
-// teammates needs.
+// render: club-badges' raw round question already IS a CbQuestion
+// (toQuestion is the identity function), and RoundPlay renders here
+// with none of the soloBanner/extraHints/middle props only teammates
+// needs.
 export function ClubBadgeSetPlay({ setId, onlyQuestionId, onExit }: Props) {
 	const {
 		state,
@@ -40,12 +39,12 @@ export function ClubBadgeSetPlay({ setId, onlyQuestionId, onExit }: Props) {
 		submitGuess,
 		giveUp,
 		nextQuestion,
-	} = useSetRound<CbQuestion, null>({
+	} = useSetRound<CbQuestion>({
 		setId,
 		onlyQuestionId,
 		roundUrl: `/api/club-badges/round?setId=${setId}`,
 		checkGuessUrl: "/api/club-badges/check-guess",
-		toQueueItem: (question, originalIndex) => ({ question, extra: null, originalIndex }),
+		toQuestion: (question) => question,
 		store: { getSetResults, recordResult },
 		onExit,
 	});

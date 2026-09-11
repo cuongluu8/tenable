@@ -12,18 +12,15 @@ interface CardHint {
 	years: string; // overlap years, e.g. "2019–2021" / "2021–present"
 }
 // The raw shape of one question in GET /api/teammates/round?setId=N.
+// useSetRound keeps this around on each queue item (as `raw`) alongside
+// the CbQuestion toQuestion derives from it -- the clue names + hint
+// data here have no room in the reducer's plain CbQuestion, so this file
+// reads them straight off `raw` rather than a bespoke "extra" shape.
 interface RoundQuestion {
 	id: number;
 	teammates: string[]; // clue names only -- club/nationality/years are hints
 	cardHints: CardHint[]; // hints 1 & 3 -- shown in each clue's card, same order as teammates
 	nationality: string | null; // hint 2 -- shown as text below
-}
-// useSetRound's generic `extra` for this mode -- the clue names + hint
-// data the reducer's plain CbQuestion has no room for.
-interface Extra {
-	clues: string[];
-	cardHints: CardHint[];
-	nationality: string | null;
 }
 
 interface Props {
@@ -38,12 +35,13 @@ interface Props {
 // Plays through a single "Who am I?" Set, one question at a time -- see
 // components/useSetRound.ts for the shared design (also driving
 // clubBadges/ClubBadgeSetPlay.tsx). This file owns the endpoints, how to
-// split a raw round question into a CbQuestion + this mode's own Extra,
-// and what fills RoundPlay's `middle` slot -- the "I played
-// with..." clue cards instead of a badge chain -- plus the mode's own
-// hint nodes (`extraHints`): hint 1 (club + badge) and hint 3 (overlap
-// years) render INSIDE each clue card, so they're null slots that still
-// cost 15 each; hint 2 (nationality) is the only one shown as text.
+// derive a CbQuestion from a raw round question (empty badges/
+// nationality/transferDates/loanMoves -- none of those apply here), and
+// what fills RoundPlay's `middle` slot -- the "I played with..." clue
+// cards instead of a badge chain -- plus the mode's own hint nodes
+// (`extraHints`): hint 1 (club + badge) and hint 3 (overlap years)
+// render INSIDE each clue card, so they're null slots that still cost 15
+// each; hint 2 (nationality) is the only one shown as text.
 export function TeammateSetPlay({ setId, onlyQuestionId, onExit }: Props) {
 	const {
 		state,
@@ -57,16 +55,12 @@ export function TeammateSetPlay({ setId, onlyQuestionId, onExit }: Props) {
 		submitGuess,
 		giveUp,
 		nextQuestion,
-	} = useSetRound<RoundQuestion, Extra>({
+	} = useSetRound<RoundQuestion>({
 		setId,
 		onlyQuestionId,
 		roundUrl: `/api/teammates/round?setId=${setId}`,
 		checkGuessUrl: "/api/teammates/check-guess",
-		toQueueItem: (q, originalIndex) => ({
-			question: { id: q.id, badges: [], nationality: null, transferDates: [], loanMoves: [] },
-			extra: { clues: q.teammates, cardHints: q.cardHints, nationality: q.nationality },
-			originalIndex,
-		}),
+		toQuestion: (q) => ({ id: q.id, badges: [], nationality: null, transferDates: [], loanMoves: [] }),
 		store: { getSetResults, recordResult },
 		onExit,
 	});
@@ -112,7 +106,7 @@ export function TeammateSetPlay({ setId, onlyQuestionId, onExit }: Props) {
 	// without a country.
 	const hints: React.ReactNode[] = [
 		null,
-		...(current.extra.nationality ? [`They represent ${current.extra.nationality}`] : []),
+		...(current.raw.nationality ? [`They represent ${current.raw.nationality}`] : []),
 		null,
 	];
 
@@ -136,8 +130,8 @@ export function TeammateSetPlay({ setId, onlyQuestionId, onExit }: Props) {
 					<>
 						<p className="tm-sub">I played with…</p>
 						<ul className="tm-clues">
-							{current.extra.clues.map((name, i) => {
-								const card = current.extra.cardHints[i];
+							{current.raw.teammates.map((name, i) => {
+								const card = current.raw.cardHints[i];
 								// Hint 1 -> club + badge in the card; hint 3 (the last
 								// hint) -> the overlap years after it.
 								const showClub = hintsRevealed >= 1;

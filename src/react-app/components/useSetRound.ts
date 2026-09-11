@@ -7,13 +7,16 @@ import type { SetsStore } from "./setsStorage";
 // queue is usually a strict subset of the set (see useSetRound's own
 // doc), since the progress line ("Question 7 of 10") has to reflect
 // where a question really sits, not just its position among however
-// many are left to retry right now. `extra` is whatever a mode's own UI
-// needs beyond the reducer's plain CbQuestion -- null for club-badges
-// (its raw round question already IS a CbQuestion), the clue names +
-// per-clue hint data for teammates (see toQueueItem below).
-export interface SetQueueItem<Extra> {
+// many are left to retry right now. `raw` is the untouched /round
+// response object this item was built from -- club-badges never reads
+// it back (its raw question already IS a CbQuestion, `toQuestion` is the
+// identity function), but teammates' own UI needs the clue names and
+// per-clue hint data /round sent that the reducer's plain CbQuestion has
+// no room for, so it reads those straight off `raw` rather than this
+// hook having to know they exist.
+export interface SetQueueItem<RawQuestion> {
 	question: CbQuestion;
-	extra: Extra;
+	raw: RawQuestion;
 	originalIndex: number;
 }
 
@@ -27,7 +30,7 @@ interface CheckGuessResponse {
 	name: string;
 }
 
-export interface UseSetRoundOptions<RawQuestion, Extra> {
+export interface UseSetRoundOptions<RawQuestion extends { id: number }> {
 	setId: number;
 	// When given, play ONLY this one question regardless of what else in
 	// the set is unanswered -- the picker's per-question "Retry" control.
@@ -35,23 +38,25 @@ export interface UseSetRoundOptions<RawQuestion, Extra> {
 	onlyQuestionId?: number;
 	roundUrl: string;
 	checkGuessUrl: string;
-	// Splits one raw /round question into the reducer's plain CbQuestion
-	// and this mode's own per-question extra data -- the one place a
-	// mode's raw response shape meets this shared engine.
-	toQueueItem: (raw: RawQuestion, originalIndex: number) => SetQueueItem<Extra>;
+	// Derives the reducer's plain CbQuestion from one raw /round question
+	// -- the one place a mode's raw response shape meets this shared
+	// engine. Identity for club-badges (its raw shape already IS a
+	// CbQuestion); teammates builds one with empty badges/nationality/
+	// transferDates/loanMoves, since none of those apply to it.
+	toQuestion: (raw: RawQuestion) => CbQuestion;
 	store: Pick<SetsStore, "getSetResults" | "recordResult">;
 	// Leaves Sets mode entirely, back to the picker -- which re-reads
 	// localStorage on its own next render, no separate refresh signal.
 	onExit: () => void;
 }
 
-export interface UseSetRoundResult<Extra> {
+export interface UseSetRoundResult<RawQuestion> {
 	state: RoundState;
 	submitting: boolean;
 	loadError: string | null;
 	// null while the set's own question list hasn't loaded yet -- distinct
 	// from an empty array (which would mean "nothing left to play").
-	queue: SetQueueItem<Extra>[] | null;
+	queue: SetQueueItem<RawQuestion>[] | null;
 	queueIndex: number;
 	setSize: number;
 	// This set's display name ("Crimson Falcon" etc), falling back to a
@@ -94,14 +99,14 @@ export interface UseSetRoundResult<Extra> {
 // engine (a REAL multi-question round with its own reducer usage), and
 // leaving it completely untouched is worth the small duplication over
 // bending this Sets-only hook to also cover it.
-export function useSetRound<RawQuestion extends { id: number }, Extra>(
-	opts: UseSetRoundOptions<RawQuestion, Extra>,
-): UseSetRoundResult<Extra> {
-	const { setId, onlyQuestionId, roundUrl, checkGuessUrl, toQueueItem, store, onExit } = opts;
+export function useSetRound<RawQuestion extends { id: number }>(
+	opts: UseSetRoundOptions<RawQuestion>,
+): UseSetRoundResult<RawQuestion> {
+	const { setId, onlyQuestionId, roundUrl, checkGuessUrl, toQuestion, store, onExit } = opts;
 	const [state, dispatch] = useReducer(roundReducer, initialRoundState);
 	const [submitting, setSubmitting] = useState(false);
 	const [loadError, setLoadError] = useState<string | null>(null);
-	const [queue, setQueue] = useState<SetQueueItem<Extra>[] | null>(null);
+	const [queue, setQueue] = useState<SetQueueItem<RawQuestion>[] | null>(null);
 	const [queueIndex, setQueueIndex] = useState(0);
 	const [setSize, setSetSize] = useState(0);
 	const [setName, setSetName] = useState(`Set ${setId}`);
@@ -130,7 +135,7 @@ export function useSetRound<RawQuestion extends { id: number }, Extra>(
 				setAllQuestionIds(data.questions.map((q) => q.id));
 				const done = store.getSetResults(setId);
 				const items = data.questions
-					.map((raw, originalIndex) => toQueueItem(raw, originalIndex))
+					.map((raw, originalIndex) => ({ question: toQuestion(raw), raw, originalIndex }))
 					.filter((item) => (onlyQuestionId ? item.question.id === onlyQuestionId : !(item.question.id in done)));
 				// Nothing left to play -- shouldn't be reachable from the
 				// picker's own UI (it hides "Play"/"Resume" once a set is

@@ -12,12 +12,12 @@ interface SetsPlayProps {
 }
 
 interface Props {
-	// A plain path, no regex metacharacters -- e.g. "/single-player/club-
-	// badges" or "/single-player/teammates". Both this mode's picker
-	// (basePath itself) and its play view (basePath + "/set/N") live
-	// under it; App.tsx only has to know the URL is somewhere under here
-	// to mount this component at all (see its own isXActive() prefix
-	// check) -- everything below that is this component's own business.
+	// e.g. "/single-player/club-badges" or "/single-player/teammates".
+	// Both this mode's picker (basePath itself) and its play view
+	// (basePath + "/set/N") live under it; App.tsx only has to know the
+	// URL is somewhere under here to mount this component at all (see its
+	// own isXActive() prefix check) -- everything below that is this
+	// component's own business.
 	basePath: string;
 	// ClubBadgeSets/TeammateSets and ClubBadgeSetPlay/TeammateSetPlay --
 	// both pairs already share this exact prop shape (see components/
@@ -48,9 +48,14 @@ interface Props {
 // leaves the mode entirely; nothing here needs to be manually cleared
 // the way App.tsx's old flat state slots did.
 export function SetsModeRoute({ basePath, Picker, Play, onExitToParent }: Props) {
+	// Plain string ops rather than building a RegExp out of `basePath` --
+	// basePath is always a literal App.tsx passes in, but this avoids
+	// ever having to think about whether it's regex-safe.
 	function setIdFromPath(): number | null {
-		const match = new RegExp(`^${basePath}/set/(\\d+)$`).exec(window.location.pathname);
-		return match ? Number(match[1]) : null;
+		const prefix = `${basePath}/set/`;
+		if (!window.location.pathname.startsWith(prefix)) return null;
+		const rest = window.location.pathname.slice(prefix.length);
+		return /^\d+$/.test(rest) ? Number(rest) : null;
 	}
 	function retryIdFromPath(): number | undefined {
 		const raw = new URLSearchParams(window.location.search).get("retry");
