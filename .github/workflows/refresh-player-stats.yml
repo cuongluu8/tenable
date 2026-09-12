@@ -83,7 +83,13 @@ jobs:
 
       - name: Locate the scratch local D1 file
         id: dbpath
-        run: echo "path=$(find .wrangler/state/v3/d1 -name '*.sqlite' | head -1)" >> "$GITHUB_OUTPUT"
+        # Miniflare's local D1 storage directory also contains its own
+        # metadata.sqlite (Durable Object bookkeeping, no game tables) --
+        # `find` without an explicit sort returned that one first on a CI
+        # runner (directory-entry order isn't alphabetical), causing
+        # "no such table: entities" downstream. Excluding it by name is
+        # what actually picks the real per-database file.
+        run: echo "path=$(find .wrangler/state/v3/d1 -name '*.sqlite' -not -name 'metadata.sqlite' | head -1)" >> "$GITHUB_OUTPUT"
 
       - name: Fetch + regression-gate every already-researched player
         id: fetch
