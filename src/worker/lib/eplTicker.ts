@@ -44,17 +44,20 @@ const FINISHED_TTL_SECONDS = 3 * 24 * 60 * 60;
 // trims anything a normal matchday produces.
 const MAX_MATCHES = 10;
 
-interface FdTeam {
+// Exported (along with the formatting functions below) purely so
+// eplTicker.test.ts can construct fixture matches directly -- these are
+// otherwise only ever produced by parsing football-data.org's own JSON.
+export interface FdTeam {
 	name: string;
 	shortName?: string | null;
 }
 
-interface FdScoreLine {
+export interface FdScoreLine {
 	home: number | null;
 	away: number | null;
 }
 
-interface FdMatch {
+export interface FdMatch {
 	utcDate: string;
 	status: string;
 	matchday: number | null;
@@ -70,7 +73,7 @@ interface FdMatchesResponse {
 	matches: FdMatch[];
 }
 
-function teamLabel(team: FdTeam): string {
+export function teamLabel(team: FdTeam): string {
 	return team.shortName?.trim() || team.name;
 }
 
@@ -80,7 +83,7 @@ function teamLabel(team: FdTeam): string {
 // for the unlikely case `fullTime` isn't populated yet. Returns null (not
 // "0-0") when neither is available, so formatMatch can show "vs" instead
 // of fabricating a score nobody has confirmed.
-function currentScore(match: FdMatch): FdScoreLine | null {
+export function currentScore(match: FdMatch): FdScoreLine | null {
 	const { fullTime, halfTime } = match.score;
 	if (typeof fullTime?.home === "number" && typeof fullTime?.away === "number") return fullTime;
 	if (typeof halfTime?.home === "number" && typeof halfTime?.away === "number") return halfTime;
@@ -90,7 +93,7 @@ function currentScore(match: FdMatch): FdScoreLine | null {
 // "LIVE" for IN_PLAY/PAUSED, "FT" (full time) for FINISHED -- every match
 // reaching here is one of those three (see the `started` filter above),
 // so there's no other status to account for.
-function formatMatch(match: FdMatch): string {
+export function formatMatch(match: FdMatch): string {
 	const score = currentScore(match);
 	const scoreText = score ? `${score.home}-${score.away}` : "vs";
 	const tag = match.status === "IN_PLAY" || match.status === "PAUSED" ? "LIVE" : "FT";

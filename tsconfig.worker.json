@@ -4,9 +4,5 @@
 		"tsBuildInfoFile": "./node_modules/.tmp/tsconfig.worker.tsbuildinfo",
 		"types": ["vite/client", "./worker-configuration.d.ts"]
 	},
-	"include": ["src/worker"],
-	// *.test.ts files under src/worker belong to tsconfig.test.json instead
-	// (they need cloudflare:test's types, not this project's worker-runtime
-	// ones) -- a file can only belong to one project in a composite build.
-	"exclude": ["src/worker/**/*.test.ts"]
+	"include": ["src/worker"]
 }
