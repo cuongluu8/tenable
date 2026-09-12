@@ -87,11 +87,14 @@ function currentScore(match: FdMatch): FdScoreLine | null {
 	return null;
 }
 
+// "LIVE" for IN_PLAY/PAUSED, "FT" (full time) for FINISHED -- every match
+// reaching here is one of those three (see the `started` filter above),
+// so there's no other status to account for.
 function formatMatch(match: FdMatch): string {
 	const score = currentScore(match);
 	const scoreText = score ? `${score.home}-${score.away}` : "vs";
-	const liveTag = match.status === "IN_PLAY" || match.status === "PAUSED" ? " 🔴" : "";
-	return `${teamLabel(match.homeTeam)} ${scoreText} ${teamLabel(match.awayTeam)}${liveTag}`;
+	const tag = match.status === "IN_PLAY" || match.status === "PAUSED" ? "LIVE" : "FT";
+	return `${tag}: ${teamLabel(match.homeTeam)} ${scoreText} ${teamLabel(match.awayTeam)}`;
 }
 
 function isoDate(d: Date): string {
@@ -162,7 +165,9 @@ export async function refreshEplTicker(kv: KVNamespace, apiKey: string | undefin
 	// A live match anywhere in the set makes the whole message time-
 	// sensitive -- see LIVE_TTL_SECONDS/FINISHED_TTL_SECONDS above.
 	const anyLive = thisWeek.some((m) => m.status === "IN_PLAY" || m.status === "PAUSED");
-	const message = `⚽ Premier League this week: ${thisWeek.slice(0, MAX_MATCHES).map(formatMatch).join("   •   ")}`;
+	// No leading "Premier League" label -- the ticker only ever shows this
+	// one competition, so restating that in every message is redundant.
+	const message = thisWeek.slice(0, MAX_MATCHES).map(formatMatch).join("   •   ");
 	await kv.put(TICKER_KV_KEY, message, { expirationTtl: anyLive ? LIVE_TTL_SECONDS : FINISHED_TTL_SECONDS });
 }
 
