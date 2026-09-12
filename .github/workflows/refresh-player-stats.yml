@@ -1,0 +1,156 @@
+name: Refresh player stats
+
+# Keeps ALREADY-researched players' career stats (player_career_stats)
+# close to real-time by periodically re-fetching them from Wikipedia and
+# applying only genuine improvements. See scripts/refresh_player_stats.py's
+# own doc for the regression gate that makes this safe to run unattended:
+# a transient Wikipedia hiccup returning less data than what's already
+# stored is rejected outright, not applied -- it's what caught a real
+# duplicate-data bug in this exact table during its own first smoke test
+# (2026-09-11), before this workflow existed.
+#
+# This does NOT extend the researched-player pool (new players), touch
+# Sets membership, or touch transfers -- see docs/stats-enrichment.md for
+# why each of those stays a separate, judgment-based process. It also does
+# NOT regenerate club_badge_questions/teammate_questions itself -- that's
+# regenerate-derived-content.yml, triggered automatically once this
+# workflow succeeds (see its own top comment for why that's a separate
+# workflow rather than one more job here).
+#
+# CADENCE lives in exactly one place: the cron line below. Change it there
+# -- nothing else in this file, or any other file, needs to change. This
+# workflow is also always runnable on demand from the Actions tab's "Run
+# workflow" button (workflow_dispatch), independent of the schedule.
+#
+# SAFETY MODEL: every expensive or risky step runs against a scratch local
+# D1 built fresh in this job from db/schema.sql + db/seed.sql -- never
+# against production. Only once the refreshed data has been applied to
+# that scratch copy AND the full verify suite (verify:matching,
+# verify:query-plans, build) passes there does this workflow touch
+# production at all -- and even then with the exact, already-validated SQL,
+# no re-computation against production. Immediately before writing to
+# production, this job snapshots the current rows for every player about
+# to change and uploads them as a workflow artifact (see the "Snapshot"
+# step) -- if anything looks wrong afterward, that snapshot is a ready-made
+# rollback file, not something to reconstruct under pressure:
+#   wrangler d1 execute tenable-content --remote --command \
+#     "DELETE FROM player_career_stats WHERE player_id IN (<the ids from the run's report>)"
+#   wrangler d1 execute tenable-content --remote --file=<the downloaded snapshot artifact>
+# Deliberately no automatic rollback-on-failure -- rollback logic that
+# itself has a bug is how a guard turns into a worse outage than the one
+# it was meant to prevent.
+#
+# Requires a CLOUDFLARE_API_TOKEN repository secret (Account.D1:Edit scope
+# is enough; narrower is safer) for the "production" steps below -- until
+# that secret exists, this workflow fails cleanly at the first production
+# step, and everything before it (fetch, regression gate, local apply,
+# local verify) still runs and is still useful signal on its own. If the
+# token's account has more than one Cloudflare account attached, a
+# CLOUDFLARE_ACCOUNT_ID secret may also be needed -- wrangler will say so
+# explicitly if it is.
+on:
+  schedule:
+    - cron: "0 3 * * 0" # Sundays 03:00 UTC -- the only line to touch to reschedule
+  workflow_dispatch: {}
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    # Wikipedia fetches are the slow part (1 req/sec, politely, per player
+    # -- see research_player_stats.py) -- generous but bounded so a genuine
+    # hang still fails within the hour rather than running indefinitely.
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - run: pip install requests mwparserfromhell
+
+      - name: Seed a scratch local D1 (never production)
+        run: |
+          npx wrangler d1 execute tenable-content --local --file=db/schema.sql
+          npx wrangler d1 execute tenable-content --local --file=db/seed.sql
+
+      - name: Locate the scratch local D1 file
+        id: dbpath
+        run: echo "path=$(find .wrangler/state/v3/d1 -name '*.sqlite' | head -1)" >> "$GITHUB_OUTPUT"
+
+      - name: Fetch + regression-gate every already-researched player
+        id: fetch
+        run: |
+          python3 scripts/refresh_player_stats.py \
+            --db "${{ steps.dbpath.outputs.path }}" \
+            --out-sql refresh_accepted.sql \
+            --out-report refresh_report.md \
+            --out-ids refresh_accepted.ids
+          # A plain `hashFiles('refresh_accepted.ids') != ''` in a later step's
+          # `if:` would NOT do what it looks like it does -- the file is always
+          # created (possibly empty) by the script above, so hashFiles always
+          # sees a file to hash and always returns a non-empty hash string,
+          # regardless of whether its *content* is empty. An explicit step
+          # output based on the file's actual size is what later steps key off.
+          if [ -s refresh_accepted.ids ]; then
+            echo "has_accepted=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_accepted=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload the refresh report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: refresh-report
+          path: |
+            refresh_report.md
+            refresh_accepted.sql
+
+      - name: Apply + verify against the scratch local D1
+        run: |
+          npx wrangler d1 execute tenable-content --local --file=refresh_accepted.sql
+          npm run verify:matching
+          npm run verify:query-plans
+          npm run build
+
+      - name: Snapshot production rows before mutating (rollback material)
+        if: steps.fetch.outputs.has_accepted == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          ids=$(cat refresh_accepted.ids)
+          node --experimental-strip-types scripts/snapshot-table.ts \
+            --table player_career_stats --ids "$ids" --out production_snapshot.sql --remote
+
+      - name: Upload the pre-image snapshot (the rollback file)
+        if: always() && steps.fetch.outputs.has_accepted == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-snapshot
+          path: production_snapshot.sql
+
+      - name: Apply to production
+        if: steps.fetch.outputs.has_accepted == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler d1 execute tenable-content --remote --file=refresh_accepted.sql
+
+      - name: Verify production row counts match what was just applied
+        if: steps.fetch.outputs.has_accepted == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          ids=$(cat refresh_accepted.ids)
+          npx wrangler d1 execute tenable-content --remote --json --command \
+            "SELECT COUNT(DISTINCT player_id) AS players FROM player_career_stats WHERE player_id IN ($ids)"

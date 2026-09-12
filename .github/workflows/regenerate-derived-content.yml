@@ -1,0 +1,160 @@
+name: Regenerate derived content
+
+# club_badge_questions and teammate_questions are both fully DERIVED
+# tables -- every row is mechanically computed from transfers and
+# player_career_stats (see data/research/build_club_badge_questions.py and
+# build_teammate_questions.py's own docs), never hand-authored. Whenever
+# either source table changes, the derived tables can fall behind -- newly
+# researched or refreshed players sit in the source data but are
+# unreachable in the live game until these are rebuilt (see the 2026-09-11
+# audit: 56 already-researched players were sitting in club_badge_questions
+# unused because CLUB_BADGE_SETS had never been re-chunked to include
+# them). This workflow is what keeps that gap from reopening silently.
+#
+# TRIGGER: runs automatically once refresh-player-stats.yml succeeds
+# (workflow_run below) -- that's the workflow that changes
+# player_career_stats, the most common source of drift -- plus its own
+# workflow_dispatch for an ad-hoc run (e.g. after a transfers backlog is
+# researched by hand, which also feeds club_badge_questions but isn't
+# touched by refresh-player-stats.yml at all).
+#
+# NOTE: this does NOT touch CLUB_BADGE_SETS / TEAMMATE_SETS membership --
+# deciding which newly-eligible players are actually worth adding to a Set
+# (and picking non-colliding Set names) is a judgment call, done by hand,
+# not something this workflow re-chunks automatically. See
+# src/worker/lib/clubBadgeSets.ts's own doc comment for why Sets 1-9 in
+# particular must never be mechanically re-chunked.
+#
+# SAFETY MODEL: same local-first shape as refresh-player-stats.yml --
+# both build scripts run against a scratch local D1 seeded fresh from
+# db/schema.sql + db/seed.sql, never production. Both are FULL rebuilds
+# (every currently-eligible player, not just new ones -- see
+# apply-content-refresh.ts's own doc for why that means delete-then-
+# replace, never a blind re-insert), so before either table is touched
+# anywhere, scripts/check-no-regression.ts confirms the freshly rebuilt
+# set is a superset of what's currently live -- first against the scratch
+# local D1 (cheap, no credentials, catches most real problems), then again
+# against production itself immediately before the production delete
+# (belt-and-braces against db/seed.sql having drifted from production,
+# which sync-seed-and-verify.yml exists to prevent but a failed run of
+# that workflow could still leave stale for a while). Either check failing
+# stops the workflow before anything is written anywhere.
+#
+# Full-table snapshots of both tables are taken (via `wrangler d1 export`)
+# and uploaded as an artifact immediately before the production delete --
+# ready-made rollback material, not something to reconstruct under
+# pressure:
+#   npx wrangler d1 execute tenable-content --remote --command "DELETE FROM <table>"
+#   npx wrangler d1 execute tenable-content --remote --file=<the downloaded snapshot artifact>
+# Deliberately no automatic rollback-on-failure, same reasoning as
+# refresh-player-stats.yml.
+#
+# Requires the same CLOUDFLARE_API_TOKEN (Account.D1:Edit scope) and
+# possibly CLOUDFLARE_ACCOUNT_ID repository secrets as
+# refresh-player-stats.yml for the production-touching steps -- until
+# those exist this workflow fails cleanly at the first production step,
+# and everything before it (rebuild, both regression gates, local apply,
+# local verify) still runs and is still useful signal on its own.
+on:
+  workflow_run:
+    workflows: ["Refresh player stats"]
+    types: [completed]
+  workflow_dispatch: {}
+
+jobs:
+  regenerate:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+        # No pip install here -- both build scripts are stdlib-only
+        # (argparse/json/re/sqlite3), unlike the Wikipedia-fetching
+        # research scripts.
+
+      - name: Seed a scratch local D1 (never production)
+        run: |
+          npx wrangler d1 execute tenable-content --local --file=db/schema.sql
+          npx wrangler d1 execute tenable-content --local --file=db/seed.sql
+
+      - name: Locate the scratch local D1 file
+        id: dbpath
+        run: echo "path=$(find .wrangler/state/v3/d1 -name '*.sqlite' | head -1)" >> "$GITHUB_OUTPUT"
+
+      - name: Rebuild both derived tables from current source data
+        run: |
+          python3 data/research/build_club_badge_questions.py \
+            --db "${{ steps.dbpath.outputs.path }}" \
+            --out data/research/club_badge_questions_refresh.sql
+          python3 data/research/build_teammate_questions.py \
+            --db "${{ steps.dbpath.outputs.path }}" \
+            --out data/research/teammate_questions_refresh.sql
+
+      - name: Regression gate against the scratch local D1
+        run: |
+          node --experimental-strip-types scripts/check-no-regression.ts \
+            --table club_badge_questions --new-sql data/research/club_badge_questions_refresh.sql
+          node --experimental-strip-types scripts/check-no-regression.ts \
+            --table teammate_questions --new-sql data/research/teammate_questions_refresh.sql
+
+      - name: Upload the regenerated SQL
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regenerated-derived-content
+          path: |
+            data/research/club_badge_questions_refresh.sql
+            data/research/teammate_questions_refresh.sql
+
+      - name: Apply + verify against the scratch local D1
+        run: |
+          npm run apply:content-refresh
+          npm run verify:matching
+          npm run verify:query-plans
+          npm run build
+
+      - name: Snapshot production tables before mutating (rollback material)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx wrangler d1 export tenable-content --remote --no-schema \
+            --table=club_badge_questions --output=production_snapshot_club_badge_questions.sql
+          npx wrangler d1 export tenable-content --remote --no-schema \
+            --table=teammate_questions --output=production_snapshot_teammate_questions.sql
+
+      - name: Upload the pre-image snapshots (the rollback files)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-snapshot
+          path: |
+            production_snapshot_club_badge_questions.sql
+            production_snapshot_teammate_questions.sql
+
+      - name: Regression gate against production itself, immediately before mutating it
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          node --experimental-strip-types scripts/check-no-regression.ts \
+            --table club_badge_questions --new-sql data/research/club_badge_questions_refresh.sql --remote
+          node --experimental-strip-types scripts/check-no-regression.ts \
+            --table teammate_questions --new-sql data/research/teammate_questions_refresh.sql --remote
+
+      - name: Apply to production
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npm run apply:content-refresh -- --remote
