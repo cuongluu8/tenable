@@ -212,7 +212,16 @@
 	margin: 0;
 }
 
+/* A flex-column screen (.cb-play, .mp-play) defaults to align-items:
+   stretch, which fills this <button> to the container's full width -- a
+   button's own native text-align is centered, so without align-self it
+   silently reads as "New game" sitting in the middle. align-self here
+   (rather than text-align) is the same fix this file already uses for
+   .give-up-link/.cb-hint-button: shrink back to content width instead of
+   stretching, so a plain .screen div (not a flex column) is unaffected
+   either way. */
 .back-link {
+	align-self: flex-start;
 	background: none;
 	border: none;
 	padding: 0;
