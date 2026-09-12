@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { enforceCircuitBreaker } from "./lib/circuitBreaker";
 import { refreshEplTicker } from "./lib/eplTicker";
 import { rebuildAll } from "./lib/rebuild";
+import adminRefreshTicker from "./routes/adminRefreshTicker";
 import categories from "./routes/categories";
 import category from "./routes/category";
 import clubBadges from "./routes/clubBadges";
@@ -46,6 +47,9 @@ app.route("/api/ticker", ticker);
 // into the homepage). enforceCircuitBreaker applying here too is harmless
 // for an occasional manual page load.
 app.route("/api/admin/media-audit", mediaAudit);
+// Same "unlisted admin action" reasoning as media-audit.ts above -- see
+// adminRefreshTicker.ts's own doc for what it's for.
+app.route("/api/admin/refresh-ticker", adminRefreshTicker);
 
 export default {
 	fetch: app.fetch,
