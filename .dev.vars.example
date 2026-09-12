@@ -1,0 +1,14 @@
+# Local-dev-only secrets (wrangler reads .dev.vars automatically; never
+# committed -- see .gitignore's ".dev.vars*" / "!.dev.vars.example").
+# Copy this file to .dev.vars and fill in real values to exercise
+# secret-dependent code locally. In production, secrets are set with
+# `npx wrangler secret put <NAME>` instead -- see each variable's own
+# doc (src/worker/env.d.ts) for details.
+
+# Powers the "latest EPL scores" ticker (src/worker/lib/eplTicker.ts).
+# Free-tier key from https://www.football-data.org/client/register --
+# the same one already used by the FOOTBALL_DATA_API_KEY GitHub Actions
+# secret (scripts/verify-content-source.ts), just also needed here for
+# the live Worker's own periodic fetch. Leave unset locally and the
+# ticker simply stays empty -- see eplTicker.ts's own doc.
+FOOTBALL_DATA_API_KEY=

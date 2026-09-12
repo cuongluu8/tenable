@@ -13,23 +13,33 @@
 		// delete the guardrail.
 		"DAILY_REQUEST_BUDGET": 20000,
 		"SUGGEST_RATE_LIMIT_PER_MINUTE": 30,
-		// The scrolling ticker banner's message (see routes/ticker.ts /
-		// components/Ticker.tsx) — change this value and redeploy to update
-		// it, or override it for the live Worker without a redeploy via the
-		// Cloudflare dashboard (Workers & Pages → this Worker → Settings →
-		// Variables); a dashboard override is reset back to this value the
-		// next time `wrangler deploy` runs, since deploy always re-applies
-		// what's declared here. Empty string hides the ticker entirely.
-		"TICKER_MESSAGE": "HAPPY BIRTHDAY LUKA"
+		// The scrolling ticker banner's manual-override message (see
+		// routes/ticker.ts / components/Ticker.tsx) — leave empty (the
+		// normal state) and the ticker shows the latest Premier League
+		// scores instead (lib/eplTicker.ts, kept fresh by the */15 cron
+		// below). Set this to something and redeploy (or override it for
+		// the live Worker without a redeploy via the Cloudflare dashboard,
+		// Workers & Pages → this Worker → Settings → Variables) for a
+		// one-off announcement — a birthday shout-out, etc. — which always
+		// wins over the scores while it's set. A dashboard override is
+		// reset back to this value the next time `wrangler deploy` runs.
+		"TICKER_MESSAGE": ""
 	},
 	"upload_source_maps": true,
 	"triggers": {
-		// Nightly rebuild of category_answers from entity_stats (see
-		// src/worker/lib/rebuild.ts and index.ts's scheduled()). Cron Triggers
-		// run in this same Worker on the Free plan — no external scheduler,
-		// no new billable resource. 03:00 UTC is off-peak for this app's
-		// (currently nonexistent) traffic; revisit only if that changes.
-		"crons": ["0 3 * * *"]
+		// Two schedules, told apart by event.cron in index.ts's scheduled():
+		// - "0 3 * * *": nightly rebuild of category_answers from
+		//   entity_stats (see src/worker/lib/rebuild.ts). 03:00 UTC is
+		//   off-peak for this app's (currently nonexistent) traffic; revisit
+		//   only if that changes.
+		// - "*/15 * * * *": refresh the ticker's Premier League scores (see
+		//   src/worker/lib/eplTicker.ts) -- frequent enough that a live
+		//   match's score doesn't sit stale for long, nowhere near
+		//   football-data.org's free-tier rate limit (10 req/min) or this
+		//   Worker's own request budget (96 runs/day either way).
+		// Cron Triggers run in this same Worker on the Free plan for both --
+		// no external scheduler, no new billable resource.
+		"crons": ["0 3 * * *", "*/15 * * * *"]
 	},
 	"assets": {
 		"directory": "./dist/client",
