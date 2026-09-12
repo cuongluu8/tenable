@@ -140,7 +140,7 @@ interface Props {
 	// question and treat every reveal as the round's last one.
 	progressLabel?: string;
 	isLastOverride?: boolean;
-	// "Who am I?" mode (Teammates.tsx) reuses this whole screen -- same
+	// "Teammate Tell" mode (TeammateSetPlay.tsx) reuses this whole screen -- same
 	// reducer, lives, timer, guess box, give-up flow, reveal, score chip.
 	// `middle` renders in place of the badge chain + "may not show their
 	// full career" disclaimer; it may be a function of how many extra
@@ -206,7 +206,7 @@ export function RoundPlay({
 	// hint count both keep running against the same 100-point budget until
 	// this attempt is actually done, one way or another.
 	const [elapsedSeconds, setElapsedSeconds] = useState(0);
-	// "Who am I?" mode's own hints (see extraHints prop) -- how many of the
+	// "Teammate Tell" mode's own hints (see extraHints prop) -- how many of the
 	// ordered texts are shown so far. Separate from revealedHints (club-
 	// badges' badge-integrated hints); only ever one of the two is in use.
 	// Reset on the same turn-change check.
@@ -551,7 +551,7 @@ export function RoundPlay({
 				<p className="cb-hint-text">Nationality: {question.nationality}</p>
 			)}
 
-			{/* "Who am I?" mode's hints: ordered JSX nodes (from the round
+			{/* "Teammate Tell" mode's hints: ordered JSX nodes (from the round
 			    data), one revealed per press, each already-revealed one stays
 			    up. Same 15-point cost as club-badges' own hints -- see
 			    hintsUsed above. A null/empty entry renders nothing here

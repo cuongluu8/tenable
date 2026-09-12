@@ -5,8 +5,8 @@ interface Props {
 	onPlayAgain: () => void;
 	onExit: () => void;
 	// When given, a "Share via WhatsApp" button appears next to Play again
-	// -- "Who am I?" mode (Teammates.tsx) passes it; club-badges doesn't
-	// (its Set-complete screen has its own share, see shareSet.ts).
+	// -- "Teammate Tell" mode (TeammateSetPlay.tsx) passes it; club-badges
+	// doesn't (its Set-complete screen has its own share, see shareSet.ts).
 	onShare?: () => void;
 }
 

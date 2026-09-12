@@ -1,5 +1,5 @@
-// Per-set progress persistence for any "Sets" mode (club-badges' "Guess
-// the Player -- Sets", teammates' "Who am I? -- Sets"). Entirely
+// Per-set progress persistence for any "Sets" mode (club-badges' "Club
+// Run -- Sets", teammates' "Teammate Tell -- Sets"). Entirely
 // client-side, same "no server session" philosophy as the rest of this
 // game (see clubBadgesState.ts's module doc): a set's progress is
 // meaningful to one browser/device, not worth a server round trip or an

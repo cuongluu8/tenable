@@ -34,8 +34,8 @@ interface Props {
 // Owns a "Sets" mode's own two-level sub-routing: `basePath` is the set
 // picker, `basePath/set/N[?retry=id]` plays one (`retry` narrows a
 // session to replaying just that one already-answered question, the
-// picker's own per-question "Retry"). club-badges' "Guess the Player"
-// and teammates' "Who am I?" are both shaped exactly like this --
+// picker's own per-question "Retry"). club-badges' "Club Run" and
+// teammates' "Teammate Tell" are both shaped exactly like this --
 // previously App.tsx hand-rolled matching path-checkers, three state
 // slots (active/setId/retryId), three handlers, and two render branches
 // PER mode; this component holds that once and App.tsx just mounts one

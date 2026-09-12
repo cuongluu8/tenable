@@ -32,7 +32,7 @@ interface Props {
 	onExit: () => void;
 }
 
-// Plays through a single "Who am I?" Set, one question at a time -- see
+// Plays through a single "Teammate Tell" Set, one question at a time -- see
 // components/useSetRound.ts for the shared design (also driving
 // clubBadges/ClubBadgeSetPlay.tsx). This file owns the endpoints, how to
 // derive a CbQuestion from a raw round question (empty badges/

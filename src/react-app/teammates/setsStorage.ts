@@ -1,4 +1,4 @@
-// "Who am I? -- Sets" progress. Thin wrapper around the shared store
+// "Teammate Tell -- Sets" progress. Thin wrapper around the shared store
 // (components/setsStorage.ts) -- this file owns nothing but the storage
 // key. Keyed by teammate_questions.id (see teammates.ts's /round and
 // /sets). Its own key so club-badges' and this mode's progress never

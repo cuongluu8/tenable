@@ -43,7 +43,7 @@ export function createSetSharer(opts: {
 	// yet).
 	pathSegment: string;
 	// The clause between "...Set 3: Velvet Wolf " and " Think you can beat
-	// me?" -- e.g. "of Guess the Player!" or 'of "Who am I?" — name the
+	// me?" -- e.g. "of Club Run!" or 'of "Teammate Tell" — name the
 	// mystery player from their old teammates.'
 	modeBlurb: string;
 }): SetSharer {

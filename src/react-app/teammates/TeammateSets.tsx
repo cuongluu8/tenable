@@ -7,14 +7,14 @@ interface Props {
 	onBack: () => void;
 }
 
-// Set picker for "Who am I?" -- thin instantiation of the shared
+// Set picker for "Teammate Tell" -- thin instantiation of the shared
 // SetsPicker (see that file's own doc); this file owns nothing but
 // which endpoint/copy/storage/share module belong to this mode.
 export function TeammateSets({ onPlay, onBack }: Props) {
 	return (
 		<SetsPicker
 			copy={{
-				heading: "Who am I? — Sets",
+				heading: "Teammate Tell — Sets",
 				intro:
 					"Eleven fixed sets of ten, ordered from well-known players to more obscure ones. Progress is saved on this device — come back and finish a set anytime, or retry a question you already answered.",
 			}}

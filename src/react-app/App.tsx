@@ -39,8 +39,9 @@ function isMultiplayerPath(): boolean {
 	return window.location.pathname === "/multiplayer";
 }
 
-// Single player's own mode picker (Daily Categories vs Guess the Player,
-// solo) — sits between home and either of those two, the same role
+// Single player's own mode picker (Daily Categories vs Club Run vs
+// Teammate Tell, solo) — sits between home and any of those three, the
+// same role
 // Multiplayer's internal game-type picker plays for the multiplayer side
 // (see Multiplayer.tsx) but as its own route here since single-player's two
 // modes are otherwise-unrelated top-level screens (PlayScreen vs
@@ -153,8 +154,8 @@ function App() {
 		loadCategories(); // refresh statuses/streak after playing
 	}
 
-	// One level up from either single-player mode (Daily Categories, Guess
-	// the Player, or Who am I?) back to the picker between them — not all
+	// One level up from either single-player mode (Daily Categories, Club
+	// Run, or Teammate Tell) back to the picker between them — not all
 	// the way home, same "back goes up one step" reasoning as
 	// handleBackToCategoryList. Just flips the two Sets modes off here --
 	// unmounting SetsModeRoute is itself the reset for whatever picker/
@@ -252,11 +253,11 @@ function App() {
 						<span>Play the Top 10 solo, at your own pace</span>
 					</button>
 					<button type="button" className="mode-button" onClick={handleSoloClubBadgesSelect}>
-						<strong>🛡️ Guess the player</strong>
+						<strong>🛡️ Club Run</strong>
 						<span>Name them from the clubs they've played for</span>
 					</button>
 					<button type="button" className="mode-button" onClick={handleSoloTeammatesSelect}>
-						<strong>🤝 Who am I?</strong>
+						<strong>🤝 Teammate Tell</strong>
 						<span>Name the mystery player from their former teammates</span>
 					</button>
 				</div>

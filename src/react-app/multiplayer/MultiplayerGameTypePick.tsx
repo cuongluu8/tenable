@@ -27,7 +27,7 @@ export function MultiplayerGameTypePick({ onStart, onBack }: Props) {
 					<span>Race to find every entry in a category</span>
 				</button>
 				<button type="button" className="mode-button" onClick={() => onStart("club-badges")}>
-					<strong>🛡️ Guess the player</strong>
+					<strong>🛡️ Club Run</strong>
 					<span>Name them from the clubs they've played for</span>
 				</button>
 			</div>

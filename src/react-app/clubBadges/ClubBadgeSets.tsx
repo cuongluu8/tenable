@@ -15,7 +15,7 @@ export function ClubBadgeSets({ onPlay, onBack }: Props) {
 	return (
 		<SetsPicker
 			copy={{
-				heading: "Guess the player — Sets",
+				heading: "Club Run — Sets",
 				intro:
 					"Ten fixed sets of ten, ordered from well-known players to more obscure ones. Progress is saved on this device — come back and finish a set anytime, or retry a question you already answered.",
 			}}

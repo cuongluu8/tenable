@@ -1,4 +1,4 @@
-// State for "Guess the player" (club badges) — single-device pass-and-play,
+// State for "Club Run" (club badges) — single-device pass-and-play,
 // same philosophy as src/react-app/multiplayer/state.ts: no server session,
 // the whole game lives here as a plain reducer, and the only network calls
 // are (1) fetching a round's 10 questions once at "start" and (2) one

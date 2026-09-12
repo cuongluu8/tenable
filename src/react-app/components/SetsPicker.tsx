@@ -14,7 +14,7 @@ interface SetsResponse {
 }
 
 export interface SetsPickerCopy {
-	// "Guess the player — Sets" / "Who am I? — Sets".
+	// "Club Run — Sets" / "Teammate Tell — Sets".
 	heading: string;
 	// The paragraph under the heading -- each mode states its own set
 	// count ("Ten fixed sets of ten" / "Eleven fixed sets of ten") since
@@ -45,8 +45,8 @@ interface Props {
 	onBack: () => void;
 }
 
-// Set picker shared by club-badges' "Guess the Player" and teammates'
-// "Who am I?" -- both replaced an old "random 10 every round" entry
+// Set picker shared by club-badges' "Club Run" and teammates' "Teammate
+// Tell" -- both replaced an old "random 10 every round" entry
 // point with standing, curated rounds (see clubBadgeSets.ts/
 // teammateSets.ts's own docs on why they're ordered the way they are) a
 // player can leave and come back to. All progress tracking is local
