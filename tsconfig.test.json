@@ -1,0 +1,50 @@
+{
+	"compilerOptions": {
+		"tsBuildInfoFile": "./node_modules/.tmp/tsconfig.test.tsbuildinfo",
+		"target": "ES2022",
+		"lib": ["ES2023", "DOM", "DOM.Iterable"],
+		"module": "ESNext",
+		"skipLibCheck": true,
+		"jsx": "react-jsx",
+
+		/* Bundler mode */
+		"moduleResolution": "bundler",
+		"allowImportingTsExtensions": true,
+		"isolatedModules": true,
+		"moduleDetection": "force",
+		"noEmit": true,
+		"resolveJsonModule": true,
+
+		/* Linting */
+		"strict": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"noFallthroughCasesInSwitch": true,
+		"noUncheckedSideEffectImports": true,
+
+		// `cloudflare:test`'s env/SELF (used by test/integration/**) are
+		// typed here; vite/client declares the `*.sql?raw` import suffix
+		// setup.ts uses to inline schema.sql/fixtures as strings. Everything
+		// else needed (DOM for jsdom-based unit tests, vitest/
+		// @playwright/test's own types) comes from the packages themselves
+		// via normal module resolution, no ambient `types` entry needed for
+		// those.
+		"types": ["@cloudflare/vitest-plugin/types", "vite/client"]
+	},
+	// One project for every test-adjacent file this repo has: the co-located
+	// unit tests living next to what they test (src/**/*.test.ts[x]),
+	// everything under test/ (integration + e2e), and the three root-level
+	// test tool configs -- kept as its own tsconfig (not folded into
+	// tsconfig.node.json, which only ever covered vite.config.ts) since
+	// `cloudflare:test`'s types apply to test/integration/** but would be
+	// actively wrong noise for vite.config.ts or the app/worker source
+	// trees, which don't run inside that harness.
+	"include": [
+		"src/**/*.test.ts",
+		"src/**/*.test.tsx",
+		"test/**/*.ts",
+		"vitest.config.ts",
+		"vitest.integration.config.ts",
+		"playwright.config.ts"
+	]
+}

@@ -30,6 +30,21 @@ name: CI
 # scripts/verify-category-defs.ts for what each check below actually
 # asserts, and agents.md for how to run all four (three here, one in the
 # other workflow) locally.
+#
+# unit/integration/e2e tests (2026-09-12 onward) sit alongside those
+# existing checks rather than replacing them -- see vitest.config.ts,
+# vitest.integration.config.ts, and playwright.config.ts for what each
+# layer actually covers, and `npm run verify:all` for the same commands
+# run locally in one shot before pushing. Integration tests seed their own
+# small fixture (test/integration/fixtures/core.sql), not db/seed.sql --
+# see test/integration/setup.ts's own doc for why the real,
+# ~63k-statement seed can't be applied inside that harness. Nothing in any
+# of the three layers needs Cloudflare credentials: unit tests are pure
+# logic, integration tests run against local-only D1/KV/R2 emulation
+# (vitest.integration.config.ts forces the MEDIA binding local even though
+# wrangler.json's own `remote: true` is meant for local dev convenience),
+# and e2e drives `npm run dev` the same local, credential-free way
+# playtest.ts already does below.
 
 on:
   push:
@@ -42,13 +57,14 @@ jobs:
     runs-on: ubuntu-latest
     # A real hang should fail loudly within a bounded window rather than run
     # until GitHub's default 6-hour job timeout. Not a response to an actual
-    # hang, to be clear — the full suite reliably completes in ~2.5-4
-    # minutes (see scripts/playtest.ts's startDevServer for a note on a
-    # false alarm here: this workflow's early runs *looked* stuck via
-    # list_workflow_jobs' per-step status, which lagged well behind actual
-    # completion, and got cancelled for nothing) — just defense in depth
-    # against a genuine future hang.
-    timeout-minutes: 10
+    # hang, to be clear — the full suite (now including unit/integration/e2e
+    # tests, added 2026-09-12) reliably completes in under 10 minutes, most
+    # of that Playwright's own browser download (see scripts/playtest.ts's
+    # startDevServer for a note on a false alarm here: this workflow's early
+    # runs *looked* stuck via list_workflow_jobs' per-step status, which
+    # lagged well behind actual completion, and got cancelled for nothing)
+    # — just defense in depth against a genuine future hang.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -60,6 +76,12 @@ jobs:
       - run: npm ci
 
       - run: npm run lint
+
+      - name: Unit tests (pure logic and reducers)
+        run: npm run test:unit
+
+      - name: Integration tests (real routes against a small local fixture)
+        run: npm run test:integration
 
       - run: npm run build
 
@@ -79,3 +101,9 @@ jobs:
 
       - name: Playtest every category end to end
         run: npm run playtest
+
+      - name: Install Playwright's browser
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E tests (real browser against a real dev server)
+        run: npm run test:e2e

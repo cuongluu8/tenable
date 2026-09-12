@@ -209,3 +209,12 @@ __pycache__/
 # source of truth for serving), there's nothing here worth durably
 # recording -- the manifest/SQL files alongside it already are.
 data/research/media_cache/
+
+# Generated fresh before every integration test run (see
+# scripts/gen-test-wrangler-config.ts's own doc) -- derived from
+# wrangler.json, never hand-edited, so it has no business being committed.
+wrangler.test.generated.json
+
+# Playwright's own run artifacts (traces, screenshots, HTML report).
+/test-results/
+/playwright-report/

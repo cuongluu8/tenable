@@ -22,5 +22,8 @@
 		"noFallthroughCasesInSwitch": true,
 		"noUncheckedSideEffectImports": true
 	},
-	"include": ["src/react-app"]
+	"include": ["src/react-app"],
+	// *.test.ts(x) files under src/react-app belong to tsconfig.test.json
+	// instead -- a file can only belong to one project in a composite build.
+	"exclude": ["src/react-app/**/*.test.ts", "src/react-app/**/*.test.tsx"]
 }
