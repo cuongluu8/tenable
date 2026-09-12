@@ -1,5 +1,5 @@
 // Keeps the scrolling ticker (routes/ticker.ts / components/Ticker.tsx)
-// showing the latest Premier League scores, refreshed periodically by a
+// showing this week's Premier League results, refreshed periodically by a
 // Cron Trigger (see index.ts's scheduled(), wrangler.json's triggers.crons)
 // rather than fetched live on every request -- football-data.org's free
 // tier is rate-limited (10 req/min) and shared with scripts/verify-content-
@@ -90,7 +90,8 @@ function currentScore(match: FdMatch): FdScoreLine | null {
 function formatMatch(match: FdMatch): string {
 	const score = currentScore(match);
 	const scoreText = score ? `${score.home}-${score.away}` : "vs";
-	return `${teamLabel(match.homeTeam)} ${scoreText} ${teamLabel(match.awayTeam)}`;
+	const liveTag = match.status === "IN_PLAY" || match.status === "PAUSED" ? " 🔴" : "";
+	return `${teamLabel(match.homeTeam)} ${scoreText} ${teamLabel(match.awayTeam)}${liveTag}`;
 }
 
 function isoDate(d: Date): string {
@@ -107,12 +108,14 @@ export async function refreshEplTicker(kv: KVNamespace, apiKey: string | undefin
 		return;
 	}
 
-	// A 2-day lookback plus a 1-day lookahead reliably spans "the most
-	// recently finished round" and "anything live right now" without having
-	// to know the current matchday number ourselves.
+	// A Premier League gameweek's fixtures can span several days (often
+	// Friday through Monday) and, checked mid-week, the most recent one
+	// might have finished up to several days ago -- a 6-day lookback plus a
+	// 1-day lookahead comfortably spans "this week's results" without
+	// needing to know the current matchday number ourselves.
 	const now = new Date();
 	const dateFrom = new Date(now);
-	dateFrom.setUTCDate(dateFrom.getUTCDate() - 2);
+	dateFrom.setUTCDate(dateFrom.getUTCDate() - 6);
 	const dateTo = new Date(now);
 	dateTo.setUTCDate(dateTo.getUTCDate() + 1);
 
@@ -136,30 +139,31 @@ export async function refreshEplTicker(kv: KVNamespace, apiKey: string | undefin
 		return;
 	}
 
-	const live = data.matches.filter((m) => m.status === "IN_PLAY" || m.status === "PAUSED");
-	if (live.length > 0) {
-		const message = `🔴 LIVE: ${live.slice(0, MAX_MATCHES).map(formatMatch).join("   •   ")}`;
-		await kv.put(TICKER_KV_KEY, message, { expirationTtl: LIVE_TTL_SECONDS });
-		return;
-	}
-
-	const finished = data.matches.filter((m) => m.status === "FINISHED").sort((a, b) => b.utcDate.localeCompare(a.utcDate));
-	// Show the whole latest completed round, not just the single most
-	// recent match -- group by matchday rather than re-slicing the date
-	// window, since a round's fixtures don't all kick off the same day.
-	const latestMatchday = finished[0]?.matchday ?? null;
-	const latestRound = latestMatchday === null ? finished : finished.filter((m) => m.matchday === latestMatchday);
-
-	if (latestRound.length === 0) {
-		// Nothing live and nothing finished in the window (an international
-		// break, preseason, etc.) -- hide the ticker rather than show
-		// something stale or misleading.
+	// Only matches that have actually kicked off count as "results" --
+	// not-yet-played fixtures (SCHEDULED/TIMED) are excluded on purpose.
+	const started = data.matches.filter((m) => m.status === "IN_PLAY" || m.status === "PAUSED" || m.status === "FINISHED");
+	if (started.length === 0) {
+		// Nothing has started in the window (an international break,
+		// preseason, etc.) -- hide the ticker rather than show something
+		// stale or misleading.
 		await kv.delete(TICKER_KV_KEY);
 		return;
 	}
 
-	const message = `⚽ Latest Premier League scores: ${latestRound.slice(0, MAX_MATCHES).map(formatMatch).join("   •   ")}`;
-	await kv.put(TICKER_KV_KEY, message, { expirationTtl: FINISHED_TTL_SECONDS });
+	// The whole current gameweek -- every match that's kicked off, live or
+	// finished, not just whichever ones happen to be live right now --
+	// grouped by matchday (a round's fixtures don't all kick off the same
+	// day, so a date slice alone can't tell "this round" from "last
+	// round") rather than assumed from today's date.
+	const latestMatchday = Math.max(...started.map((m) => m.matchday ?? -Infinity));
+	const thisWeek = latestMatchday === -Infinity ? started : started.filter((m) => m.matchday === latestMatchday);
+	thisWeek.sort((a, b) => a.utcDate.localeCompare(b.utcDate));
+
+	// A live match anywhere in the set makes the whole message time-
+	// sensitive -- see LIVE_TTL_SECONDS/FINISHED_TTL_SECONDS above.
+	const anyLive = thisWeek.some((m) => m.status === "IN_PLAY" || m.status === "PAUSED");
+	const message = `⚽ Premier League this week: ${thisWeek.slice(0, MAX_MATCHES).map(formatMatch).join("   •   ")}`;
+	await kv.put(TICKER_KV_KEY, message, { expirationTtl: anyLive ? LIVE_TTL_SECONDS : FINISHED_TTL_SECONDS });
 }
 
 // Called from routes/ticker.ts on every request -- just a KV read, no
