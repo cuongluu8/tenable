@@ -74,6 +74,8 @@ remoteSession.get("/sessions/:code/state", async (c) => forward(c, "/state"));
 
 remoteSession.post("/sessions/:code/ready", async (c) => forward(c, "/ready", { method: "POST", body: await c.req.text() }));
 
+remoteSession.post("/sessions/:code/guess", async (c) => forward(c, "/guess", { method: "POST", body: await c.req.text() }));
+
 remoteSession.post("/sessions/:code/leave", async (c) => forward(c, "/leave", { method: "POST" }));
 
 remoteSession.post("/sessions/:code/remove", async (c) => forward(c, "/remove", { method: "POST", body: await c.req.text() }));

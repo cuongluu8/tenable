@@ -19,9 +19,10 @@ interface JoinResponse {
 	playerToken: string;
 }
 interface StateResponse {
-	status: "lobby" | "in_progress" | "ended";
+	status: "lobby" | "in_progress" | "finished" | "ended";
 	questionCount: number | null;
-	players: { id: string; name: string; isHost: boolean; ready: boolean; away: boolean }[];
+	players: { id: string; name: string; isHost: boolean; ready: boolean; away: boolean; wins: number }[];
+	round: unknown;
 }
 
 async function createSession(hostName: string): Promise<CreateResponse> {
@@ -70,7 +71,8 @@ describe("POST /api/remote/sessions (create)", () => {
 		expect(body).toEqual({
 			status: "lobby",
 			questionCount: null,
-			players: [{ id: created.playerId, name: "Alice", isHost: true, ready: true, away: false }],
+			round: null,
+			players: [{ id: created.playerId, name: "Alice", isHost: true, ready: true, away: false, wins: 0 }],
 		});
 	});
 });
@@ -83,7 +85,7 @@ describe("full lifecycle: create -> join -> ready -> start", () => {
 		const afterJoin = await getState(host.sessionCode, host.playerToken);
 		expect(afterJoin.body.players).toHaveLength(2);
 		const guestInState = afterJoin.body.players.find((p) => p.id === guest.playerId);
-		expect(guestInState).toEqual({ id: guest.playerId, name: "Guest", isHost: false, ready: false, away: false });
+		expect(guestInState).toEqual({ id: guest.playerId, name: "Guest", isHost: false, ready: false, away: false, wins: 0 });
 
 		// Starting before the guest readies up is rejected -- see
 		// remoteSessionValidation.test.ts for the exact error shape.
