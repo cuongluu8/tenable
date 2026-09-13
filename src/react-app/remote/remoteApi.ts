@@ -184,9 +184,10 @@ export function apiPostMessage(code: string, token: string, text: string) {
 	});
 }
 
-export function apiRestart(code: string, token: string) {
+export function apiRestart(code: string, token: string, keepScores: boolean) {
 	return apiFetch<{ ok: true } | { error: string }>(`/sessions/${code}/restart`, {
 		method: "POST",
 		headers: authHeaders(token),
+		body: JSON.stringify({ keepScores }),
 	});
 }

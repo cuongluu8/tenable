@@ -403,7 +403,7 @@ interface Props {
 	onGiveUp: () => Promise<void>;
 	onPostMessage: (text: string) => Promise<{ error: string; retryAfterMs?: number } | null>;
 	onSetReady: (ready: boolean) => void;
-	onRestart: () => void;
+	onRestart: (keepScores: boolean) => void;
 	onLeave: () => void;
 }
 
@@ -465,9 +465,17 @@ export function RemoteGame({ state, myPlayerId, error, onGuess, onGiveUp, onPost
 				    here is a real leave now -- see RemoteMultiplayer.tsx. */}
 				{finishedMe?.isHost ? (
 					<div className="remote-final-actions">
-						<button type="button" className="remote-primary-button" onClick={onRestart}>
-							Play again
-						</button>
+						{/* Two explicit choices rather than a toggle beside one
+						    button -- a running total vs. a clean slate is the whole
+						    decision at this point, so it's spelled out. */}
+						<div className="remote-final-actions__again">
+							<button type="button" className="remote-primary-button" onClick={() => onRestart(true)}>
+								Play again, keep scores
+							</button>
+							<button type="button" className="remote-ready-toggle remote-ready-toggle--active" onClick={() => onRestart(false)}>
+								Play again, reset scores
+							</button>
+						</div>
 						<LeaveControl isHost onLeave={onLeave} />
 					</div>
 				) : (

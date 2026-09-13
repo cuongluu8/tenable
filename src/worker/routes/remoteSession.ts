@@ -80,7 +80,7 @@ remoteSession.post("/sessions/:code/give-up", async (c) => forward(c, "/give-up"
 
 remoteSession.post("/sessions/:code/message", async (c) => forward(c, "/message", { method: "POST", body: await c.req.text() }));
 
-remoteSession.post("/sessions/:code/restart", async (c) => forward(c, "/restart", { method: "POST" }));
+remoteSession.post("/sessions/:code/restart", async (c) => forward(c, "/restart", { method: "POST", body: await c.req.text() }));
 
 remoteSession.post("/sessions/:code/leave", async (c) => forward(c, "/leave", { method: "POST" }));
 

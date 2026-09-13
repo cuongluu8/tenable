@@ -103,24 +103,36 @@ describe("POST /api/remote/sessions/:code/restart", () => {
 		// Guests can't.
 		expect((await post(host.sessionCode, "/restart", guest.playerToken)).status).toBe(403);
 
-		expect((await post(host.sessionCode, "/restart", host.playerToken)).status).toBe(200);
+		// keepScores: the running total carries over.
+		expect((await post(host.sessionCode, "/restart", host.playerToken, { keepScores: true })).status).toBe(200);
 		const lobby = await getState(host.sessionCode, guest.playerToken);
 		expect(lobby.status).toBe("lobby");
 		expect(lobby.round).toBeNull();
 		expect(lobby.questionCount).toBeNull();
-		// Same two seats, scoreboard wiped, guest has to re-ready.
+		// Same two seats, guest has to re-ready, host's win kept.
 		expect(lobby.players.map((p) => p.id).sort()).toEqual([host.playerId, guest.playerId].sort());
-		expect(lobby.players.every((p) => p.wins === 0)).toBe(true);
+		expect(lobby.players.find((p) => p.id === host.playerId)?.wins).toBe(1);
 		expect(lobby.players.find((p) => p.id === guest.playerId)?.ready).toBe(false);
 		expect(lobby.players.find((p) => p.id === host.playerId)?.ready).toBe(true);
 
 		// And the normal flow runs again from there.
-		expect((await post(host.sessionCode, "/start", host.playerToken, { questionCount: 2 })).status).toBe(409); // guest not ready
+		expect((await post(host.sessionCode, "/start", host.playerToken, { questionCount: 1 })).status).toBe(409); // guest not ready
 		await post(host.sessionCode, "/ready", guest.playerToken, { ready: true });
-		expect((await post(host.sessionCode, "/start", host.playerToken, { questionCount: 2 })).status).toBe(200);
+		expect((await post(host.sessionCode, "/start", host.playerToken, { questionCount: 1 })).status).toBe(200);
 		const again = await getState(host.sessionCode, host.playerToken);
 		expect(again.status).toBe("in_progress");
 		expect(again.round!.index).toBe(0);
-		expect(again.round!.total).toBe(2);
+		expect(again.round!.total).toBe(1);
+
+		// Finish game two by everyone giving up, then restart WITHOUT
+		// keepScores: clean slate.
+		await post(host.sessionCode, "/give-up", host.playerToken);
+		await post(host.sessionCode, "/give-up", guest.playerToken);
+		await post(host.sessionCode, "/ready", guest.playerToken, { ready: true });
+		expect((await getState(host.sessionCode, host.playerToken)).status).toBe("finished");
+		expect((await post(host.sessionCode, "/restart", host.playerToken, {})).status).toBe(200);
+		const reset = await getState(host.sessionCode, host.playerToken);
+		expect(reset.status).toBe("lobby");
+		expect(reset.players.every((p) => p.wins === 0)).toBe(true);
 	});
 });

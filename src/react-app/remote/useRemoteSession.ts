@@ -45,8 +45,9 @@ interface UseRemoteSessionResult {
 	// accompanies a cooldown rejection so the composer can count it down.
 	postMessage: (text: string) => Promise<{ error: string; retryAfterMs?: number } | null>;
 	// Host-only: a finished game back to the lobby for another go -- see
-	// remoteGameSession.ts's /restart.
-	restart: () => Promise<void>;
+	// remoteGameSession.ts's /restart. `keepScores` carries the wins over
+	// as a running total instead of starting everyone back at 0.
+	restart: (keepScores: boolean) => Promise<void>;
 	leave: () => Promise<void>;
 	// Forgets the session locally without telling the server -- for
 	// leaving a session that's already "finished"/"ended", where there's
@@ -226,15 +227,18 @@ export function useRemoteSession(): UseRemoteSessionResult {
 		[identity, refresh],
 	);
 
-	const restart = useCallback(async () => {
-		if (!identity) return;
-		const res = await apiRestart(identity.sessionCode, identity.playerToken);
-		if (res.status !== 200) {
-			setError("error" in res.body ? res.body.error : "Couldn't start a new game.");
-			return;
-		}
-		await refresh(identity);
-	}, [identity, refresh]);
+	const restart = useCallback(
+		async (keepScores: boolean) => {
+			if (!identity) return;
+			const res = await apiRestart(identity.sessionCode, identity.playerToken, keepScores);
+			if (res.status !== 200) {
+				setError("error" in res.body ? res.body.error : "Couldn't start a new game.");
+				return;
+			}
+			await refresh(identity);
+		},
+		[identity, refresh],
+	);
 
 	const leave = useCallback(async () => {
 		if (identity) await apiLeaveSession(identity.sessionCode, identity.playerToken);

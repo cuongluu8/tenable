@@ -876,7 +876,9 @@ export class RemoteGameSession extends DurableObject<Env> {
 		});
 
 		// Host-only: a finished game back to the lobby, same code, same
-		// players, scores reset -- from there it's the normal ready/start
+		// players, scores reset unless the host asks to keep them running
+		// (`keepScores` -- a running total across games on one code) -- from
+		// there it's the normal ready/start
 		// flow again (everyone re-readies, the host picks a question count),
 		// which is deliberately reused rather than jumping straight into a
 		// new game: someone may have put their phone down at the results.
@@ -892,6 +894,9 @@ export class RemoteGameSession extends DurableObject<Env> {
 			if (!caller.isHost) return c.json({ error: "Only the host can start a new game" }, 403);
 			if (session.status !== "finished") return c.json({ error: "The current game hasn't finished" }, 409);
 
+			const body = await c.req.json<{ keepScores?: boolean }>().catch(() => ({}) as { keepScores?: boolean });
+			const keepScores = body.keepScores === true;
+
 			const now = Date.now();
 			session.status = "lobby";
 			session.questionCount = null;
@@ -903,7 +908,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 			session.roundDecidedAt = null;
 			session.roundGivenUpPlayerIds = [];
 			for (const p of players) {
-				p.wins = 0;
+				if (!keepScores) p.wins = 0;
 				p.ready = p.isHost; // Same as a fresh /create: the host is ready by definition, everyone else re-readies.
 			}
 			caller.lastSeenAt = now;
