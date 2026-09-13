@@ -341,11 +341,32 @@
 	min-width: 0;
 	overflow: hidden;
 	position: relative;
+	/* Room for the bubble's glow ring (remote-chat-glow, 12px) above, below
+	   and to the right, cancelled by the negative margins so the row's
+	   height doesn't change -- but NOT on the left: that edge is exactly
+	   where the scroll-off has to clip, flush with the name. */
+	padding: 12px 12px 12px 0;
+	margin: -12px 0;
 }
 .remote-chat {
 	display: block;
-	overflow: hidden;
+	overflow: visible;
 	white-space: nowrap;
+	/* Entrance: pops in from small with an overshoot, on this wrapper (not
+	   __text below) because the scroll-off animates that element's own
+	   transform and a second transform animation there would override it. */
+	transform-origin: left center;
+	animation: remote-chat-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes remote-chat-pop {
+	from {
+		transform: scale(0.2);
+		opacity: 0;
+	}
+	to {
+		transform: scale(1);
+		opacity: 1;
+	}
 }
 /* Hold still for 5/6 of the duration (5s of 6s -- RemoteGame.tsx's
    CHAT_HOLD_MS/CHAT_SCROLL_MS set the actual duration inline), then
@@ -361,16 +382,64 @@
 		transform: translateX(-100%);
 	}
 }
+/* Glow ripple while it holds -- three rings over the first ~4s so the
+   bubble keeps drawing the eye until it's about to leave. */
+@keyframes remote-chat-glow {
+	from {
+		box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.85);
+	}
+	to {
+		box-shadow: 0 0 0 12px rgba(74, 222, 128, 0);
+	}
+}
 .remote-chat__text {
 	display: inline-block;
-	padding: 0.1em 0.6em;
+	padding: 0.2em 0.85em;
 	border-radius: 999px;
-	background: rgba(74, 222, 128, 0.12);
-	color: #e5e7eb;
-	font-size: 0.85em;
-	animation: remote-chat-scroll 6s linear forwards;
+	background: #4ade80;
+	color: #14181f;
+	font-size: 1em;
+	font-weight: 700;
+	line-height: 1.3;
+	/* Order matters only for readability -- the two animate different
+	   properties (transform vs. box-shadow). The scroll's own duration is
+	   set inline by RemoteGame.tsx; the glow's isn't. */
+	animation:
+		remote-chat-scroll 6s linear forwards,
+		remote-chat-glow 1.3s ease-out 3;
+}
+/* The author's whole row lights up for the hold too, so the message
+   registers even from across the room / a glance at a phone. */
+.remote-standings__item--speaking {
+	animation: remote-chat-row-flash 6s ease-out both;
+}
+@keyframes remote-chat-row-flash {
+	0% {
+		background: rgba(74, 222, 128, 0.45);
+		border-color: #4ade80;
+	}
+	15%,
+	80% {
+		background: rgba(74, 222, 128, 0.14);
+		border-color: #4ade80;
+	}
+	100% {
+		background: #1f2937;
+		border-color: #374151;
+	}
 }
 @media (prefers-reduced-motion: reduce) {
+	.remote-chat {
+		animation: none;
+	}
+	.remote-chat__text {
+		animation: remote-chat-scroll 6s linear forwards;
+	}
+	.remote-standings__item--speaking {
+		animation: none;
+		background: rgba(74, 222, 128, 0.14);
+		border-color: #4ade80;
+	}
 	@keyframes remote-chat-scroll {
 		0%,
 		83.333% {

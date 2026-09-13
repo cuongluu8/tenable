@@ -72,7 +72,11 @@ function ChatBubble({ playerId, message }: ChatBubbleProps) {
 			<span
 				className="remote-chat__text"
 				style={{ animationDuration: `${CHAT_HOLD_MS + CHAT_SCROLL_MS}ms` }}
-				onAnimationEnd={() => {
+				onAnimationEnd={(e) => {
+					// Several animations run on this element (the entrance pop and
+					// the glow pulse end long before the hold does) -- only the
+					// hold-then-scroll one means the message is over.
+					if (e.animationName !== "remote-chat-scroll") return;
 					dismissedMessages.add(key);
 					setGone(true);
 				}}
@@ -252,8 +256,9 @@ function Leaderboard({ players, myPlayerId, round, compact }: LeaderboardProps) 
 		<ol className={compact ? "remote-standings remote-standings--compact" : "remote-standings"}>
 			{ranked.map((p, i) => {
 				const rank = i > 0 && ranked[i - 1].wins === p.wins ? null : i + 1;
+				const message = shouldShowMessage(p.id, p.message) ? p.message : null;
 				return (
-					<li key={p.id} className="remote-standings__item">
+					<li key={p.id} className={message ? "remote-standings__item remote-standings__item--speaking" : "remote-standings__item"}>
 						<span className="remote-standings__rank">{rank ?? "="}</span>
 						<span className="remote-players__color" style={{ background: colorForPlayerIndex(players.indexOf(p)) }} />
 						<span className="remote-standings__name">
@@ -264,7 +269,7 @@ function Leaderboard({ players, myPlayerId, round, compact }: LeaderboardProps) 
 						    row's spare width -- the message bubble scrolls off into
 						    its left edge, i.e. visually behind the name. */}
 						<span className="remote-standings__chat">
-							{shouldShowMessage(p.id, p.message) && <ChatBubble key={messageKey(p.id, p.message)} playerId={p.id} message={p.message} />}
+							{message && <ChatBubble key={messageKey(p.id, message)} playerId={p.id} message={message} />}
 						</span>
 						{p.away && <span className="remote-badge remote-badge--away">Away</span>}
 						{round && round.answerName === null && round.givenUpPlayerIds.includes(p.id) && (
