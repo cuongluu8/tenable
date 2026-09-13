@@ -455,12 +455,65 @@
 	}
 }
 
+/* 💬 next to your own name on the leaderboard -- opens .remote-modal. */
+.remote-chat-launch {
+	background: none;
+	border: 1px solid transparent;
+	padding: 0 0.3em;
+	font-size: 1rem;
+	line-height: 1;
+	cursor: pointer;
+}
+.remote-chat-launch:hover {
+	border-color: #374151;
+	background: #1f2937;
+}
+
+.remote-modal-backdrop {
+	position: fixed;
+	inset: 0;
+	z-index: 20;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 1rem;
+	background: rgba(0, 0, 0, 0.6);
+}
+.remote-modal {
+	width: min(100%, 460px);
+	padding: 1rem 1.25rem 1.25rem;
+	border-radius: 12px;
+	background: #1f2937;
+	border: 1px solid #374151;
+	box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+}
+.remote-modal__header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 0.75rem;
+}
+.remote-modal__title {
+	margin: 0;
+	font-size: 1.05rem;
+}
+.remote-modal__close {
+	background: none;
+	border: none;
+	color: #9ca3af;
+	font-size: 1.5rem;
+	line-height: 1;
+	padding: 0 0.3em;
+}
+.remote-modal__close:hover {
+	color: #e5e7eb;
+}
+
 .remote-chat-composer {
 	display: flex;
 	align-items: center;
 	flex-wrap: wrap;
 	gap: 0.5rem;
-	margin-top: 1.25rem;
 }
 .remote-chat-composer__input {
 	flex: 1;
@@ -468,9 +521,19 @@
 	padding: 0.5em 0.8em;
 	border-radius: 8px;
 	border: 1px solid #374151;
-	background: #1f2937;
+	background: #111827;
 	color: inherit;
 	font-size: 0.95rem;
+}
+.remote-emoji-toggle {
+	background: #111827;
+	border: 1px solid #374151;
+	padding: 0.35em 0.5em;
+	font-size: 1.1rem;
+	line-height: 1;
+}
+.remote-emoji-toggle--open {
+	border-color: #4ade80;
 }
 .remote-chat-composer__count {
 	color: #9ca3af;
@@ -485,7 +548,23 @@
 	color: #f87171;
 	font-size: 0.85rem;
 }
-.remote-standings__wins {
-	font-weight: 700;
-	color: #4ade80;
+
+.remote-emoji-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(2.4rem, 1fr));
+	gap: 0.25rem;
+	margin-top: 0.75rem;
+	max-height: 11rem;
+	overflow-y: auto;
+}
+.remote-emoji-grid__item {
+	background: none;
+	border: 1px solid transparent;
+	padding: 0.25em 0;
+	font-size: 1.4rem;
+	line-height: 1.2;
+}
+.remote-emoji-grid__item:hover {
+	border-color: #374151;
+	background: #111827;
 }

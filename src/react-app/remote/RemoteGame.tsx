@@ -99,29 +99,56 @@ function shouldShowMessage(playerId: string, message: PublicMessage | null): mes
 	return message.ageMs < CHAT_MAX_FIRST_SEEN_AGE_MS;
 }
 
-interface ChatComposerProps {
+// The emoji picker's set -- a fixed, hand-picked grid rather than a
+// full Unicode picker library: reactions and football, which is what a
+// 20-word heckle mid-round actually wants, and nothing to download.
+const CHAT_EMOJIS = [
+	"😂", "🤣", "😅", "😭", "😍", "🤔", "🤯", "😱", "🙄", "😴", "🤡", "😎",
+	"🥳", "😤", "🤷", "🤦", "😬", "🥴", "🫣", "🤫", "👀", "🙏", "👏", "🙌",
+	"👍", "👎", "💪", "🤝", "🔥", "💀", "🐐", "🐢", "⚽", "🥅", "🧤", "🏆",
+	"🥇", "👑", "🎯", "⏰", "🍀", "❤️", "💚", "🎉",
+];
+
+interface ChatModalProps {
 	onPost: (text: string) => Promise<{ error: string; retryAfterMs?: number } | null>;
 	now: number;
+	// Epoch ms the poster's cooldown ends (null: none running). Owned by
+	// RemoteGame, not here, so it outlives this modal being closed and
+	// reopened -- the countdown has to still be right on the next open.
+	cooldownUntil: number | null;
+	onCooldown: (until: number) => void;
+	onClose: () => void;
 }
 
-// The message box under the round. Enforces the same 20-word cap and 30s
-// cooldown the server does (remoteGameSession.ts's MESSAGE_*), purely as
-// feedback -- the server's own rejection is what actually holds, and its
-// message is shown here inline when it does. `now` is RemoteGame's ticking
-// clock, so the cooldown counts down visibly without its own interval.
-function ChatComposer({ onPost, now }: ChatComposerProps) {
+// The chat composer, as a modal (2026-09-13 -- was an inline box under the
+// round; moved off the page so the round screen stays about the round,
+// opened from the 💬 next to your own name on the leaderboard). Enforces
+// the same 20-word cap and 30s cooldown the server does
+// (remoteGameSession.ts's MESSAGE_*), purely as feedback -- the server's
+// own rejection is what actually holds, and its message is shown inline
+// when it does. Closes itself once a message is accepted. `now` is
+// RemoteGame's ticking clock, so the cooldown counts down visibly
+// without its own interval.
+function ChatModal({ onPost, now, cooldownUntil, onCooldown, onClose }: ChatModalProps) {
 	const [text, setText] = useState("");
 	const [sending, setSending] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	// Epoch ms the cooldown ends -- from our own successful post, or from
-	// the server telling us how long is left on one it's already tracking
-	// (a refresh mid-cooldown, say).
-	const [cooldownUntil, setCooldownUntil] = useState<number | null>(null);
+	const [emojiOpen, setEmojiOpen] = useState(false);
 
 	const words = countWords(text);
 	const overLimit = words > CHAT_MAX_WORDS;
 	const cooldownLeftMs = cooldownUntil !== null ? Math.max(0, cooldownUntil - now) : 0;
 	const coolingDown = cooldownLeftMs > 0;
+
+	// Escape closes, same as the backdrop -- a real subscription on
+	// window, so an effect is the right tool.
+	useEffect(() => {
+		function onKey(e: KeyboardEvent) {
+			if (e.key === "Escape") onClose();
+		}
+		window.addEventListener("keydown", onKey);
+		return () => window.removeEventListener("keydown", onKey);
+	}, [onClose]);
 
 	async function send() {
 		const trimmed = text.trim();
@@ -132,38 +159,75 @@ function ChatComposer({ onPost, now }: ChatComposerProps) {
 		setSending(false);
 		if (result) {
 			setError(result.error);
-			if (result.retryAfterMs) setCooldownUntil(Date.now() + result.retryAfterMs);
+			if (result.retryAfterMs) onCooldown(Date.now() + result.retryAfterMs);
 			return;
 		}
-		setText("");
-		setCooldownUntil(Date.now() + CHAT_COOLDOWN_MS);
+		onCooldown(Date.now() + CHAT_COOLDOWN_MS);
+		onClose();
+	}
+
+	function addEmoji(emoji: string) {
+		// A space before it unless we're at the start or already after one
+		// -- keeps the word count honest (an emoji run stays one word, an
+		// emoji after a word becomes its own).
+		setText((t) => (t === "" || /\s$/.test(t) ? t + emoji : `${t} ${emoji}`));
 	}
 
 	return (
-		<form
-			className="remote-chat-composer"
-			onSubmit={(e) => {
-				e.preventDefault();
-				void send();
-			}}
-		>
-			<input
-				type="text"
-				className="remote-chat-composer__input"
-				value={text}
-				onChange={(e) => setText(e.target.value)}
-				placeholder={coolingDown ? `You can post again in ${Math.ceil(cooldownLeftMs / 1000)}s` : "Say something… (20 words max)"}
-				disabled={sending || coolingDown}
-				aria-label="Chat message"
-			/>
-			<span className={overLimit ? "remote-chat-composer__count remote-chat-composer__count--over" : "remote-chat-composer__count"}>
-				{words}/{CHAT_MAX_WORDS}
-			</span>
-			<button type="submit" className="remote-primary-button" disabled={!text.trim() || overLimit || coolingDown || sending}>
-				Send
-			</button>
-			{error && <span className="remote-chat-composer__error">{error}</span>}
-		</form>
+		<div className="remote-modal-backdrop" onClick={onClose}>
+			<div className="remote-modal" role="dialog" aria-modal="true" aria-label="Send a message" onClick={(e) => e.stopPropagation()}>
+				<div className="remote-modal__header">
+					<h3 className="remote-modal__title">Say something</h3>
+					<button type="button" className="remote-modal__close" onClick={onClose} aria-label="Close">
+						×
+					</button>
+				</div>
+				<form
+					className="remote-chat-composer"
+					onSubmit={(e) => {
+						e.preventDefault();
+						void send();
+					}}
+				>
+					<input
+						type="text"
+						className="remote-chat-composer__input"
+						value={text}
+						onChange={(e) => setText(e.target.value)}
+						placeholder={coolingDown ? `You can post again in ${Math.ceil(cooldownLeftMs / 1000)}s` : "Up to 20 words…"}
+						disabled={sending || coolingDown}
+						aria-label="Chat message"
+						autoFocus
+					/>
+					<button
+						type="button"
+						className={emojiOpen ? "remote-emoji-toggle remote-emoji-toggle--open" : "remote-emoji-toggle"}
+						onClick={() => setEmojiOpen((o) => !o)}
+						aria-label={emojiOpen ? "Hide emojis" : "Add an emoji"}
+						aria-expanded={emojiOpen}
+						disabled={sending || coolingDown}
+					>
+						😀
+					</button>
+					<span className={overLimit ? "remote-chat-composer__count remote-chat-composer__count--over" : "remote-chat-composer__count"}>
+						{words}/{CHAT_MAX_WORDS}
+					</span>
+					<button type="submit" className="remote-primary-button" disabled={!text.trim() || overLimit || coolingDown || sending}>
+						Send
+					</button>
+					{error && <span className="remote-chat-composer__error">{error}</span>}
+				</form>
+				{emojiOpen && (
+					<div className="remote-emoji-grid" role="group" aria-label="Emojis">
+						{CHAT_EMOJIS.map((emoji) => (
+							<button key={emoji} type="button" className="remote-emoji-grid__item" onClick={() => addEmoji(emoji)}>
+								{emoji}
+							</button>
+						))}
+					</div>
+				)}
+			</div>
+		</div>
 	);
 }
 
@@ -242,6 +306,9 @@ interface LeaderboardProps {
 	// Gave up tags; the final-results screen passes nothing.
 	round?: RoundInfo | null;
 	compact?: boolean;
+	// When given, a 💬 button sits next to the local player's own name --
+	// the way into ChatModal. The final-results screen passes nothing.
+	onOpenChat?: () => void;
 }
 
 // Ranked standings, on screen for the whole game (2026-09-13 -- asked for
@@ -252,7 +319,7 @@ interface LeaderboardProps {
 // ties broken by join order (state.players order) so a tie doesn't shuffle
 // people around between polls; tied players share a rank rather than one
 // arbitrarily ranking above the other.
-function Leaderboard({ players, myPlayerId, round, compact }: LeaderboardProps) {
+function Leaderboard({ players, myPlayerId, round, compact, onOpenChat }: LeaderboardProps) {
 	const ranked = [...players].sort((a, b) => b.wins - a.wins);
 	return (
 		<ol className={compact ? "remote-standings remote-standings--compact" : "remote-standings"}>
@@ -267,6 +334,11 @@ function Leaderboard({ players, myPlayerId, round, compact }: LeaderboardProps) 
 							{p.name}
 							{p.id === myPlayerId && " (you)"}
 						</span>
+						{onOpenChat && p.id === myPlayerId && (
+							<button type="button" className="remote-chat-launch" onClick={onOpenChat} aria-label="Send a message" title="Send a message">
+								💬
+							</button>
+						)}
 						{/* Always rendered (empty or not) so it's what takes up the
 						    row's spare width -- the message bubble scrolls off into
 						    its left edge, i.e. visually behind the name. */}
@@ -351,6 +423,9 @@ export function RemoteGame({ state, myPlayerId, error, onGuess, onGiveUp, onPost
 	// directly during render, which React's purity rules disallow.
 	const [now, setNow] = useState(() => Date.now());
 	const inProgress = state.status === "in_progress";
+	const [chatOpen, setChatOpen] = useState(false);
+	// See ChatModalProps.cooldownUntil on why this lives here.
+	const [chatCooldownUntil, setChatCooldownUntil] = useState<number | null>(null);
 
 	useEffect(() => {
 		if (!inProgress) return;
@@ -409,7 +484,7 @@ export function RemoteGame({ state, myPlayerId, error, onGuess, onGiveUp, onPost
 				{!revealPending && secondsToNextHint !== null && <span className="remote-hint-timer">Next hint in {secondsToNextHint}s</span>}
 			</div>
 
-			<Leaderboard players={state.players} myPlayerId={myPlayerId} round={round} compact />
+			<Leaderboard players={state.players} myPlayerId={myPlayerId} round={round} compact onOpenChat={() => setChatOpen(true)} />
 
 			{revealPending ? (
 				<div className="remote-countdown" aria-live="polite">
@@ -461,9 +536,17 @@ export function RemoteGame({ state, myPlayerId, error, onGuess, onGiveUp, onPost
 
 			{error && <p className="remote-error">{error}</p>}
 
-			<ChatComposer onPost={onPostMessage} now={now} />
-
 			<LeaveControl isHost={me?.isHost ?? false} onLeave={onLeave} />
+
+			{chatOpen && (
+				<ChatModal
+					onPost={onPostMessage}
+					now={now}
+					cooldownUntil={chatCooldownUntil}
+					onCooldown={setChatCooldownUntil}
+					onClose={() => setChatOpen(false)}
+				/>
+			)}
 		</div>
 	);
 }
