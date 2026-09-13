@@ -5,7 +5,11 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-	{ ignores: ["dist"] },
+	// coverage/ is @vitest/coverage-v8's generated HTML report (see
+	// vitest.config.ts's own doc) -- third-party bundled JS with its own
+	// eslint-disable comments meant for a different lint setup, same
+	// "generated, not ours" reasoning as dist.
+	{ ignores: ["dist", "coverage"] },
 	{
 		extends: [js.configs.recommended, ...tseslint.configs.recommended],
 		files: ["**/*.{ts,tsx}"],

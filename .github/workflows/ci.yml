@@ -77,8 +77,8 @@ jobs:
 
       - run: npm run lint
 
-      - name: Unit tests (pure logic and reducers)
-        run: npm run test:unit
+      - name: Unit tests (pure logic and reducers), with the coverage gate
+        run: npm run test:coverage
 
       - name: Integration tests (real routes against a small local fixture)
         run: npm run test:integration

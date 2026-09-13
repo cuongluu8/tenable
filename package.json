@@ -60,10 +60,11 @@
 		"db:seed:regen": "node --experimental-strip-types scripts/regen-seed.ts",
 		"db:local:reset": "node --experimental-strip-types scripts/reset-local-d1.ts",
 		"test:unit": "vitest run --config vitest.config.ts",
+		"test:coverage": "vitest run --config vitest.config.ts --coverage",
 		"pretest:integration": "node --experimental-strip-types scripts/gen-test-wrangler-config.ts",
 		"test:integration": "vitest run --config vitest.integration.config.ts",
 		"test:e2e": "playwright test",
-		"verify:all": "npm run test:unit && npm run test:integration && npm run test:e2e && npm run build"
+		"verify:all": "npm run test:coverage && npm run test:integration && npm run test:e2e && npm run build"
 	},
 	"type": "module",
 	"allowScripts": {
