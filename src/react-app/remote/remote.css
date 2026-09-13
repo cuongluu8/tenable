@@ -650,15 +650,25 @@
 .roh-tile--answered .roh-tile__season {
 	color: #e5e7eb;
 }
-.roh-tile--locked {
+/* Held tiles (yours or anyone's) carry the holder's colour the same way
+   answered ones do, plus a dashed border to read as "in play, not
+   done"; yours adds a ring so it stands out from everyone else's. */
+.roh-tile--locked,
+.roh-tile--mine {
 	border-style: dashed;
 	border-color: var(--owner-color, #9ca3af);
-	opacity: 0.8;
+	background: color-mix(in srgb, var(--owner-color, #9ca3af) 32%, #1f2937);
+}
+.roh-tile--locked .roh-tile__season,
+.roh-tile--mine .roh-tile__season {
+	color: #e5e7eb;
 }
 .roh-tile--mine {
-	border-color: #4ade80;
-	box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.35);
-	background: rgba(74, 222, 128, 0.12);
+	border-style: solid;
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--owner-color, #4ade80) 45%, transparent);
+}
+.roh-tile--mine .roh-tile__timer {
+	color: #e5e7eb;
 }
 .roh-tile--blocked {
 	opacity: 0.45;
@@ -696,9 +706,33 @@
 	color: #fbbf24;
 	font-variant-numeric: tabular-nums;
 }
-.roh-answer__cancel {
-	display: block;
-	margin: 0.75rem auto 0;
+/* Bottom sheet for answering a held season -- see RollOfHonourGame.tsx.
+   Fixed to the viewport bottom, no backdrop (the grid behind stays
+   tappable); the screen gets matching bottom padding while it's up so
+   the last rows can still be scrolled clear of it. */
+.roh-sheet {
+	position: fixed;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	z-index: 20;
+	padding: 0.75rem 1.25rem calc(1rem + env(safe-area-inset-bottom, 0px));
+	background: #1f2937;
+	border-top: 1px solid #374151;
+	box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.55);
+}
+.roh-sheet__inner {
+	max-width: 640px;
+	margin: 0 auto;
+}
+.roh-sheet__hint {
+	margin: 0.5rem 0 0;
+	text-align: center;
+	color: #9ca3af;
+	font-size: 0.8rem;
+}
+.roh-screen--holding {
+	padding-bottom: 12rem;
 }
 
 .roh-feedback {

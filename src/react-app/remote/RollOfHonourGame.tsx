@@ -206,7 +206,7 @@ export function RollOfHonourGame({ state, myPlayerId, error, onSelectTile, onRel
 	}
 
 	return (
-		<div className="screen">
+		<div className={held ? "screen roh-screen--holding" : "screen"}>
 			<div className="remote-round-header">
 				<span>
 					{honour.competitionName} · {answered} of {honour.tiles.length} filled
@@ -242,7 +242,7 @@ export function RollOfHonourGame({ state, myPlayerId, error, onSelectTile, onRel
 									mine={mine}
 									lockLeftMs={mine && held ? Math.max(0, held.until - now) : null}
 									blockedForMs={blockedForMs}
-									disabled={busy || iGaveUp || held !== null}
+									disabled={busy || iGaveUp}
 									onSelect={() => (mine ? undefined : void select(t.season))}
 								/>
 							);
@@ -275,15 +275,16 @@ export function RollOfHonourGame({ state, myPlayerId, error, onSelectTile, onRel
 
 			<LeaveControl isHost={me?.isHost ?? false} onLeave={onLeave} />
 
-			{/* The answer box is a modal, not inline (2026-09-13): the grid is
-			    70 tiles tall, so an inline box above it was off-screen by the
-			    time a phone had scrolled down to tap 2024-25. Opens the
-			    instant a tile is claimed, wherever the page is scrolled;
-			    closes on answer, "Put it back", Escape, or the backdrop
-			    (all of which release the hold). */}
+			{/* The answer box is a bottom sheet, not inline (2026-09-13): the
+			    grid is 70 tiles tall, so an inline box above it was off-screen
+			    by the time a phone had scrolled down to tap 2024-25. A sheet
+			    rather than a modal so the grid stays tappable behind it --
+			    tapping another season switches the hold (the server drops the
+			    old lock when the new one's taken). Closes, releasing the hold,
+			    on answer, "Put it back", Escape, or the ×. */}
 			{held && !iGaveUp && (
-				<div className="remote-modal-backdrop" onClick={() => void cancelHold()}>
-					<div className="remote-modal" role="dialog" aria-modal="true" aria-label={`Who won in ${held.season}?`} onClick={(e) => e.stopPropagation()}>
+				<div className="roh-sheet" role="dialog" aria-label={`Who won in ${held.season}?`}>
+					<div className="roh-sheet__inner">
 						<div className="remote-modal__header">
 							<h3 className="remote-modal__title">
 								Who won in {held.season}? <span className="roh-answer__timer">{Math.ceil((held.until - now) / 1000)}s</span>
@@ -293,9 +294,7 @@ export function RollOfHonourGame({ state, myPlayerId, error, onSelectTile, onRel
 							</button>
 						</div>
 						<GuessInput value={guess} onChange={setGuess} onPick={answer} disabled={busy} suggestUrl="/api/roll-of-honour/suggest" />
-						<button type="button" className="give-up-confirm__cancel roh-answer__cancel" onClick={() => void cancelHold()} disabled={busy}>
-							Put it back
-						</button>
+						<p className="roh-sheet__hint">Tap a different season to switch to it.</p>
 					</div>
 				</div>
 			)}
