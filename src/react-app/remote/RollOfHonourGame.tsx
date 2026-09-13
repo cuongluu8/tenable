@@ -196,7 +196,9 @@ export function RollOfHonourGame({ state, myPlayerId, error, onSelectTile, onRel
 			return;
 		}
 		setBlocked((b) => ({ ...b, [season]: deadline(res.retryAfterMs) }));
-		setFeedback({ kind: "wrong", text: `❌ Not ${name} -- ${season} is free again for others; you can retry it in ${Math.ceil(res.retryAfterMs / 1000)}s.` });
+		// Short on purpose -- the tile itself shows the retry countdown and
+		// that it's free again, so the message only needs the verdict.
+		setFeedback({ kind: "wrong", text: `❌ Not ${name}` });
 	}
 
 	async function confirmGiveUp() {
