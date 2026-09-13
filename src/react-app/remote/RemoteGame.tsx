@@ -443,21 +443,6 @@ export function RemoteGame({ state, myPlayerId, error, onGuess, onGiveUp, onPost
 		return (
 			<div className="screen">
 				<h2>Final results</h2>
-				{/* The last question's answer, restated here (2026-09-13) as a
-				    safety net alongside the server's own minimum reveal window
-				    -- see remoteGameSession.ts's DEFAULT_MIN_REVEAL_MS -- so
-				    even a device that somehow missed that reveal still learns
-				    it. /state keeps reporting the final round after the game
-				    ends for exactly this (publicRound's own doc). */}
-				{state.round?.answerName && (
-					<p className="remote-subtitle">
-						Last one: {(() => {
-							const lastWinner = state.round.winnerId ? state.players.find((p) => p.id === state.round?.winnerId) : null;
-							return lastWinner ? `${lastWinner.name} got it -- ` : "nobody got it -- ";
-						})()}
-						<strong>{state.round.answerName}</strong>
-					</p>
-				)}
 				<Leaderboard players={state.players} myPlayerId={myPlayerId} />
 				{/* Same session, another game (2026-09-13): the host restarts
 				    (remoteGameSession.ts's /restart -> back to the lobby, scores
