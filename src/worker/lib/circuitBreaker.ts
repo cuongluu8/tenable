@@ -27,6 +27,18 @@ export const enforceCircuitBreaker: MiddlewareHandler<{ Bindings: Env }> = async
 	c: Context<{ Bindings: Env }>,
 	next,
 ) => {
+	// Remote multiplayer's session-state polling route is exempt -- see
+	// remoteSession.ts's own doc: a session polls this every ~4s per active
+	// player for as long as a game runs, which would burn a meaningful
+	// chunk of this app's whole daily budget on a single popular session
+	// alone. The Durable Object's own free-tier request ceiling (see
+	// wrangler.json's durable_objects doc) is the real backstop for that
+	// route instead -- and this route never touches D1 anyway, so counting
+	// it here would only be pure overhead, not a real guardrail.
+	if (c.req.path.startsWith("/api/remote/") && c.req.path.endsWith("/state")) {
+		return next();
+	}
+
 	const budget = Number(c.env.DAILY_REQUEST_BUDGET) || DEFAULT_DAILY_REQUEST_BUDGET;
 	const date = todayUtc();
 
