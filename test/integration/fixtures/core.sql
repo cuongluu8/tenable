@@ -46,3 +46,47 @@ INSERT INTO club_badge_questions (id, player_id, club_sequence, source) VALUES
 	(8, 18, '[8,9,10]', 'transfers'),
 	(9, 19, '[9,10,1]', 'transfers'),
 	(10, 20, '[10,1,2]', 'transfers');
+
+-- "Who am I? I played with..." -- reuses the same 10 fixture players as
+-- club_badge_questions (independent tables, fine to reuse ids); each
+-- mystery player's teammate_ids point at three of the others. hints
+-- populated for two rows only, on purpose -- teammateQuestions.test.ts
+-- covers both the "hints present" and "hints null" (a pre-2026-09-10 row,
+-- see teammate_questions' own schema comment) response shapes.
+INSERT INTO teammate_questions (id, player_id, teammate_ids, hints, source) VALUES
+	(1, 11, '[12,13,14]', '{"clubs":["Fixture Club A","Fixture Club B","Fixture Club C"],"clubImages":[null,null,null],"nationality":"Fixture Country","years":["2019","2020","2021"]}', 'player_career_stats'),
+	(2, 12, '[13,14,15]', NULL, 'player_career_stats');
+
+-- One curated content category (a small, pre-materialized Top 3 rather
+-- than the app's real Top 10) driving categories.ts/category.ts/guess.ts/
+-- giveUp.ts/reveal.ts/reset.ts's tests -- these routes only ever read
+-- category_answers (the materialized snapshot), never entity_stats
+-- directly, so this alone is enough for them; rebuild.ts's own tests
+-- below need a second category with its source data instead.
+INSERT INTO categories (id, slug, title, subtitle, stat_label, entity_type, group_label, group_order, reference_scope) VALUES
+	(1, 'fixture-top-3', 'Fixture Top 3', 'A tiny fixture category', 'points', 'player', 'Fixture Group', 0, NULL);
+
+INSERT INTO category_answers (category_id, rank, entity_id, value_numeric, display_value, as_of_date, computed_at) VALUES
+	(1, 1, 11, 100, '100', '2026-01-01', '2026-01-01T00:00:00.000Z'),
+	(1, 2, 12, 90, '90', '2026-01-01', '2026-01-01T00:00:00.000Z'),
+	(1, 3, 13, 80, '80', '2026-01-01', '2026-01-01T00:00:00.000Z');
+
+-- A nickname distinct from the canonical name, for suggestNames()/
+-- matchGuess() coverage (typeahead + "guess by alias" both go through
+-- entity_aliases).
+INSERT INTO entity_aliases (entity_id, alias) VALUES (11, 'fp1');
+
+-- Second category, NOT pre-materialized -- category_defs + entity_stats
+-- only, so rebuild.test.ts can verify rebuildAll() actually produces the
+-- right category_answers rather than reading a snapshot this fixture
+-- already handed it.
+INSERT INTO categories (id, slug, title, subtitle, stat_label, entity_type, group_label, group_order, reference_scope) VALUES
+	(2, 'fixture-rebuild', 'Fixture Rebuild Category', NULL, 'goals', 'player', 'Fixture Group', 0, NULL);
+
+INSERT INTO category_defs (category_id, stat_key, scope, sort_dir, tiebreak_stat_key, tiebreak_scope, tiebreak_dir, limit_n, target_date) VALUES
+	(2, 'fixture-goals', 'default', 'DESC', NULL, 'default', 'DESC', 3, NULL);
+
+INSERT INTO entity_stats (entity_id, stat_key, scope, value_numeric, display_value, as_of_date, origin_rank, source, verified_at) VALUES
+	(11, 'fixture-goals', 'default', 50, '50', '2026-01-01', NULL, 'fixture', '2026-01-01'),
+	(12, 'fixture-goals', 'default', 40, '40', '2026-01-01', NULL, 'fixture', '2026-01-01'),
+	(13, 'fixture-goals', 'default', 30, '30', '2026-01-01', NULL, 'fixture', '2026-01-01');

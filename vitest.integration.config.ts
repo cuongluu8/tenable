@@ -10,23 +10,41 @@ import { defineConfig } from "vitest/config";
 // see that script's own doc for why (the plugin crashes on wrangler.json's
 // `assets` block) and why it's generated fresh rather than a second
 // hand-maintained copy. See test/integration/setup.ts for how a fresh
-// local D1 gets db/schema.sql + db/seed.sql applied before each test file
-// runs, the same "local-first" pattern the rest of this project's CI
-// already follows (ci.yml's own "Seed local D1" step).
+// local D1 gets db/schema.sql + a small hand-authored fixture applied
+// before each test file runs (NOT db/seed.sql -- see setup.ts's own doc
+// for why the real, production-scale seed can't be applied inside this
+// harness).
 export default defineConfig({
 	plugins: [
 		cloudflareTest({
 			wrangler: { configPath: "./wrangler.test.generated.json" },
-			// wrangler.json's MEDIA binding sets `remote: true` so local `npm
-			// run dev` sees real uploaded images -- forced back to local
-			// (empty) emulation for tests instead, so a test run never needs
-			// real Cloudflare credentials or network access. See
-			// mediaAudit.ts's own doc: local R2 being empty is already a
-			// real, deterministic, asserted-on case ("MISSING"), not a gap
-			// this needs to work around.
 			miniflare: {
+				// wrangler.json's MEDIA binding sets `remote: true` so local
+				// `npm run dev` sees real uploaded images -- forced back to
+				// local (empty) emulation for tests instead, so a test run
+				// never needs real Cloudflare credentials or network access.
+				// See mediaAudit.ts's own doc: local R2 being empty is already
+				// a real, deterministic, asserted-on case ("MISSING"), not a
+				// gap this needs to work around.
 				r2Buckets: {
 					MEDIA: "test-media-bucket",
+				},
+				bindings: {
+					// FOOTBALL_DATA_API_KEY is a Worker *secret* in production
+					// (never in wrangler.json), so it isn't present in
+					// wrangler.test.generated.json at all -- ticker.test.ts
+					// needs SOME non-empty value for eplTicker.ts to actually
+					// attempt its (stubbed, see that test's own doc) fetch
+					// rather than skipping it outright, so it's supplied here
+					// instead. Never a real key, and never used against the
+					// real API in a test run.
+					FOOTBALL_DATA_API_KEY: "test-key",
+					// Dropped from wrangler.json's real 20,000 so
+					// circuitBreaker.test.ts can actually exhaust it in a
+					// handful of requests instead of 20,000+ -- every other
+					// test file's own request count is nowhere near even this
+					// small a number, so this has no effect on anything else.
+					DAILY_REQUEST_BUDGET: 50,
 				},
 			},
 		}),
