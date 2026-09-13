@@ -1,4 +1,4 @@
-export type MpGameType = "categories" | "club-badges";
+export type MpGameType = "categories" | "club-badges" | "roll-of-honour";
 
 interface Props {
 	onStart: (gameType: MpGameType) => void;
@@ -29,6 +29,10 @@ export function MultiplayerGameTypePick({ onStart, onBack }: Props) {
 				<button type="button" className="mode-button" onClick={() => onStart("club-badges")}>
 					<strong>🛡️ Club Run</strong>
 					<span>Name them from the clubs they've played for</span>
+				</button>
+				<button type="button" className="mode-button" onClick={() => onStart("roll-of-honour")}>
+					<strong>🏆 Roll of Honour</strong>
+					<span>Take turns filling in every season's champion</span>
 				</button>
 			</div>
 		</div>

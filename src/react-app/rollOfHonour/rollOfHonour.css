@@ -217,3 +217,12 @@
 	color: #4ade80;
 	font-size: 0.85rem;
 }
+
+/* ---- Pass-and-play (RollOfHonourPassPlay.tsx) ---- */
+.roh-pass-actions {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.5rem;
+	margin-top: 0.25rem;
+}

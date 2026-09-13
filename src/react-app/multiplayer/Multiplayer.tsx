@@ -8,6 +8,7 @@ import { MultiplayerPlay } from "./MultiplayerPlay";
 import { MultiplayerResult } from "./MultiplayerResult";
 import { multiplayerReducer, initialMpState, type MpCategory } from "./state";
 import { GuessThePlayer } from "../clubBadges/GuessThePlayer";
+import { RollOfHonourCompetitionPick, RollOfHonourPassPlay } from "../rollOfHonour/RollOfHonourPassPlay";
 import type { RevealAnswer } from "../types";
 
 interface CheckGuessResponse {
@@ -47,6 +48,9 @@ export function Multiplayer({ onBack }: Props) {
 	const [rosterNames, setRosterNames] = useState<string[] | null>(null);
 	const [gameType, setGameType] = useState<MpGameType | null>(null);
 	const [clubBadgeSetId, setClubBadgeSetId] = useState<number | null | undefined>(undefined);
+	// Roll of Honour's own third step: which competition's grid. null =
+	// not chosen yet (RollOfHonourCompetitionPick.tsx).
+	const [honourCompetitionId, setHonourCompetitionId] = useState<string | null>(null);
 
 	function startGame(category: MpCategory) {
 		if (!rosterNames) return; // can't happen — the category step never renders without one
@@ -124,7 +128,12 @@ export function Multiplayer({ onBack }: Props) {
 		setRosterNames(null);
 		setGameType(null);
 		setClubBadgeSetId(undefined);
+		setHonourCompetitionId(null);
 		dispatch({ type: "reset" });
+	}
+
+	if (gameType === "roll-of-honour" && rosterNames && honourCompetitionId) {
+		return <RollOfHonourPassPlay playerNames={rosterNames} competitionId={honourCompetitionId} onExit={resetGame} />;
 	}
 
 	if (gameType === "club-badges" && rosterNames && clubBadgeSetId !== undefined) {
@@ -142,6 +151,8 @@ export function Multiplayer({ onBack }: Props) {
 					<MultiplayerGameTypePick onStart={setGameType} onBack={() => setRosterNames(null)} />
 				) : gameType === "club-badges" ? (
 					<MultiplayerSetPick onStart={setClubBadgeSetId} onBack={() => setGameType(null)} />
+				) : gameType === "roll-of-honour" ? (
+					<RollOfHonourCompetitionPick onStart={setHonourCompetitionId} onBack={() => setGameType(null)} />
 				) : (
 					<MultiplayerCategoryPick onStart={startGame} onBack={() => setGameType(null)} />
 				))}
