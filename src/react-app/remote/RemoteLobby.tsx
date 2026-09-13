@@ -84,8 +84,8 @@ export function RemoteLobby({ state, sessionCode, myPlayerId, isHost, error, onS
 				</button>
 			)}
 
-			<button type="button" className="back-link" onClick={onLeave}>
-				Leave session
+			<button type="button" className="remote-leave-button" onClick={onLeave}>
+				Leave game
 			</button>
 		</div>
 	);

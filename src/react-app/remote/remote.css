@@ -67,6 +67,16 @@
 	cursor: not-allowed;
 }
 
+.remote-leave-button {
+	display: block;
+	margin-top: 1.5rem;
+	color: #f87171;
+}
+.remote-leave-button:hover:not(:disabled) {
+	border-color: #f87171;
+	background: rgba(248, 113, 113, 0.15);
+}
+
 .remote-code-display {
 	display: flex;
 	flex-direction: column;
