@@ -619,9 +619,14 @@
 	flex-direction: column;
 	align-items: center;
 	justify-content: center;
-	gap: 0.2rem;
-	min-height: 3.6rem;
-	padding: 0.35rem 0.3rem;
+	gap: 0.15rem;
+	/* Fixed height, whatever the tile holds (season only, a timer, a lock,
+	   or badge + club name) -- the grid mustn't reflow as tiles get
+	   answered. Sized to fit season + badge + one line of club name. */
+	height: 4.6rem;
+	padding: 0.3rem 0.35rem;
+	overflow: hidden;
+	min-width: 0;
 	border-radius: 8px;
 	background: #1f2937;
 	border: 1px solid #374151;
@@ -677,16 +682,27 @@
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	gap: 0.15rem;
+	gap: 0.1rem;
+	width: 100%;
+	min-width: 0;
 	font-weight: 600;
 }
 .roh-tile__badge {
-	width: 1.6rem;
-	height: 1.6rem;
+	width: 1.4rem;
+	height: 1.4rem;
 	object-fit: contain;
+	flex-shrink: 0;
 }
+/* One line, truncated -- "Paris Saint-Germain" and "Manchester United"
+   were wrapping to two and pushing the tile taller than its neighbours. */
 .roh-tile__club {
-	font-size: 0.72rem;
+	display: block;
+	max-width: 100%;
+	font-size: 0.62rem;
+	line-height: 1.2;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 .roh-tile__timer {
 	font-weight: 700;
