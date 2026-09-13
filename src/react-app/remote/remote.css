@@ -1,0 +1,243 @@
+/* Remote multiplayer -- kept in its own stylesheet, imported only by
+   RemoteMultiplayer.tsx, so nothing about single-player's App.css needs
+   touching or re-verifying. Reuses App.css's already-global classes
+   directly where they fit as-is (.screen, .back-link, .mode-picker,
+   .mode-button, .cb-badges -- see clubBadges.css), plus multiplayer's own
+   colorForPlayerIndex() palette for the player list. Only genuinely new UI
+   gets a class here, prefixed .remote- to avoid any collision with
+   App.css/multiplayer.css's names. Colors match the same existing palette
+   (surface #1f2937, border #374151, accent #4ade80, muted text #9ca3af,
+   error #f87171).
+ */
+
+.remote-subtitle {
+	margin: 0 0 1rem;
+	color: #9ca3af;
+	font-size: 0.9rem;
+}
+
+.remote-error {
+	margin: 0 0 1rem;
+	color: #f87171;
+	font-size: 0.9rem;
+}
+
+.remote-form {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+	max-width: 420px;
+	margin: 0 auto;
+}
+
+.remote-field {
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
+	font-size: 0.9rem;
+	color: #9ca3af;
+}
+.remote-field input {
+	padding: 0.6em 0.9em;
+	border-radius: 8px;
+	border: 1px solid #374151;
+	background: #1f2937;
+	color: inherit;
+	font-size: 1rem;
+}
+.remote-code-input {
+	text-transform: uppercase;
+	letter-spacing: 0.15em;
+	text-align: center;
+	font-size: 1.3rem !important;
+}
+
+.remote-primary-button {
+	background: #4ade80;
+	color: #14181f;
+	font-weight: 600;
+	border: none;
+}
+.remote-primary-button:hover:not(:disabled) {
+	background: #22c55e;
+}
+.remote-primary-button:disabled {
+	background: #374151;
+	color: #6b7280;
+	cursor: not-allowed;
+}
+
+.remote-code-display {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.25rem;
+	margin-bottom: 1.5rem;
+	padding: 1rem;
+	border-radius: 8px;
+	background: #1f2937;
+	border: 1px solid #374151;
+}
+.remote-code-display__label {
+	color: #9ca3af;
+	font-size: 0.85rem;
+}
+.remote-code-display__value {
+	font-size: 2rem;
+	font-weight: 700;
+	letter-spacing: 0.2em;
+}
+
+.remote-players {
+	list-style: none;
+	margin: 0 0 1.5rem;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+.remote-players--sidebar {
+	flex-direction: row;
+	flex-wrap: wrap;
+	margin-bottom: 1rem;
+}
+.remote-players__item {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.5rem 0.75rem;
+	border-radius: 8px;
+	background: #1f2937;
+	border: 1px solid #374151;
+}
+.remote-players--sidebar .remote-players__item {
+	padding: 0.35rem 0.6rem;
+	font-size: 0.85rem;
+}
+.remote-players__color {
+	width: 0.65rem;
+	height: 0.65rem;
+	border-radius: 50%;
+	flex-shrink: 0;
+}
+.remote-players__name {
+	flex: 1;
+}
+.remote-players__wins {
+	font-weight: 700;
+	color: #4ade80;
+}
+
+.remote-badge {
+	font-size: 0.75rem;
+	padding: 0.15em 0.5em;
+	border-radius: 999px;
+}
+.remote-badge--ready {
+	background: rgba(74, 222, 128, 0.15);
+	color: #4ade80;
+}
+.remote-badge--not-ready {
+	background: rgba(156, 163, 175, 0.15);
+	color: #9ca3af;
+}
+.remote-badge--away {
+	background: rgba(251, 191, 36, 0.15);
+	color: #fbbf24;
+}
+
+.remote-remove-button {
+	background: none;
+	border: none;
+	color: #f87171;
+	font-size: 1.1rem;
+	line-height: 1;
+	padding: 0.2em 0.4em;
+}
+.remote-remove-button:hover {
+	background: rgba(248, 113, 113, 0.15);
+}
+
+.remote-host-controls {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+	max-width: 320px;
+	margin: 0 auto 1rem;
+}
+.remote-host-controls input {
+	padding: 0.6em 0.9em;
+	border-radius: 8px;
+	border: 1px solid #374151;
+	background: #1f2937;
+	color: inherit;
+	font-size: 1rem;
+}
+
+.remote-round-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 1rem;
+	color: #9ca3af;
+	font-size: 0.9rem;
+}
+.remote-hint-timer {
+	color: #fbbf24;
+}
+
+.remote-hint {
+	text-align: center;
+	color: #9ca3af;
+	margin: 0.5rem 0 1rem;
+}
+
+.remote-round-result {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.75rem;
+	margin-top: 1rem;
+	text-align: center;
+}
+
+.remote-feedback {
+	text-align: center;
+	margin: 0.5rem 0;
+}
+.remote-feedback--wrong {
+	color: #f87171;
+}
+
+.remote-standings {
+	list-style: none;
+	margin: 0 0 1.5rem;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	max-width: 420px;
+	margin-left: auto;
+	margin-right: auto;
+}
+.remote-standings__item {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 0.6rem 0.9rem;
+	border-radius: 8px;
+	background: #1f2937;
+	border: 1px solid #374151;
+}
+.remote-standings__rank {
+	font-weight: 700;
+	color: #9ca3af;
+	width: 1.5rem;
+}
+.remote-standings__name {
+	flex: 1;
+}
+.remote-standings__wins {
+	font-weight: 700;
+	color: #4ade80;
+}

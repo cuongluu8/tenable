@@ -7,6 +7,7 @@ import { SetsModeRoute } from "./components/SetsModeRoute";
 import { ClubBadgeSetPlay } from "./clubBadges/ClubBadgeSetPlay";
 import { ClubBadgeSets } from "./clubBadges/ClubBadgeSets";
 import { Multiplayer } from "./multiplayer/Multiplayer";
+import { RemoteMultiplayer } from "./remote/RemoteMultiplayer";
 import { TeammateSetPlay } from "./teammates/TeammateSetPlay";
 import { TeammateSets } from "./teammates/TeammateSets";
 import type { CategoriesResponse, Category } from "./types";
@@ -39,6 +40,16 @@ function isMultiplayerPath(): boolean {
 	return window.location.pathname === "/multiplayer";
 }
 
+// Remote multiplayer (RemoteMultiplayer.tsx) owns everything under here
+// itself -- which of Home/Lobby/Game to show is a function of session
+// state (localStorage identity + polled server state), not a set of
+// distinct URLs the way single-player's screens are -- so this only needs
+// to answer "is the URL under here at all", same role isUnderPath below
+// plays for the two Sets modes.
+function isRemotePath(): boolean {
+	return window.location.pathname === "/remote";
+}
+
 // Single player's own mode picker (Daily Categories vs Club Run vs
 // Teammate Tell, solo) — sits between home and any of those three, the
 // same role
@@ -69,6 +80,7 @@ function App() {
 	const [activeSlug, setActiveSlug] = useState<string | null>(() => slugFromPath());
 	const [categoryListActive, setCategoryListActive] = useState<boolean>(() => isCategoryListPath());
 	const [multiplayerActive, setMultiplayerActive] = useState<boolean>(() => isMultiplayerPath());
+	const [remoteActive, setRemoteActive] = useState<boolean>(() => isRemotePath());
 	const [singlePlayerHomeActive, setSinglePlayerHomeActive] = useState<boolean>(() => isSinglePlayerHomePath());
 	const [clubBadgesActive, setClubBadgesActive] = useState<boolean>(() => isUnderPath(CLUB_BADGES_BASE_PATH));
 	const [teammatesActive, setTeammatesActive] = useState<boolean>(() => isUnderPath(TEAMMATES_BASE_PATH));
@@ -107,6 +119,7 @@ function App() {
 			setActiveSlug(slugFromPath());
 			setCategoryListActive(isCategoryListPath());
 			setMultiplayerActive(isMultiplayerPath());
+			setRemoteActive(isRemotePath());
 			setSinglePlayerHomeActive(isSinglePlayerHomePath());
 			setClubBadgesActive(isUnderPath(CLUB_BADGES_BASE_PATH));
 			setTeammatesActive(isUnderPath(TEAMMATES_BASE_PATH));
@@ -123,6 +136,11 @@ function App() {
 	function handleMultiplayerSelect() {
 		window.history.pushState(null, "", "/multiplayer");
 		setMultiplayerActive(true);
+	}
+
+	function handleRemoteSelect() {
+		window.history.pushState(null, "", "/remote");
+		setRemoteActive(true);
 	}
 
 	function handleDailyCategoriesSelect() {
@@ -173,6 +191,7 @@ function App() {
 		setActiveSlug(null);
 		setCategoryListActive(false);
 		setMultiplayerActive(false);
+		setRemoteActive(false);
 		setSinglePlayerHomeActive(false);
 		setClubBadgesActive(false);
 		setTeammatesActive(false);
@@ -184,6 +203,10 @@ function App() {
 
 	if (multiplayerActive) {
 		return <Multiplayer onBack={handleBackToHome} />;
+	}
+
+	if (remoteActive) {
+		return <RemoteMultiplayer onBack={handleBackToHome} />;
 	}
 
 	if (clubBadgesActive) {
@@ -281,6 +304,10 @@ function App() {
 				<button type="button" className="mode-button" onClick={handleMultiplayerSelect}>
 					<strong>🎮 Multiplayer</strong>
 					<span>Pass the device around and take turns</span>
+				</button>
+				<button type="button" className="mode-button" onClick={handleRemoteSelect}>
+					<strong>🌐 Remote play</strong>
+					<span>Race friends on their own devices</span>
 				</button>
 			</div>
 		</div>

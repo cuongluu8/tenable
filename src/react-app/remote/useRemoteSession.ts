@@ -1,0 +1,220 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+	apiCreateSession,
+	apiFetchState,
+	apiJoinSession,
+	apiLeaveSession,
+	apiRemovePlayer,
+	apiSetReady,
+	apiStartGame,
+	apiSubmitGuess,
+	clearIdentity,
+	loadIdentity,
+	saveIdentity,
+	type RemoteIdentity,
+	type SessionState,
+} from "./remoteApi";
+
+// 4s, matching the locked design decision (see remoteGameSession.ts's own
+// doc): no WebSockets, a few seconds of UI lag doesn't affect fairness
+// since the server decides who won each question, not the client.
+const POLL_INTERVAL_MS = 4_000;
+
+interface UseRemoteSessionResult {
+	identity: RemoteIdentity | null;
+	state: SessionState | null;
+	error: string | null;
+	isHost: boolean;
+	create: (hostName: string) => Promise<void>;
+	join: (code: string, name: string) => Promise<void>;
+	setReady: (ready: boolean) => Promise<void>;
+	start: (questionCount: number) => Promise<string | null>;
+	removePlayer: (playerId: string) => Promise<void>;
+	guess: (guess: string) => Promise<"correct" | "wrong" | null>;
+	leave: () => Promise<void>;
+	// Forgets the session locally without telling the server -- for
+	// leaving a session that's already "finished"/"ended", where there's
+	// nothing left for the server to do (see remoteGameSession.ts's /leave
+	// doc: a session already over has no state left to change).
+	forget: () => void;
+}
+
+// Owns the one piece of client-side state every remote-multiplayer screen
+// needs: the current session's identity (persisted to localStorage so a
+// refresh mid-game doesn't lose a seat) and its live server state (polled
+// every 4s). Split out of any one screen component since Home/Lobby/Game
+// are really one continuous session, just rendered differently depending
+// on `state.status` -- see RemoteMultiplayer.tsx.
+export function useRemoteSession(): UseRemoteSessionResult {
+	const [identity, setIdentity] = useState<RemoteIdentity | null>(() => loadIdentity());
+	const [state, setState] = useState<SessionState | null>(null);
+	const [error, setError] = useState<string | null>(null);
+	// Avoids setting state after the identity that produced it has already
+	// been cleared (e.g. a 401 from a stale localStorage entry racing
+	// against an in-flight poll) -- checked by reference, not a boolean, so
+	// a poll started under IDENTITY A can never clobber state set (or
+	// cleared) after switching to IDENTITY B.
+	const identityRef = useRef(identity);
+	identityRef.current = identity;
+
+	const refresh = useCallback(async (id: RemoteIdentity) => {
+		const res = await apiFetchState(id.sessionCode, id.playerToken);
+		if (identityRef.current !== id) return; // superseded while this was in flight
+		if (res.status === 401 || res.status === 404) {
+			// The session this identity pointed at is gone or never existed --
+			// a stale localStorage entry from a previous game, most likely.
+			// Nothing to recover: forget it and let the player start fresh.
+			clearIdentity();
+			setIdentity(null);
+			setState(null);
+			return;
+		}
+		if (res.status !== 200) {
+			setError("error" in res.body ? res.body.error : "Something went wrong.");
+			return;
+		}
+		setError(null);
+		setState(res.body as SessionState);
+	}, []);
+
+	useEffect(() => {
+		if (!identity) return;
+		let cancelled = false;
+		refresh(identity);
+		const interval = setInterval(() => {
+			// Nothing left to learn once a session has reached a terminal
+			// status -- see remoteGameSession.ts: neither "finished" nor
+			// "ended" can transition anywhere else.
+			if (state?.status === "finished" || state?.status === "ended") return;
+			if (!cancelled) refresh(identity);
+		}, POLL_INTERVAL_MS);
+		return () => {
+			cancelled = true;
+			clearInterval(interval);
+		};
+		// state.status is read inside the interval callback (to stop polling
+		// once terminal), not depended on here -- depending on it would tear
+		// down and rebuild the interval every single poll, defeating a fixed
+		// 4s cadence.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [identity, refresh]);
+
+	const create = useCallback(
+		async (hostName: string) => {
+			const res = await apiCreateSession(hostName);
+			if (res.status !== 200 || !("sessionCode" in res.body)) {
+				setError("error" in res.body ? res.body.error : "Couldn't create a session.");
+				return;
+			}
+			const id: RemoteIdentity = { sessionCode: res.body.sessionCode, playerId: res.body.playerId, playerToken: res.body.playerToken };
+			saveIdentity(id);
+			setError(null);
+			setIdentity(id);
+			await refresh(id);
+		},
+		[refresh],
+	);
+
+	const join = useCallback(
+		async (code: string, name: string) => {
+			const res = await apiJoinSession(code, name);
+			if (res.status !== 200 || !("playerId" in res.body)) {
+				setError("error" in res.body ? res.body.error : "Couldn't join that session.");
+				return;
+			}
+			const id: RemoteIdentity = { sessionCode: code, playerId: res.body.playerId, playerToken: res.body.playerToken };
+			saveIdentity(id);
+			setError(null);
+			setIdentity(id);
+			await refresh(id);
+		},
+		[refresh],
+	);
+
+	const setReadyAction = useCallback(
+		async (ready: boolean) => {
+			if (!identity) return;
+			const res = await apiSetReady(identity.sessionCode, identity.playerToken, ready);
+			if (res.status !== 200) {
+				setError("error" in res.body ? res.body.error : "Couldn't update ready status.");
+				return;
+			}
+			await refresh(identity);
+		},
+		[identity, refresh],
+	);
+
+	const start = useCallback(
+		async (questionCount: number): Promise<string | null> => {
+			if (!identity) return "No active session.";
+			const res = await apiStartGame(identity.sessionCode, identity.playerToken, questionCount);
+			if (res.status !== 200) {
+				const message = "error" in res.body ? res.body.error : "Couldn't start the game.";
+				setError(message);
+				return message;
+			}
+			await refresh(identity);
+			return null;
+		},
+		[identity, refresh],
+	);
+
+	const removePlayerAction = useCallback(
+		async (playerId: string) => {
+			if (!identity) return;
+			const res = await apiRemovePlayer(identity.sessionCode, identity.playerToken, playerId);
+			if (res.status !== 200) {
+				setError("error" in res.body ? res.body.error : "Couldn't remove that player.");
+				return;
+			}
+			await refresh(identity);
+		},
+		[identity, refresh],
+	);
+
+	const guess = useCallback(
+		async (guessText: string): Promise<"correct" | "wrong" | null> => {
+			if (!identity) return null;
+			const res = await apiSubmitGuess(identity.sessionCode, identity.playerToken, guessText);
+			if (res.status !== 200 || !("result" in res.body)) {
+				setError("error" in res.body ? res.body.error : "Couldn't submit that guess.");
+				return null;
+			}
+			await refresh(identity);
+			return res.body.result;
+		},
+		[identity, refresh],
+	);
+
+	const leave = useCallback(async () => {
+		if (identity) await apiLeaveSession(identity.sessionCode, identity.playerToken);
+		clearIdentity();
+		setIdentity(null);
+		setState(null);
+		setError(null);
+	}, [identity]);
+
+	const forget = useCallback(() => {
+		clearIdentity();
+		setIdentity(null);
+		setState(null);
+		setError(null);
+	}, []);
+
+	const isHost = state?.players.find((p) => p.id === identity?.playerId)?.isHost ?? false;
+
+	return {
+		identity,
+		state,
+		error,
+		isHost,
+		create,
+		join,
+		setReady: setReadyAction,
+		start,
+		removePlayer: removePlayerAction,
+		guess,
+		leave,
+		forget,
+	};
+}
