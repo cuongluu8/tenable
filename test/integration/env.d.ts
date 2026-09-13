@@ -36,6 +36,7 @@ declare namespace Cloudflare {
 		FOOTBALL_DATA_API_KEY?: string;
 		REMOTE_MULTIPLAYER_ENABLED: boolean;
 		ROUND_START_GRACE_MS: number;
+		MIN_REVEAL_MS: number;
 		// Untyped (no <RemoteGameSession> parameter) on purpose -- giving it
 		// one would mean importing the real class from src/worker, which is
 		// exactly the src/worker/index.ts import that caused the

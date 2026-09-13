@@ -148,6 +148,19 @@ const HINT_REVEAL_INTERVAL_MS = 30_000;
 // multi-second sleep between starting a round and guessing on it.
 const DEFAULT_ROUND_START_GRACE_MS = 5_000;
 
+// Minimum time a decided round stays on its reveal before the ready gate
+// is allowed to advance past it -- the fix for a real report (2026-09-13)
+// that the last question "went straight to the final results" on some
+// devices: the reveal only exists server-side between "decided" and
+// "everyone ready", and with one non-host player who wins and taps Ready
+// inside a single 4s poll interval, every OTHER device's next poll finds
+// the game already finished, never having seen the answer. Long enough
+// for at least one full poll cycle plus latency on every client (same
+// reasoning as DEFAULT_ROUND_START_GRACE_MS above), with reading time on
+// top. Same env-var-with-default pattern, same reason: integration tests
+// override it to 0 rather than sleeping through it.
+const DEFAULT_MIN_REVEAL_MS = 8_000;
+
 type SessionStatus = "lobby" | "in_progress" | "finished" | "ended";
 
 interface SessionRecord {
@@ -166,6 +179,9 @@ interface SessionRecord {
 	// flows through the exact same reveal/ready-for-next-question gate a
 	// won one does.
 	roundAnswerName: string | null;
+	// Epoch ms the round was decided (won, or resolved by everyone giving
+	// up) -- what DEFAULT_MIN_REVEAL_MS measures from. null while open.
+	roundDecidedAt: number | null;
 	// Player ids who've given up on the CURRENT round -- reset alongside
 	// roundWinnerId/roundAnswerName each time a new round starts (see
 	// startNewRound). Once every non-away player is in this list, the
@@ -343,6 +359,10 @@ export class RemoteGameSession extends DurableObject<Env> {
 		const getSession = async (): Promise<SessionRecord | undefined> => {
 			const session = await storage.get<SessionRecord>("session");
 			if (session && !Array.isArray(session.roundGivenUpPlayerIds)) session.roundGivenUpPlayerIds = [];
+			// Same for roundDecidedAt (added later the same day): a record
+			// without it that IS decided is treated as decided long ago, so
+			// the minimum-reveal check never holds a pre-existing session up.
+			if (session && session.roundDecidedAt === undefined) session.roundDecidedAt = session.roundAnswerName !== null ? 0 : null;
 			return session;
 		};
 		const getPlayers = () => storage.get<PlayerRecord[]>("players").then((p) => p ?? []);
@@ -363,6 +383,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 			session.roundStartedAt = now;
 			session.roundWinnerId = null;
 			session.roundAnswerName = null;
+			session.roundDecidedAt = null;
 			session.roundGivenUpPlayerIds = [];
 			// Fresh "ready to advance" gate for the new round -- see
 			// PlayerRecord.ready's own doc on why this is reused rather than
@@ -398,6 +419,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 			const result = await checkPlayerGuess(this.env.DB, "club_badge_questions", question.id, { giveUp: true });
 			if (!result) return false; // Defensive only -- see /guess's own "Unknown question" note.
 			session.roundAnswerName = result.name;
+			session.roundDecidedAt = now;
 			return true;
 		};
 
@@ -412,9 +434,18 @@ export class RemoteGameSession extends DurableObject<Env> {
 		// solo) would satisfy "no non-host player is unready" vacuously and
 		// blow through the entire question deck the instant /start
 		// succeeded, before anyone had guessed anything.
+		// Also holds the reveal on screen for at least MIN_REVEAL_MS after the
+		// round was decided (see DEFAULT_MIN_REVEAL_MS) -- which is why /state
+		// calls this on every poll too, not just the ready/leave/remove
+		// handlers: once the gate is otherwise satisfied, the advance has to
+		// happen on whichever request first arrives after the window closes,
+		// and polls are the only requests guaranteed to keep coming.
 		async function maybeAdvanceRound(session: SessionRecord, players: PlayerRecord[], now: number): Promise<void> {
 			if (session.status !== "in_progress" || !isRoundDecided(session)) return;
 			if (playersNotReady(players, now).length > 0) return;
+			const rawMinRevealMs = Number(env.MIN_REVEAL_MS);
+			const minRevealMs = Number.isFinite(rawMinRevealMs) ? rawMinRevealMs : DEFAULT_MIN_REVEAL_MS;
+			if (session.roundDecidedAt !== null && now - session.roundDecidedAt < minRevealMs) return;
 
 			startNewRound(session, players, session.roundIndex + 1, now);
 			await storage.put({ session, players });
@@ -450,6 +481,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 				roundStartedAt: null,
 				roundWinnerId: null,
 				roundAnswerName: null,
+				roundDecidedAt: null,
 				roundGivenUpPlayerIds: [],
 			};
 			// The host is marked ready from the start -- readiness exists to
@@ -532,10 +564,14 @@ export class RemoteGameSession extends DurableObject<Env> {
 			// hanging until the away player happens to come back.
 			if (await resolveRoundByGiveUp(session, players, now)) {
 				await storage.put({ session, players });
-				await maybeAdvanceRound(session, players, now);
 			} else {
 				await storage.put("players", players);
 			}
+			// Unconditional -- see maybeAdvanceRound's own doc on why a poll
+			// has to be able to complete an advance the ready gate already
+			// approved (the minimum-reveal window). A read-only no-op when
+			// there's nothing to advance.
+			await maybeAdvanceRound(session, players, now);
 
 			return c.json({
 				status: session.status,
@@ -735,6 +771,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 				self.wins += 1;
 				session.roundWinnerId = self.id;
 				session.roundAnswerName = result.name;
+				session.roundDecidedAt = now;
 				await storage.put({ session, players });
 				return c.json({ result: "correct" as const, answerName: result.name });
 			}

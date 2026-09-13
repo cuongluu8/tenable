@@ -40,7 +40,12 @@
 		// override this to 0 (vitest.integration.config.ts) so they don't
 		// need a real multi-second sleep between starting a round and
 		// guessing on it.
-		"ROUND_START_GRACE_MS": 5000
+		"ROUND_START_GRACE_MS": 5000,
+		// remoteGameSession.ts's own MIN_REVEAL_MS -- the least time a
+		// decided round stays on its answer reveal before the ready gate may
+		// advance past it, so every device gets a poll in during the reveal.
+		// Same tunable-var pattern and test override (to 0) as above.
+		"MIN_REVEAL_MS": 8000
 	},
 	"upload_source_maps": true,
 	"triggers": {

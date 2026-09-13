@@ -63,6 +63,9 @@ export default defineConfig({
 					// on it -- see remoteGameSession.ts's own doc on why 0 is a
 					// real, distinct override rather than "not configured".
 					ROUND_START_GRACE_MS: 0,
+					// Same again for the minimum answer-reveal window -- the
+					// round-advance tests expect the gate to fire immediately.
+					MIN_REVEAL_MS: 0,
 				},
 			},
 		}),
