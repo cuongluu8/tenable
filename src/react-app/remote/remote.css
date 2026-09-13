@@ -77,6 +77,20 @@
 	border-color: #f87171;
 	background: rgba(248, 113, 113, 0.15);
 }
+/* In-game confirm step for .remote-leave-button (see RemoteGame.tsx's
+   LeaveControl) -- App.css's .give-up-confirm layout, right-aligned to
+   sit where the button it replaced was. Reuses that block's own __yes/
+   __cancel button styles as-is. */
+.remote-leave-confirm {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+	gap: 0.5rem;
+	margin-top: 1.5rem;
+	font-size: 0.8rem;
+	color: #9ca3af;
+}
 
 /* Same base look as remote-primary-button, but only while it's the
    affirmative "I'm ready"/"Ready for next question" action -- once
