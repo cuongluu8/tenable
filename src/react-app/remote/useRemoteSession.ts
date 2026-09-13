@@ -35,7 +35,7 @@ interface UseRemoteSessionResult {
 	create: (hostName: string, gameType: RemoteGameType) => Promise<void>;
 	join: (code: string, name: string) => Promise<void>;
 	setReady: (ready: boolean) => Promise<void>;
-	start: (questionCount: number) => Promise<string | null>;
+	start: (questionCount: number, competitionId?: string) => Promise<string | null>;
 	removePlayer: (playerId: string) => Promise<void>;
 	guess: (guess: string) => Promise<"correct" | "wrong" | null>;
 	// Bows this player out of the current round -- see remoteGameSession.ts's
@@ -176,9 +176,9 @@ export function useRemoteSession(): UseRemoteSessionResult {
 	);
 
 	const start = useCallback(
-		async (questionCount: number): Promise<string | null> => {
+		async (questionCount: number, competitionId?: string): Promise<string | null> => {
 			if (!identity) return "No active session.";
-			const res = await apiStartGame(identity.sessionCode, identity.playerToken, questionCount);
+			const res = await apiStartGame(identity.sessionCode, identity.playerToken, questionCount, competitionId);
 			if (res.status !== 200) {
 				const message = "error" in res.body ? res.body.error : "Couldn't start the game.";
 				setError(message);

@@ -13,10 +13,11 @@ import { collapseToAlnum, normalize } from "./normalize";
 // curated name + aliases only, and offered by /suggest via the curated
 // list so it can actually be picked (GuessInput only submits picks).
 //
-// Champions League is the only competition so far -- the structure is
-// ready for more (English top flight, Premier League, ...) but they're
-// deliberately NOT added yet (2026-09-13). The most recent season listed
-// is 2024-25; 2025-26's final needs confirming before it's added.
+// The European Cup / Champions League are the only competitions so far --
+// the structure is ready for more (English top flight, Premier League,
+// ...) but they're deliberately NOT added yet (2026-09-13). The most
+// recent season listed is 2024-25; 2025-26's final needs confirming
+// before it's added.
 
 export interface HonourSeasonDef {
 	season: string; // "1955-56" -- the tile's label
@@ -44,10 +45,14 @@ const BAR = { winner: "Barcelona", country: "Spain", aliases: ["Barca", "Barça"
 const CHE = { winner: "Chelsea", country: "England" };
 const POR = { winner: "Porto", country: "Portugal", aliases: ["FC Porto"] };
 
+// Split at the 1992 rebrand (2026-09-13): the European Cup years and the
+// Champions League era are two grids, not one 70-tile one -- the host
+// picks which in the lobby. Same competition historically; two names,
+// two sizes that each fit a phone better.
 export const HONOUR_COMPETITIONS: Record<string, HonourCompetitionDef> = {
-	"champions-league": {
-		id: "champions-league",
-		name: "Champions League",
+	"european-cup": {
+		id: "european-cup",
+		name: "European Cup",
 		seasons: [
 			{ season: "1955-56", ...RM },
 			{ season: "1956-57", ...RM },
@@ -86,6 +91,12 @@ export const HONOUR_COMPETITIONS: Record<string, HonourCompetitionDef> = {
 			{ season: "1989-90", ...ACM },
 			{ season: "1990-91", winner: "Red Star Belgrade", country: "Serbia", aliases: ["Red Star", "Crvena Zvezda"] },
 			{ season: "1991-92", ...BAR },
+		],
+	},
+	"champions-league": {
+		id: "champions-league",
+		name: "Champions League",
+		seasons: [
 			{ season: "1992-93", winner: "Marseille", country: "France", aliases: ["Olympique de Marseille", "Olympique Marseille", "OM"] },
 			{ season: "1993-94", ...ACM },
 			{ season: "1994-95", ...AJX },

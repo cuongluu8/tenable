@@ -38,9 +38,18 @@ export const REMOTE_GAME_LABELS: Record<RemoteGameType, string> = {
 	"roll-of-honour": "Roll of Honour",
 };
 
-// Roll of Honour's one competition so far -- shown in the lobby before
-// the server has built the grid. Mirrors lib/rollOfHonour.ts.
-export const DEFAULT_HONOUR_COMPETITION = { id: "champions-league", name: "Champions League", seasonCount: 70 };
+// One entry of GET /api/roll-of-honour/competitions -- what the lobby's
+// competition picker offers. Fetched, not hardcoded, so adding a list in
+// lib/rollOfHonour.ts is the whole job.
+export interface HonourCompetitionOption {
+	id: string;
+	name: string;
+	seasonCount: number;
+}
+
+export function apiHonourCompetitions() {
+	return apiFetchRaw<{ competitions: HonourCompetitionOption[] }>("/api/roll-of-honour/competitions");
+}
 
 // Roll of Honour's grid, as /state reports it -- see remoteGameSession.ts's
 // PublicHonour. winner/imageUrl are null until a tile is answered (or the
@@ -156,6 +165,14 @@ interface ApiResult<T> {
 	body: T;
 }
 
+// Same shape as apiFetch below, for the one non-/api/remote endpoint the
+// remote screens read (Roll of Honour's competition list).
+async function apiFetchRaw<T>(url: string): Promise<ApiResult<T>> {
+	const res = await fetch(url);
+	const body = (await res.json().catch(() => ({}))) as T;
+	return { status: res.status, body };
+}
+
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<ApiResult<T>> {
 	const res = await fetch(`/api/remote${path}`, {
 		...init,
@@ -212,11 +229,13 @@ export function apiRemovePlayer(code: string, token: string, playerId: string) {
 	});
 }
 
-export function apiStartGame(code: string, token: string, questionCount: number) {
+// `competitionId` is Roll of Honour's one start option (ignored by the
+// round formats, which read questionCount instead -- and vice versa).
+export function apiStartGame(code: string, token: string, questionCount: number, competitionId?: string) {
 	return apiFetch<{ ok: true } | { error: string; notReadyPlayerIds?: string[] }>(`/sessions/${code}/start`, {
 		method: "POST",
 		headers: authHeaders(token),
-		body: JSON.stringify({ questionCount }),
+		body: JSON.stringify({ questionCount, competitionId }),
 	});
 }
 

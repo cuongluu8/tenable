@@ -83,18 +83,22 @@ function post(code: string, path: string, token: string, body?: unknown) {
 }
 
 describe("Roll of Honour over remote play", () => {
-	it("starts as a 70-season grid with every winner hidden, no question count needed", async () => {
+	it("starts as a grid of the chosen competition with every winner hidden, no question count needed", async () => {
 		const host = await createSession("Host");
+		// Unknown competition is refused; omitted defaults to the Champions
+		// League era.
+		expect((await post(host.sessionCode, "/start", host.playerToken, { competitionId: "world-cup" })).status).toBe(400);
 		expect((await post(host.sessionCode, "/start", host.playerToken, {})).status).toBe(200);
 		const state = await getState(host.sessionCode, host.playerToken);
 		expect(state.status).toBe("in_progress");
 		expect(state.gameType).toBe("roll-of-honour");
 		expect(state.round).toBeNull();
 		expect(state.honour!.competitionName).toBe("Champions League");
-		expect(state.honour!.tiles).toHaveLength(70);
-		expect(state.honour!.tiles[0].season).toBe("1955-56");
+		expect(state.honour!.tiles).toHaveLength(33);
+		expect(state.honour!.tiles[0].season).toBe("1992-93");
+		expect(state.honour!.tiles[32].season).toBe("2024-25");
 		expect(state.honour!.tiles.every((t) => t.status === "open" && t.winner === null && t.imageUrl === null)).toBe(true);
-		expect(JSON.stringify(state.honour)).not.toContain("Real Madrid");
+		expect(JSON.stringify(state.honour)).not.toContain("Marseille");
 		// The round formats' guess route isn't this game's.
 		expect((await post(host.sessionCode, "/guess", host.playerToken, { guess: "Real Madrid" })).status).toBe(409);
 	});
@@ -103,7 +107,12 @@ describe("Roll of Honour over remote play", () => {
 		const host = await createSession("Host");
 		const guest = await joinSession(host.sessionCode, "Guest");
 		await post(host.sessionCode, "/ready", guest.playerToken, { ready: true });
-		expect((await post(host.sessionCode, "/start", host.playerToken, {})).status).toBe(200);
+		// The European Cup grid: 1955-56 to 1991-92.
+		expect((await post(host.sessionCode, "/start", host.playerToken, { competitionId: "european-cup" })).status).toBe(200);
+		const started = await getState(host.sessionCode, host.playerToken);
+		expect(started.honour!.competitionName).toBe("European Cup");
+		expect(started.honour!.tiles).toHaveLength(37);
+		expect(started.honour!.tiles[36].season).toBe("1991-92");
 
 		// Answering without holding the tile is refused.
 		expect((await post(host.sessionCode, "/tile/answer", guest.playerToken, { season: "1955-56", guess: "Real Madrid" })).status).toBe(409);
@@ -145,7 +154,7 @@ describe("Roll of Honour over remote play", () => {
 		const host = await createSession("Host");
 		const guest = await joinSession(host.sessionCode, "Guest");
 		await post(host.sessionCode, "/ready", guest.playerToken, { ready: true });
-		expect((await post(host.sessionCode, "/start", host.playerToken, {})).status).toBe(200);
+		expect((await post(host.sessionCode, "/start", host.playerToken, { competitionId: "european-cup" })).status).toBe(200);
 
 		expect((await post(host.sessionCode, "/give-up", guest.playerToken)).status).toBe(200);
 		let state = await getState(host.sessionCode, host.playerToken);

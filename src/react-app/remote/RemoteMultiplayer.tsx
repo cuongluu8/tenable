@@ -81,8 +81,8 @@ export function RemoteMultiplayer({ onBack }: Props) {
 				isHost={isHost}
 				error={error}
 				onSetReady={setReady}
-				onStart={(count) => {
-					void start(count);
+				onStart={(count, competitionId) => {
+					void start(count, competitionId);
 				}}
 				onRemovePlayer={removePlayer}
 				onLeave={leave}

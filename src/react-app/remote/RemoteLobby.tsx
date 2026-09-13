@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { colorForPlayerIndex } from "../components/playerColors";
-import { DEFAULT_HONOUR_COMPETITION, REMOTE_GAME_LABELS, type SessionState } from "./remoteApi";
+import { apiHonourCompetitions, REMOTE_GAME_LABELS, type HonourCompetitionOption, type SessionState } from "./remoteApi";
 import { shareSessionViaWhatsApp } from "./shareSession";
 
 const DEFAULT_QUESTION_COUNT = 5;
@@ -14,7 +14,9 @@ interface Props {
 	isHost: boolean;
 	error: string | null;
 	onSetReady: (ready: boolean) => void;
-	onStart: (questionCount: number) => void;
+	// competitionId only means anything for Roll of Honour (see
+	// apiStartGame); undefined for the round formats.
+	onStart: (questionCount: number, competitionId?: string) => void;
 	onRemovePlayer: (playerId: string) => void;
 	onLeave: () => void;
 }
@@ -27,6 +29,27 @@ interface Props {
 export function RemoteLobby({ state, sessionCode, myPlayerId, isHost, error, onSetReady, onStart, onRemovePlayer, onLeave }: Props) {
 	const [questionCount, setQuestionCount] = useState(DEFAULT_QUESTION_COUNT);
 	const me = state.players.find((p) => p.id === myPlayerId);
+	// Roll of Honour's competition picker -- loaded once for a Roll of
+	// Honour lobby, from the server's own list, so the lobby never has to
+	// know which competitions exist. Empty until it arrives (the Start
+	// button waits on it).
+	const isHonour = state.gameType === "roll-of-honour";
+	const [competitions, setCompetitions] = useState<HonourCompetitionOption[]>([]);
+	const [competitionId, setCompetitionId] = useState<string | null>(null);
+	useEffect(() => {
+		if (!isHonour) return;
+		let cancelled = false;
+		apiHonourCompetitions().then((res) => {
+			if (cancelled || res.status !== 200 || !("competitions" in res.body)) return;
+			setCompetitions(res.body.competitions);
+			// Default to the most recent era (last in the server's
+			// chronological list) rather than the first.
+			setCompetitionId((current) => current ?? res.body.competitions[res.body.competitions.length - 1]?.id ?? null);
+		});
+		return () => {
+			cancelled = true;
+		};
+	}, [isHonour]);
 
 	return (
 		<div className="screen">
@@ -65,12 +88,20 @@ export function RemoteLobby({ state, sessionCode, myPlayerId, isHost, error, onS
 
 			{isHost ? (
 				<div className="remote-host-controls">
-					{state.gameType === "roll-of-honour" ? (
-						// No question count -- the grid is the game. The competition
-						// would be the choice here; only one exists so far.
-						<p className="remote-subtitle">
-							{DEFAULT_HONOUR_COMPETITION.name} · {DEFAULT_HONOUR_COMPETITION.seasonCount} seasons to fill in
-						</p>
+					{isHonour ? (
+						// No question count -- the grid is the game; the competition
+						// is the one choice.
+						<label className="remote-field">
+							Competition
+							<select value={competitionId ?? ""} onChange={(e) => setCompetitionId(e.target.value)} disabled={competitions.length === 0}>
+								{competitions.length === 0 && <option value="">Loading…</option>}
+								{competitions.map((c) => (
+									<option key={c.id} value={c.id}>
+										{c.name} · {c.seasonCount} seasons
+									</option>
+								))}
+							</select>
+						</label>
 					) : (
 						<label className="remote-field">
 							Number of questions
@@ -83,7 +114,12 @@ export function RemoteLobby({ state, sessionCode, myPlayerId, isHost, error, onS
 							/>
 						</label>
 					)}
-					<button type="button" className="remote-primary-button" onClick={() => onStart(questionCount)}>
+					<button
+						type="button"
+						className="remote-primary-button"
+						disabled={isHonour && !competitionId}
+						onClick={() => onStart(questionCount, isHonour ? (competitionId ?? undefined) : undefined)}
+					>
 						Start game
 					</button>
 				</div>
