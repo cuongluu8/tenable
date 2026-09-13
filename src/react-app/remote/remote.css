@@ -181,6 +181,12 @@
 	background: rgba(251, 191, 36, 0.15);
 	color: #fbbf24;
 }
+/* Same red as .give-up-link (App.css) -- this is the roster-side echo of
+   that action, so it reads as the same thing. */
+.remote-badge--gave-up {
+	background: rgba(248, 113, 113, 0.15);
+	color: #f87171;
+}
 
 .remote-remove-button {
 	background: none;
@@ -235,6 +241,15 @@
 	gap: 0.75rem;
 	margin-top: 1rem;
 	text-align: center;
+}
+
+/* Flex column purely so App.css's .give-up-link/.give-up-confirm
+   (align-self: center) sit centered under the guess box exactly as they
+   do inside RoundPlay's own .cb-play column. */
+.remote-give-up {
+	display: flex;
+	flex-direction: column;
+	margin-top: 0.5rem;
 }
 
 .remote-feedback {

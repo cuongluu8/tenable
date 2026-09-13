@@ -36,6 +36,7 @@ interface StateResponse {
 		question: { id: number; badges: RoundBadge[]; nationality: string | null; transferDates: (string | null)[] };
 		winnerId: string | null;
 		answerName: string | null;
+		givenUpPlayerIds: string[];
 	} | null;
 }
 interface GuessResponse {

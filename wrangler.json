@@ -32,7 +32,15 @@
 		// sessions if something's wrong in production, without touching
 		// anything already in progress (an existing session is left to
 		// finish rather than hard-cut).
-		"REMOTE_MULTIPLAYER_ENABLED": true
+		"REMOTE_MULTIPLAYER_ENABLED": true,
+		// remoteGameSession.ts's own ROUND_START_GRACE_MS -- how long after a
+		// round starts guesses are rejected, closing the poll-timing head
+		// start described there. A real, tunable var (not a bare constant)
+		// for the same reason DAILY_REQUEST_BUDGET is: integration tests
+		// override this to 0 (vitest.integration.config.ts) so they don't
+		// need a real multi-second sleep between starting a round and
+		// guessing on it.
+		"ROUND_START_GRACE_MS": 5000
 	},
 	"upload_source_maps": true,
 	"triggers": {

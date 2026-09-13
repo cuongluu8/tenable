@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
 	apiCreateSession,
 	apiFetchState,
+	apiGiveUp,
 	apiJoinSession,
 	apiLeaveSession,
 	apiRemovePlayer,
@@ -31,6 +32,10 @@ interface UseRemoteSessionResult {
 	start: (questionCount: number) => Promise<string | null>;
 	removePlayer: (playerId: string) => Promise<void>;
 	guess: (guess: string) => Promise<"correct" | "wrong" | null>;
+	// Bows this player out of the current round -- see remoteGameSession.ts's
+	// /give-up on why the answer isn't returned here (it arrives via the
+	// next /state, once the round is actually decided).
+	giveUp: () => Promise<void>;
 	leave: () => Promise<void>;
 	// Forgets the session locally without telling the server -- for
 	// leaving a session that's already "finished"/"ended", where there's
@@ -186,6 +191,16 @@ export function useRemoteSession(): UseRemoteSessionResult {
 		[identity, refresh],
 	);
 
+	const giveUp = useCallback(async () => {
+		if (!identity) return;
+		const res = await apiGiveUp(identity.sessionCode, identity.playerToken);
+		if (res.status !== 200) {
+			setError("error" in res.body ? res.body.error : "Couldn't give up on this one.");
+			return;
+		}
+		await refresh(identity);
+	}, [identity, refresh]);
+
 	const leave = useCallback(async () => {
 		if (identity) await apiLeaveSession(identity.sessionCode, identity.playerToken);
 		clearIdentity();
@@ -214,6 +229,7 @@ export function useRemoteSession(): UseRemoteSessionResult {
 		start,
 		removePlayer: removePlayerAction,
 		guess,
+		giveUp,
 		leave,
 		forget,
 	};

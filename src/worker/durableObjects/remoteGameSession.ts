@@ -37,14 +37,26 @@ import { checkPlayerGuess } from "../lib/checkPlayerGuess";
 //     would mean building the wrong data model entirely. A single correct
 //     answer per question is exactly what makes "first correct guess
 //     wins" a coherent race, unlike a Top-10 list's multiple answers.
-//   - Clients POLL a /state endpoint every 4s -- no WebSockets. A few
-//     seconds of UI lag doesn't affect fairness, since the server (this
-//     class), not the client, decides who won each question.
+//   - Clients POLL a /state endpoint every 4s -- no WebSockets. Plain
+//     poll-timing jitter alone was NOT actually harmless in practice,
+//     though -- confirmed live across three real devices (2026-09-13):
+//     the host's own client re-fetches /state right after /start
+//     succeeds, so the host saw a new question up to several seconds
+//     before other players' independent, unsynchronized poll timers
+//     happened to catch up, a real head start in a "first correct guess
+//     wins" race. See ROUND_START_GRACE_MS below for the fix -- guessing
+//     itself is still fully server-adjudicated regardless.
 //   - A player is "away" after 15s of silence (~3 missed polls); both
 //     "everyone ready" and "everyone next-question" gates only wait on
 //     non-away players. The host can also remove a player outright.
 //   - Wrong guesses cost nothing -- unlimited attempts, a pure race on
-//     the first correct one.
+//     the first correct one. A player CAN bow out of a question, though
+//     -- the same two-step "Give up" Club Run's own solo/pass-and-play
+//     screen has (RoundPlay.tsx), added 2026-09-13 so remote play matches
+//     it. A give-up is per-player and final for that round (their own
+//     guesses are rejected after it); the round itself only resolves
+//     without a winner once EVERY non-away player has given up -- see
+//     /give-up and maybeResolveRoundByGiveUp below.
 //   - Hints are shared and automatic: every 30s with no correct answer,
 //     the next hint tier reveals for everyone at once (reusing
 //     clubBadgesState.ts's own HINT_KEYS order: country, nationality,
@@ -67,6 +79,8 @@ import { checkPlayerGuess } from "../lib/checkPlayerGuess";
 // lobby -- question selection at /start, /guess, hint reveal timing, and
 // the "everyone ready" gate advancing to the next question (or finishing
 // the game on the last one).
+// Give up (2026-09-13): /give-up -- per-player bow-out, and the round
+// resolving with no winner once every non-away player has done so.
 
 const PLAYER_AWAY_MS = 15_000; // ~3 missed 4s polls -- see class doc.
 const MAX_PLAYERS = 8; // A casual party-game bound, not a locked design
@@ -89,6 +103,25 @@ const MAX_NAME_LENGTH = 24;
 const HINT_TIER_COUNT = 3;
 const HINT_REVEAL_INTERVAL_MS = 30_000;
 
+// How long after roundStartedAt guesses are rejected -- the fix for the
+// poll-timing head start described in the class doc above. Longer than
+// the 4s poll interval clients actually use (not imported from anywhere;
+// worker code never imports the client's polling constant, same
+// separate-bundles reasoning as HINT_TIER_COUNT above), so every client
+// is guaranteed at least one full poll cycle -- plus real headroom for
+// its own network latency on top of that -- to have already seen the new
+// round before anyone can submit. Enforced here, not just in the client
+// UI (which also locks its own guess box for this same window -- see
+// RemoteGame.tsx): a client that ignored its own disabled button and
+// POSTed straight through would otherwise still get the same unfair
+// head start this exists to remove.
+//
+// A real wrangler.json var (read fresh per-request below), not a bare
+// constant -- same reasoning as circuitBreaker.ts's DAILY_REQUEST_BUDGET:
+// integration tests override this to 0 so they don't need a real
+// multi-second sleep between starting a round and guessing on it.
+const DEFAULT_ROUND_START_GRACE_MS = 5_000;
+
 type SessionStatus = "lobby" | "in_progress" | "finished" | "ended";
 
 interface SessionRecord {
@@ -99,8 +132,20 @@ interface SessionRecord {
 	questions: ClubBadgeQuestionPublic[];
 	roundIndex: number; // 0-based index into `questions`.
 	roundStartedAt: number | null; // Epoch ms the current round began -- hint timing reads off this.
-	roundWinnerId: string | null; // Set the instant someone's guess is graded correct; null while the round is still open.
-	roundAnswerName: string | null; // The real player's name, revealed once roundWinnerId is set.
+	roundWinnerId: string | null; // Set the instant someone's guess is graded correct; stays null if the round instead resolves by everyone giving up.
+	// The real player's name -- the actual "is this round decided" signal
+	// (not roundWinnerId, which can stay null): set either the instant
+	// someone's guess is graded correct, or once every non-away player has
+	// given up (see /give-up below), so a give-up-resolved round still
+	// flows through the exact same reveal/ready-for-next-question gate a
+	// won one does.
+	roundAnswerName: string | null;
+	// Player ids who've given up on the CURRENT round -- reset alongside
+	// roundWinnerId/roundAnswerName each time a new round starts (see
+	// startNewRound). Once every non-away player is in this list, the
+	// round resolves with no winner rather than sitting open forever
+	// waiting for a guess nobody's going to make.
+	roundGivenUpPlayerIds: string[];
 }
 
 interface PlayerRecord {
@@ -137,6 +182,18 @@ interface PublicRound {
 	question: ClubBadgeQuestionPublic;
 	winnerId: string | null;
 	answerName: string | null;
+	// Who's bowed out of this round so far (see SessionRecord.
+	// roundGivenUpPlayerIds) -- clients use it to show their own "you gave
+	// up, waiting for the others" state and to mark who's no longer racing.
+	givenUpPlayerIds: string[];
+}
+
+// The one "is this round decided" check, used everywhere the answer's
+// visibility or the round's openness matters (guessing, hint gating, the
+// ready-to-advance gate). Deliberately NOT roundWinnerId -- a round
+// resolved by everyone giving up has an answer to show but no winner.
+function isRoundDecided(session: SessionRecord): boolean {
+	return session.roundAnswerName !== null;
 }
 
 function isAway(player: PlayerRecord, now: number): boolean {
@@ -195,8 +252,9 @@ function publicRound(session: SessionRecord, now: number): PublicRound | null {
 	const question = session.questions[index];
 
 	const elapsedMs = session.roundStartedAt ? now - session.roundStartedAt : 0;
-	const hintsRevealed =
-		session.roundWinnerId !== null ? HINT_TIER_COUNT : Math.min(HINT_TIER_COUNT, Math.floor(elapsedMs / HINT_REVEAL_INTERVAL_MS));
+	const hintsRevealed = isRoundDecided(session)
+		? HINT_TIER_COUNT
+		: Math.min(HINT_TIER_COUNT, Math.floor(elapsedMs / HINT_REVEAL_INTERVAL_MS));
 
 	return {
 		index,
@@ -206,6 +264,7 @@ function publicRound(session: SessionRecord, now: number): PublicRound | null {
 		question: publicQuestion(question, hintsRevealed),
 		winnerId: session.roundWinnerId,
 		answerName: session.roundAnswerName,
+		givenUpPlayerIds: session.roundGivenUpPlayerIds,
 	};
 }
 
@@ -221,7 +280,15 @@ export class RemoteGameSession extends DurableObject<Env> {
 		// `storage` as a parameter) since every route needs both and this
 		// class has no other state worth threading through.
 		const storage = ctx.storage;
-		const getSession = () => storage.get<SessionRecord>("session");
+		// roundGivenUpPlayerIds was added (2026-09-13) after real sessions
+		// had already been persisted without it -- a DO's storage outlives
+		// deploys, so a record from before that field existed is read back
+		// with it filled in rather than every reader having to `?? []`.
+		const getSession = async (): Promise<SessionRecord | undefined> => {
+			const session = await storage.get<SessionRecord>("session");
+			if (session && !Array.isArray(session.roundGivenUpPlayerIds)) session.roundGivenUpPlayerIds = [];
+			return session;
+		};
 		const getPlayers = () => storage.get<PlayerRecord[]>("players").then((p) => p ?? []);
 		const findByToken = (players: PlayerRecord[], token: string | undefined) =>
 			token ? players.find((p) => p.token === token) : undefined;
@@ -240,6 +307,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 			session.roundStartedAt = now;
 			session.roundWinnerId = null;
 			session.roundAnswerName = null;
+			session.roundGivenUpPlayerIds = [];
 			// Fresh "ready to advance" gate for the new round -- see
 			// PlayerRecord.ready's own doc on why this is reused rather than
 			// a second field, and why it must be reset here: without this,
@@ -248,19 +316,48 @@ export class RemoteGameSession extends DurableObject<Env> {
 			for (const p of players) p.ready = p.isHost;
 		}
 
+		// Resolves the current round with no winner once every non-away
+		// player has given up on it -- the actual "give up" outcome, as
+		// opposed to one player's own /give-up call, which is just that
+		// player bowing out while the others keep racing. Called from
+		// /give-up itself and from anything that shrinks the set of players
+		// still racing (a not-given-up player leaving, being removed, or
+		// going away between polls), since any of those can be what tips a
+		// round into "nobody left is still trying". Requires at least one
+		// non-away player: a room where everyone has gone quiet is left open
+		// for them to come back to, not silently resolved behind their backs.
+		// Persists nothing itself -- callers already write session/players
+		// afterwards. Returns whether it resolved anything, so callers know
+		// to follow up with maybeAdvanceRound.
+		const resolveRoundByGiveUp = async (session: SessionRecord, players: PlayerRecord[], now: number): Promise<boolean> => {
+			if (session.status !== "in_progress" || isRoundDecided(session)) return false;
+			const active = players.filter((p) => !isAway(p, now));
+			if (active.length === 0 || !active.every((p) => session.roundGivenUpPlayerIds.includes(p.id))) return false;
+
+			const question = session.questions[session.roundIndex];
+			// checkPlayerGuess's give-up branch is exactly "hand me the real
+			// answer without grading anything" -- the same lookup Club Run's
+			// own solo give-up uses (clubBadges.ts's /check-guess), reused
+			// rather than duplicating the entities join here.
+			const result = await checkPlayerGuess(this.env.DB, "club_badge_questions", question.id, { giveUp: true });
+			if (!result) return false; // Defensive only -- see /guess's own "Unknown question" note.
+			session.roundAnswerName = result.name;
+			return true;
+		};
+
 		// Advances past the current round once every non-host, non-away
 		// player has marked ready -- called after anything that could newly
 		// satisfy that gate (a /ready call, or a not-ready player leaving/
-		// being removed). Requires the round to already have a winner: this
-		// is a "confirm you saw the answer, move on" gate, not a "let's all
-		// give up on this one" skip -- see class doc's "everyone next-
-		// question" line. Without this precondition, a session with zero
-		// OTHER players (a host testing solo) would satisfy "no non-host
-		// player is unready" vacuously and blow through the entire question
-		// deck the instant /start succeeded, before anyone had guessed
-		// anything.
+		// being removed). Requires the round to already be decided (won, or
+		// resolved by everyone giving up -- isRoundDecided): this is a
+		// "confirm you saw the answer, move on" gate, not itself a skip --
+		// see class doc's "everyone next-question" line. Without this
+		// precondition, a session with zero OTHER players (a host testing
+		// solo) would satisfy "no non-host player is unready" vacuously and
+		// blow through the entire question deck the instant /start
+		// succeeded, before anyone had guessed anything.
 		async function maybeAdvanceRound(session: SessionRecord, players: PlayerRecord[], now: number): Promise<void> {
-			if (session.status !== "in_progress" || session.roundWinnerId === null) return;
+			if (session.status !== "in_progress" || !isRoundDecided(session)) return;
 			if (playersNotReady(players, now).length > 0) return;
 
 			startNewRound(session, players, session.roundIndex + 1, now);
@@ -297,6 +394,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 				roundStartedAt: null,
 				roundWinnerId: null,
 				roundAnswerName: null,
+				roundGivenUpPlayerIds: [],
 			};
 			// The host is marked ready from the start -- readiness exists to
 			// gate the *other* players before the host starts the game, not to
@@ -360,7 +458,17 @@ export class RemoteGameSession extends DurableObject<Env> {
 			// caller isn't away, regardless of how stale their last poll was.
 			const now = Date.now();
 			self.lastSeenAt = now;
-			await storage.put("players", players);
+			// "Away" is purely time-based (no request marks it), so the moment
+			// a still-racing player crosses PLAYER_AWAY_MS can only ever be
+			// noticed by someone ELSE's poll -- this one. If that leaves only
+			// given-up players active, the round resolves here rather than
+			// hanging until the away player happens to come back.
+			if (await resolveRoundByGiveUp(session, players, now)) {
+				await storage.put({ session, players });
+				await maybeAdvanceRound(session, players, now);
+			} else {
+				await storage.put("players", players);
+			}
 
 			return c.json({
 				status: session.status,
@@ -415,10 +523,13 @@ export class RemoteGameSession extends DurableObject<Env> {
 				await storage.put("session", session);
 			} else {
 				const remaining = players.filter((p) => p.id !== self.id);
-				await storage.put("players", remaining);
-				// The departing player might have been the last one the
+				const now = Date.now();
+				// The departing player might have been the last one still
+				// racing (everyone else already gave up), or the last one the
 				// round-advance gate was waiting on.
-				await maybeAdvanceRound(session, remaining, Date.now());
+				if (await resolveRoundByGiveUp(session, remaining, now)) await storage.put("session", session);
+				await storage.put("players", remaining);
+				await maybeAdvanceRound(session, remaining, now);
 			}
 
 			return c.json({ ok: true });
@@ -441,8 +552,10 @@ export class RemoteGameSession extends DurableObject<Env> {
 			if (!target) return c.json({ error: "Player not found" }, 404);
 
 			const remaining = players.filter((p) => p.id !== target.id);
+			const now = Date.now();
+			if (await resolveRoundByGiveUp(session, remaining, now)) await storage.put("session", session);
 			await storage.put("players", remaining);
-			await maybeAdvanceRound(session, remaining, Date.now());
+			await maybeAdvanceRound(session, remaining, now);
 
 			return c.json({ ok: true });
 		});
@@ -509,9 +622,30 @@ export class RemoteGameSession extends DurableObject<Env> {
 			const now = Date.now();
 			self.lastSeenAt = now;
 
-			if (session.roundWinnerId !== null) {
+			if (isRoundDecided(session)) {
 				await storage.put("players", players);
 				return c.json({ error: "This round is already over" }, 409);
+			}
+			if (session.roundGivenUpPlayerIds.includes(self.id)) {
+				// A give-up is final for the round (see class doc) -- same as
+				// Club Run's own RoundPlay, where giving up ends that player's
+				// turn at the question outright rather than being undoable.
+				await storage.put("players", players);
+				return c.json({ error: "You've already given up on this round" }, 409);
+			}
+
+			// `||` (not `??`) would wrongly fall back to the default when the
+			// test override is exactly 0 -- Number.isFinite is what actually
+			// distinguishes "not configured" from "configured to zero".
+			const rawGraceMs = Number(this.env.ROUND_START_GRACE_MS);
+			const roundStartGraceMs = Number.isFinite(rawGraceMs) ? rawGraceMs : DEFAULT_ROUND_START_GRACE_MS;
+			if (session.roundStartedAt !== null && now - session.roundStartedAt < roundStartGraceMs) {
+				// See ROUND_START_GRACE_MS's own doc -- a legitimate client's own
+				// guess box is disabled for this same window, so only a client
+				// bypassing its own UI (or one whose clock is meaningfully off)
+				// ever actually reaches this.
+				await storage.put("players", players);
+				return c.json({ error: "Too early -- wait for the countdown" }, 409);
 			}
 
 			const body = await c.req.json<{ guess?: string }>().catch(() => ({}) as { guess?: string });
@@ -540,6 +674,50 @@ export class RemoteGameSession extends DurableObject<Env> {
 
 			await storage.put("players", players);
 			return c.json({ result: "wrong" as const });
+		});
+
+		// One player bowing out of the current round -- the remote
+		// counterpart of Club Run's own "Give up" (RoundPlay.tsx's
+		// confirmGiveUp -> checkRoundGuess with { giveUp: true }). Unlike
+		// solo/pass-and-play, where a give-up reveals the answer to that
+		// player immediately (nobody left to spoil it for), here the answer
+		// stays hidden until the round is actually decided: someone else may
+		// still be racing for it, and the players are on separate devices
+		// but very possibly in the same room or voice call. So this only
+		// records the bow-out; the reveal comes through the same /state
+		// answerName every other player sees, either when someone wins or
+		// when the last active player gives up too (resolveRoundByGiveUp).
+		// Idempotent: giving up twice is a no-op 200, not an error, so a
+		// double-tap or a retried request can't surface a spurious failure.
+		this.app.post("/give-up", async (c) => {
+			const session = await getSession();
+			if (!session) return c.json({ error: "Session not found" }, 404);
+			if (session.status !== "in_progress") return c.json({ error: "No active round" }, 409);
+
+			const players = await getPlayers();
+			const self = findByToken(players, c.req.header("X-Player-Token"));
+			if (!self) return c.json({ error: "Invalid session token" }, 401);
+
+			const now = Date.now();
+			self.lastSeenAt = now;
+
+			if (isRoundDecided(session)) {
+				await storage.put("players", players);
+				return c.json({ error: "This round is already over" }, 409);
+			}
+
+			if (!session.roundGivenUpPlayerIds.includes(self.id)) session.roundGivenUpPlayerIds.push(self.id);
+			await resolveRoundByGiveUp(session, players, now);
+			await storage.put({ session, players });
+			// A solo host (no other players) has nobody to wait on -- same
+			// vacuous-gate behaviour a win already gets there.
+			await maybeAdvanceRound(session, players, now);
+
+			// Nothing about the outcome is returned here -- the client learns
+			// whether the round resolved from its own /state refresh, same as
+			// every other player does, rather than from a field that would be
+			// stale the instant maybeAdvanceRound above moved a solo host on.
+			return c.json({ ok: true as const });
 		});
 	}
 

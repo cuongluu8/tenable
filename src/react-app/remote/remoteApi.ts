@@ -37,6 +37,9 @@ export interface RoundInfo {
 	question: RoundQuestion;
 	winnerId: string | null;
 	answerName: string | null;
+	// Who's given up on this round so far -- see remoteGameSession.ts's
+	// PublicRound. Includes the local player once their own give-up lands.
+	givenUpPlayerIds: string[];
 }
 
 export type SessionStatus = "lobby" | "in_progress" | "finished" | "ended";
@@ -152,5 +155,12 @@ export function apiSubmitGuess(code: string, token: string, guess: string) {
 		method: "POST",
 		headers: authHeaders(token),
 		body: JSON.stringify({ guess }),
+	});
+}
+
+export function apiGiveUp(code: string, token: string) {
+	return apiFetch<{ ok: true } | { error: string }>(`/sessions/${code}/give-up`, {
+		method: "POST",
+		headers: authHeaders(token),
 	});
 }
