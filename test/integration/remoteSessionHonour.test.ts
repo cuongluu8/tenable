@@ -83,6 +83,18 @@ function post(code: string, path: string, token: string, body?: unknown) {
 }
 
 describe("Roll of Honour over remote play", () => {
+	it("lists every competition, in chronological order per country", async () => {
+		const res = await SELF.fetch("https://example.com/api/roll-of-honour/competitions");
+		expect(res.status).toBe(200);
+		const { competitions } = (await res.json()) as { competitions: { id: string; name: string; seasonCount: number }[] };
+		expect(competitions.map((c) => [c.id, c.seasonCount])).toEqual([
+			["european-cup", 37],
+			["champions-league", 33],
+			["first-division", 93],
+			["premier-league", 33],
+		]);
+	});
+
 	it("starts as a grid of the chosen competition with every winner hidden, no question count needed", async () => {
 		const host = await createSession("Host");
 		// Unknown competition is refused; omitted defaults to the Champions

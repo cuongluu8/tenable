@@ -13,11 +13,10 @@ import { collapseToAlnum, normalize } from "./normalize";
 // curated name + aliases only, and offered by /suggest via the curated
 // list so it can actually be picked (GuessInput only submits picks).
 //
-// The European Cup / Champions League are the only competitions so far --
-// the structure is ready for more (English top flight, Premier League,
-// ...) but they're deliberately NOT added yet (2026-09-13). The most
-// recent season listed is 2024-25; 2025-26's final needs confirming
-// before it's added.
+// Four competitions so far: European Cup / Champions League, and the
+// English First Division / Premier League (added later on 2026-09-13).
+// The most recent season listed anywhere is 2024-25; 2025-26's finals
+// and title need confirming before they're added.
 
 export interface HonourSeasonDef {
 	season: string; // "1955-56" -- the tile's label
@@ -44,6 +43,35 @@ const JUV = { winner: "Juventus", country: "Italy", aliases: ["Juve"] };
 const BAR = { winner: "Barcelona", country: "Spain", aliases: ["Barca", "Barça", "FC Barcelona"] };
 const CHE = { winner: "Chelsea", country: "England" };
 const POR = { winner: "Porto", country: "Portugal", aliases: ["FC Porto"] };
+
+// English champions -- every club below has an entities row with a badge
+// (checked against the local D1, 2026-09-13). Two competitions, split at
+// the 1992 rebrand the same way the European ones are. No seasons for
+// 1915-19 or 1939-46: the league wasn't played.
+const ENG_PNE = { winner: "Preston North End", country: "England", aliases: ["Preston", "PNE"] };
+const ENG_EVE = { winner: "Everton", country: "England" };
+const ENG_SUN = { winner: "Sunderland", country: "England" };
+const ENG_AVL = { winner: "Aston Villa", country: "England", aliases: ["Villa"] };
+const ENG_SHU = { winner: "Sheffield United", country: "England", aliases: ["Sheff Utd", "Sheff United", "Blades"] };
+const ENG_SHW = { winner: "Sheffield Wednesday", country: "England", aliases: ["Sheff Wed", "Sheff Wednesday", "The Wednesday", "Owls"] };
+const ENG_NEW = { winner: "Newcastle United", country: "England", aliases: ["Newcastle", "Newcastle Utd"] };
+const ENG_MUN = { winner: "Manchester United", country: "England", aliases: ["Man Utd", "Man United"] };
+const ENG_BLB = { winner: "Blackburn Rovers", country: "England", aliases: ["Blackburn"] };
+const ENG_WBA = { winner: "West Bromwich Albion", country: "England", aliases: ["West Brom", "WBA"] };
+const ENG_BUR = { winner: "Burnley", country: "England" };
+const ENG_HUD = { winner: "Huddersfield Town", country: "England", aliases: ["Huddersfield"] };
+const ENG_ARS = { winner: "Arsenal", country: "England", aliases: ["The Arsenal", "Woolwich Arsenal"] };
+const ENG_MCI = { winner: "Manchester City", country: "England", aliases: ["Man City", "City"] };
+const ENG_POR = { winner: "Portsmouth", country: "England", aliases: ["Pompey"] };
+const ENG_TOT = { winner: "Tottenham Hotspur", country: "England", aliases: ["Tottenham", "Spurs"] };
+const ENG_WOL = { winner: "Wolverhampton Wanderers", country: "England", aliases: ["Wolves", "Wolverhampton"] };
+const ENG_CHE = { winner: "Chelsea", country: "England" };
+const ENG_IPS = { winner: "Ipswich Town", country: "England", aliases: ["Ipswich"] };
+const ENG_LEE = { winner: "Leeds United", country: "England", aliases: ["Leeds"] };
+const ENG_DER = { winner: "Derby County", country: "England", aliases: ["Derby"] };
+const ENG_NFO = { winner: "Nottingham Forest", country: "England", aliases: ["Forest", "Notts Forest"] };
+const ENG_LIV = { winner: "Liverpool", country: "England" };
+const ENG_LEI = { winner: "Leicester City", country: "England", aliases: ["Leicester", "Foxes"] };
 
 // Split at the 1992 rebrand (2026-09-13): the European Cup years and the
 // Champions League era are two grids, not one 70-tile one -- the host
@@ -130,6 +158,144 @@ export const HONOUR_COMPETITIONS: Record<string, HonourCompetitionDef> = {
 			{ season: "2022-23", winner: "Manchester City", country: "England", aliases: ["Man City", "City"] },
 			{ season: "2023-24", ...RM },
 			{ season: "2024-25", winner: "Paris Saint-Germain", country: "France", aliases: ["PSG", "Paris SG", "Paris Saint Germain"] },
+		],
+	},
+	"first-division": {
+		id: "first-division",
+		name: "English First Division",
+		seasons: [
+			{ season: "1888-89", ...ENG_PNE },
+			{ season: "1889-90", ...ENG_PNE },
+			{ season: "1890-91", ...ENG_EVE },
+			{ season: "1891-92", ...ENG_SUN },
+			{ season: "1892-93", ...ENG_SUN },
+			{ season: "1893-94", ...ENG_AVL },
+			{ season: "1894-95", ...ENG_SUN },
+			{ season: "1895-96", ...ENG_AVL },
+			{ season: "1896-97", ...ENG_AVL },
+			{ season: "1897-98", ...ENG_SHU },
+			{ season: "1898-99", ...ENG_AVL },
+			{ season: "1899-1900", ...ENG_AVL },
+			{ season: "1900-01", ...ENG_LIV },
+			{ season: "1901-02", ...ENG_SUN },
+			{ season: "1902-03", ...ENG_SHW },
+			{ season: "1903-04", ...ENG_SHW },
+			{ season: "1904-05", ...ENG_NEW },
+			{ season: "1905-06", ...ENG_LIV },
+			{ season: "1906-07", ...ENG_NEW },
+			{ season: "1907-08", ...ENG_MUN },
+			{ season: "1908-09", ...ENG_NEW },
+			{ season: "1909-10", ...ENG_AVL },
+			{ season: "1910-11", ...ENG_MUN },
+			{ season: "1911-12", ...ENG_BLB },
+			{ season: "1912-13", ...ENG_SUN },
+			{ season: "1913-14", ...ENG_BLB },
+			{ season: "1914-15", ...ENG_EVE },
+			{ season: "1919-20", ...ENG_WBA },
+			{ season: "1920-21", ...ENG_BUR },
+			{ season: "1921-22", ...ENG_LIV },
+			{ season: "1922-23", ...ENG_LIV },
+			{ season: "1923-24", ...ENG_HUD },
+			{ season: "1924-25", ...ENG_HUD },
+			{ season: "1925-26", ...ENG_HUD },
+			{ season: "1926-27", ...ENG_NEW },
+			{ season: "1927-28", ...ENG_EVE },
+			{ season: "1928-29", ...ENG_SHW },
+			{ season: "1929-30", ...ENG_SHW },
+			{ season: "1930-31", ...ENG_ARS },
+			{ season: "1931-32", ...ENG_EVE },
+			{ season: "1932-33", ...ENG_ARS },
+			{ season: "1933-34", ...ENG_ARS },
+			{ season: "1934-35", ...ENG_ARS },
+			{ season: "1935-36", ...ENG_SUN },
+			{ season: "1936-37", ...ENG_MCI },
+			{ season: "1937-38", ...ENG_ARS },
+			{ season: "1938-39", ...ENG_EVE },
+			{ season: "1946-47", ...ENG_LIV },
+			{ season: "1947-48", ...ENG_ARS },
+			{ season: "1948-49", ...ENG_POR },
+			{ season: "1949-50", ...ENG_POR },
+			{ season: "1950-51", ...ENG_TOT },
+			{ season: "1951-52", ...ENG_MUN },
+			{ season: "1952-53", ...ENG_ARS },
+			{ season: "1953-54", ...ENG_WOL },
+			{ season: "1954-55", ...ENG_CHE },
+			{ season: "1955-56", ...ENG_MUN },
+			{ season: "1956-57", ...ENG_MUN },
+			{ season: "1957-58", ...ENG_WOL },
+			{ season: "1958-59", ...ENG_WOL },
+			{ season: "1959-60", ...ENG_BUR },
+			{ season: "1960-61", ...ENG_TOT },
+			{ season: "1961-62", ...ENG_IPS },
+			{ season: "1962-63", ...ENG_EVE },
+			{ season: "1963-64", ...ENG_LIV },
+			{ season: "1964-65", ...ENG_MUN },
+			{ season: "1965-66", ...ENG_LIV },
+			{ season: "1966-67", ...ENG_MUN },
+			{ season: "1967-68", ...ENG_MCI },
+			{ season: "1968-69", ...ENG_LEE },
+			{ season: "1969-70", ...ENG_EVE },
+			{ season: "1970-71", ...ENG_ARS },
+			{ season: "1971-72", ...ENG_DER },
+			{ season: "1972-73", ...ENG_LIV },
+			{ season: "1973-74", ...ENG_LEE },
+			{ season: "1974-75", ...ENG_DER },
+			{ season: "1975-76", ...ENG_LIV },
+			{ season: "1976-77", ...ENG_LIV },
+			{ season: "1977-78", ...ENG_NFO },
+			{ season: "1978-79", ...ENG_LIV },
+			{ season: "1979-80", ...ENG_LIV },
+			{ season: "1980-81", ...ENG_AVL },
+			{ season: "1981-82", ...ENG_LIV },
+			{ season: "1982-83", ...ENG_LIV },
+			{ season: "1983-84", ...ENG_LIV },
+			{ season: "1984-85", ...ENG_EVE },
+			{ season: "1985-86", ...ENG_LIV },
+			{ season: "1986-87", ...ENG_EVE },
+			{ season: "1987-88", ...ENG_LIV },
+			{ season: "1988-89", ...ENG_ARS },
+			{ season: "1989-90", ...ENG_LIV },
+			{ season: "1990-91", ...ENG_ARS },
+			{ season: "1991-92", ...ENG_LEE },
+		],
+	},
+	"premier-league": {
+		id: "premier-league",
+		name: "Premier League",
+		seasons: [
+			{ season: "1992-93", ...ENG_MUN },
+			{ season: "1993-94", ...ENG_MUN },
+			{ season: "1994-95", ...ENG_BLB },
+			{ season: "1995-96", ...ENG_MUN },
+			{ season: "1996-97", ...ENG_MUN },
+			{ season: "1997-98", ...ENG_ARS },
+			{ season: "1998-99", ...ENG_MUN },
+			{ season: "1999-00", ...ENG_MUN },
+			{ season: "2000-01", ...ENG_MUN },
+			{ season: "2001-02", ...ENG_ARS },
+			{ season: "2002-03", ...ENG_MUN },
+			{ season: "2003-04", ...ENG_ARS },
+			{ season: "2004-05", ...ENG_CHE },
+			{ season: "2005-06", ...ENG_CHE },
+			{ season: "2006-07", ...ENG_MUN },
+			{ season: "2007-08", ...ENG_MUN },
+			{ season: "2008-09", ...ENG_MUN },
+			{ season: "2009-10", ...ENG_CHE },
+			{ season: "2010-11", ...ENG_MUN },
+			{ season: "2011-12", ...ENG_MCI },
+			{ season: "2012-13", ...ENG_MUN },
+			{ season: "2013-14", ...ENG_MCI },
+			{ season: "2014-15", ...ENG_CHE },
+			{ season: "2015-16", ...ENG_LEI },
+			{ season: "2016-17", ...ENG_CHE },
+			{ season: "2017-18", ...ENG_MCI },
+			{ season: "2018-19", ...ENG_MCI },
+			{ season: "2019-20", ...ENG_LIV },
+			{ season: "2020-21", ...ENG_MCI },
+			{ season: "2021-22", ...ENG_MCI },
+			{ season: "2022-23", ...ENG_MCI },
+			{ season: "2023-24", ...ENG_MCI },
+			{ season: "2024-25", ...ENG_LIV },
 		],
 	},
 };
