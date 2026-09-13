@@ -1,5 +1,7 @@
+import { useState } from "react";
 import "./remote.css";
 import { RemoteGame } from "./RemoteGame";
+import { RemoteGameTypePick, type RemoteGameType } from "./RemoteGameTypePick";
 import { RemoteHome } from "./RemoteHome";
 import { RemoteLobby } from "./RemoteLobby";
 import { useRemoteSession } from "./useRemoteSession";
@@ -8,18 +10,26 @@ interface Props {
 	onBack: () => void;
 }
 
-// Top-level orchestrator: which of Home/Lobby/Game to show is entirely a
-// function of whether a session identity exists yet and what its server
-// state currently says -- there's no separate client-side navigation
-// state to keep in sync with it (unlike App.tsx's own screens, which are
-// real distinct URLs a refresh/back-button should land back on). A
-// refresh here just re-reads the same identity from localStorage and
-// resumes wherever the session actually is.
+// Top-level orchestrator: which of GameTypePick/Home/Lobby/Game to show is
+// entirely a function of whether a game type has been picked yet, whether
+// a session identity exists, and what its server state currently says --
+// there's no separate client-side navigation state to keep in sync with
+// it (unlike App.tsx's own screens, which are real distinct URLs a
+// refresh/back-button should land back on). A refresh here just re-reads
+// the same identity from localStorage and resumes wherever the session
+// actually is -- skipping the game-type picker entirely once a session
+// exists, since a resumed session already committed to whichever game it
+// started as; there's nothing left to pick.
 export function RemoteMultiplayer({ onBack }: Props) {
 	const { identity, state, error, isHost, create, join, setReady, start, removePlayer, guess, leave, forget } = useRemoteSession();
+	const [gameType, setGameType] = useState<RemoteGameType | null>(null);
+
+	if (!identity && !gameType) {
+		return <RemoteGameTypePick onSelect={setGameType} onBack={onBack} />;
+	}
 
 	if (!identity) {
-		return <RemoteHome error={error} onCreate={create} onJoin={join} onBack={onBack} />;
+		return <RemoteHome error={error} onCreate={create} onJoin={join} onBack={() => setGameType(null)} />;
 	}
 
 	if (!state) {
