@@ -45,7 +45,7 @@
 		// decided round stays on its answer reveal before the ready gate may
 		// advance past it, so every device gets a poll in during the reveal.
 		// Same tunable-var pattern and test override (to 0) as above.
-		"MIN_REVEAL_MS": 8000
+		"MIN_REVEAL_MS": 5000
 	},
 	"upload_source_maps": true,
 	"triggers": {

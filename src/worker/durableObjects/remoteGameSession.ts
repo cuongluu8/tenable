@@ -159,7 +159,7 @@ const DEFAULT_ROUND_START_GRACE_MS = 5_000;
 // reasoning as DEFAULT_ROUND_START_GRACE_MS above), with reading time on
 // top. Same env-var-with-default pattern, same reason: integration tests
 // override it to 0 rather than sleeping through it.
-const DEFAULT_MIN_REVEAL_MS = 8_000;
+const DEFAULT_MIN_REVEAL_MS = 5_000;
 
 type SessionStatus = "lobby" | "in_progress" | "finished" | "ended";
 
