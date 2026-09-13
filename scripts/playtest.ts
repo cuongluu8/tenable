@@ -148,15 +148,52 @@ interface SuggestResponse {
 // --- HTTP session: a minimal cookie jar so each "device" behaves like one
 // real browser tab across a whole sequence of requests. ---
 
-// Exactly one automatic restart budget for the whole run (not per-request)
-// -- see Device.request's own doc on what this recovers from and why one
-// is enough without masking a real hang. Module-level rather than a Device
-// field since every Device shares the same underlying wrangler dev process.
-const MAX_SERVER_RESTARTS = 1;
+// A CI-only crash (ECONNREFUSED, at a different category each run) showed
+// wrangler dev's local server can die outright under CI's more
+// constrained resources -- a beefier local machine never reproduced it.
+// This is the total restart budget for the WHOLE run (a module-level
+// counter actually checked against this on every restart, not just a
+// per-request loop bound -- an earlier version of this file incremented
+// the counter for its log message but never checked it, so it silently
+// allowed one restart per FAILING REQUEST rather than one for the whole
+// run, confirmed live 2026-09-13 when a single CI run needed 5). Kept
+// generously bounded rather than effectively-infinite retries so a
+// genuinely different, unrelated hang still fails loudly instead of
+// masking it.
+const MAX_SERVER_RESTARTS = 20;
 let serverRestartsUsed = 0;
 
 class Device {
 	private cookie: string | null = null;
+
+	// One attempt at a request. Returns null on anything this file treats
+	// as retryable (see request()'s own doc): a thrown network error, or a
+	// bare 500 -- checked (2026-09-13) that no route in this app ever
+	// returns 500 deliberately, so one can only mean an unhandled
+	// exception, which is exactly as likely to be wrangler dev's own
+	// transient instability as a thrown network error is. Retrying it
+	// costs nothing against a REAL application bug (a persistent 500
+	// still fails the same way after retries), and recovers a transient
+	// one that would otherwise fail a category for a reason that has
+	// nothing to do with this app's own code.
+	private async attempt<T>(path: string, init?: RequestInit): Promise<{ status: number; body: T | null } | null> {
+		try {
+			const res = await fetch(`${BASE_URL}${path}`, {
+				...init,
+				headers: {
+					...(init?.headers ?? {}),
+					...(this.cookie ? { Cookie: this.cookie } : {}),
+				},
+			});
+			if (res.status === 500) return null;
+			const setCookie = res.headers.get("set-cookie");
+			if (setCookie) this.cookie = setCookie.split(";")[0];
+			const body = (await res.json().catch(() => null)) as T | null;
+			return { status: res.status, body };
+		} catch {
+			return null;
+		}
+	}
 
 	async request<T>(path: string, init?: RequestInit): Promise<{ status: number; body: T | null }> {
 		// wrangler dev's local server occasionally drops a kept-alive
@@ -168,49 +205,32 @@ class Device {
 		// expected but got "duplicate" — not a silent false pass), while a
 		// transient socket error not retried at all makes this whole gate
 		// flaky, which would undermine the one thing it exists to prove.
-		//
-		// The outer `phase` loop is a separate, more serious fallback: a
-		// CI-only crash (ECONNREFUSED, deterministic per run but at a
-		// different category each time) showed the dev server process
-		// itself can die outright, not just drop one connection -- a beefier
-		// local machine never reproduced it, pointing at CI's more
-		// constrained resources rather than this project's own code. Once
-		// the soft retries above are exhausted, restarting wrangler dev is
-		// safe here specifically because this playtest's progress lives
+		for (let attempt = 0; attempt < 3; attempt++) {
+			const result = await this.attempt<T>(path, init);
+			if (result) return result;
+			await waitFor(300);
+		}
+
+		// The soft retries above are for a single dropped connection, not a
+		// fully dead process -- see MAX_SERVER_RESTARTS's own doc. Safe to
+		// restart here specifically because this playtest's progress lives
 		// entirely in local D1 on disk (see resetLocalEnvironment), not in
 		// the dev-server process itself -- a fresh process reading the same
-		// D1 file picks up exactly where the dead one left off. Bounded to
-		// MAX_SERVER_RESTARTS so a genuine, unrelated hang still fails loudly
-		// instead of retrying forever.
-		let lastError: unknown;
-		for (let phase = 0; phase <= MAX_SERVER_RESTARTS; phase++) {
-			if (phase > 0) {
-				serverRestartsUsed += 1;
-				console.error(
-					`  ! request to ${path} failed after 3 attempts (${String(lastError)}); restarting wrangler dev (restart ${serverRestartsUsed}/${MAX_SERVER_RESTARTS}) and retrying...`,
-				);
-				await restartDevServer();
-			}
+		// D1 file picks up exactly where the dead one left off.
+		if (serverRestartsUsed < MAX_SERVER_RESTARTS) {
+			serverRestartsUsed += 1;
+			console.error(
+				`  ! request to ${path} failed after 3 attempts; restarting wrangler dev (restart ${serverRestartsUsed}/${MAX_SERVER_RESTARTS}) and retrying...`,
+			);
+			await restartDevServer();
 			for (let attempt = 0; attempt < 3; attempt++) {
-				try {
-					const res = await fetch(`${BASE_URL}${path}`, {
-						...init,
-						headers: {
-							...(init?.headers ?? {}),
-							...(this.cookie ? { Cookie: this.cookie } : {}),
-						},
-					});
-					const setCookie = res.headers.get("set-cookie");
-					if (setCookie) this.cookie = setCookie.split(";")[0];
-					const body = (await res.json().catch(() => null)) as T | null;
-					return { status: res.status, body };
-				} catch (err) {
-					lastError = err;
-					await new Promise((resolve) => setTimeout(resolve, 300));
-				}
+				const result = await this.attempt<T>(path, init);
+				if (result) return result;
+				await waitFor(300);
 			}
 		}
-		throw lastError;
+
+		throw new Error(`Request to ${path} kept failing (network error or persistent 500) even after a wrangler dev restart`);
 	}
 
 	get<T>(path: string) {
