@@ -45,7 +45,6 @@ export function RemoteHome({ error, onCreate, onJoin, onBack, initialJoinCode }:
 				← Back
 			</button>
 			<h2>Remote play</h2>
-			<p className="remote-subtitle">Race friends on their own devices -- name the player from their badge trail.</p>
 
 			{error && <p className="remote-error">{error}</p>}
 
