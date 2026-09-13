@@ -18,6 +18,18 @@ export default defineConfig({
 	plugins: [
 		cloudflareTest({
 			wrangler: { configPath: "./wrangler.test.generated.json" },
+			// Defaults to true, and -- confirmed the hard way, a real CI
+			// failure this comment exists to prevent recurring -- means the
+			// plugin always opens an authenticated "remote proxy session" on
+			// startup regardless of whether any binding actually needs one.
+			// That only ever worked locally because of this machine's own
+			// cached `wrangler login` session; a fresh CI runner has no such
+			// thing and fails outright ("In a non-interactive environment,
+			// it's necessary to set a CLOUDFLARE_API_TOKEN..."). Every
+			// binding here is local-only already (MEDIA is forced local
+			// below despite wrangler.json's own `remote: true`), so there's
+			// nothing this suite ever needs a remote session for.
+			remoteBindings: false,
 			miniflare: {
 				// wrangler.json's MEDIA binding sets `remote: true` so local
 				// `npm run dev` sees real uploaded images -- forced back to
