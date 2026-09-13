@@ -73,6 +73,7 @@ describe("POST /api/remote/sessions (create)", () => {
 			gameType: "club-badges",
 			questionCount: null,
 			round: null,
+			honour: null,
 			players: [{ id: created.playerId, name: "Alice", isHost: true, ready: true, away: false, wins: 0, message: null }],
 		});
 	});

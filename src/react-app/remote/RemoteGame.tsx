@@ -3,7 +3,7 @@ import { BadgeChain } from "../components/BadgeChain";
 import { GuessInput } from "../components/GuessInput";
 import { colorForPlayerIndex } from "../components/playerColors";
 import { TeammateClueCards } from "../teammates/TeammateClueCards";
-import type { PublicMessage, PublicPlayer, RoundInfo, SessionState } from "./remoteApi";
+import type { PublicMessage, PublicPlayer, SessionState } from "./remoteApi";
 
 const HINT_REVEAL_INTERVAL_MS = 30_000; // Matches remoteGameSession.ts's own HINT_REVEAL_INTERVAL_MS.
 const HINT_TIER_COUNT = 3;
@@ -13,7 +13,7 @@ const HINT_TIER_COUNT = 3;
 // server-side too, not just here: this only disables the LEGITIMATE
 // guess box for this window, it isn't itself what makes guessing early
 // impossible.
-const ROUND_START_GRACE_MS = 5_000;
+export const ROUND_START_GRACE_MS = 5_000;
 
 // Chat display. A message holds still next to its author's name for
 // CHAT_HOLD_MS, then scrolls off leftwards (behind the name -- the bubble
@@ -130,7 +130,7 @@ interface ChatModalProps {
 // when it does. Closes itself once a message is accepted. `now` is
 // RemoteGame's ticking clock, so the cooldown counts down visibly
 // without its own interval.
-function ChatModal({ onPost, now, cooldownUntil, onCooldown, onClose }: ChatModalProps) {
+export function ChatModal({ onPost, now, cooldownUntil, onCooldown, onClose }: ChatModalProps) {
 	const [text, setText] = useState("");
 	const [sending, setSending] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -303,9 +303,9 @@ function GuessArea({ onGuess, onGiveUp }: GuessAreaProps) {
 interface LeaderboardProps {
 	players: PublicPlayer[];
 	myPlayerId: string;
-	// The open round, when there is one -- only for the per-player Away/
-	// Gave up tags; the final-results screen passes nothing.
-	round?: RoundInfo | null;
+	// Who's bowed out -- for the per-player "Gave up" tag while the game
+	// (or round) is still open. The final-results screen passes nothing.
+	givenUpPlayerIds?: string[];
 	compact?: boolean;
 	// When given, a 💬 button sits next to the local player's own name --
 	// the way into ChatModal. The final-results screen passes nothing.
@@ -320,7 +320,7 @@ interface LeaderboardProps {
 // ties broken by join order (state.players order) so a tie doesn't shuffle
 // people around between polls; tied players share a rank rather than one
 // arbitrarily ranking above the other.
-function Leaderboard({ players, myPlayerId, round, compact, onOpenChat }: LeaderboardProps) {
+export function Leaderboard({ players, myPlayerId, givenUpPlayerIds, compact, onOpenChat }: LeaderboardProps) {
 	const ranked = [...players].sort((a, b) => b.wins - a.wins);
 	return (
 		<ol className={compact ? "remote-standings remote-standings--compact" : "remote-standings"}>
@@ -347,7 +347,7 @@ function Leaderboard({ players, myPlayerId, round, compact, onOpenChat }: Leader
 							{message && <ChatBubble key={messageKey(p.id, message)} playerId={p.id} message={message} />}
 						</span>
 						{p.away && <span className="remote-badge remote-badge--away">Away</span>}
-						{round && round.answerName === null && round.givenUpPlayerIds.includes(p.id) && (
+						{givenUpPlayerIds?.includes(p.id) && (
 							<span className="remote-badge remote-badge--gave-up">Gave up</span>
 						)}
 						<span className="remote-standings__wins">
@@ -374,7 +374,7 @@ interface LeaveControlProps {
 // would end everyone's game, and a guest who leaves comes back (via the
 // code or join link, mid-game joining is open) as a fresh seat on zero
 // wins, their tally gone.
-function LeaveControl({ isHost, onLeave }: LeaveControlProps) {
+export function LeaveControl({ isHost, onLeave }: LeaveControlProps) {
 	const [confirming, setConfirming] = useState(false);
 	if (confirming) {
 		return (
@@ -393,6 +393,55 @@ function LeaveControl({ isHost, onLeave }: LeaveControlProps) {
 		<button type="button" className="remote-leave-button" onClick={() => setConfirming(true)}>
 			{isHost ? "End game" : "Leave game"}
 		</button>
+	);
+}
+
+interface FinalResultsProps {
+	state: SessionState;
+	myPlayerId: string;
+	error: string | null;
+	onRestart: (keepScores: boolean) => void;
+	onLeave: () => void;
+	// Rendered between the leaderboard and the actions -- Roll of Honour
+	// puts its fully revealed grid here.
+	children?: React.ReactNode;
+}
+
+// The end-of-game screen every remote format shares: standings, then
+// "Play again" (host, keep or reset scores -- see remoteGameSession.ts's
+// /restart) or a waiting note (everyone else), plus leave/end. Leaving
+// from here is a real leave -- see RemoteMultiplayer.tsx.
+export function FinalResults({ state, myPlayerId, error, onRestart, onLeave, children }: FinalResultsProps) {
+	const me = state.players.find((p) => p.id === myPlayerId);
+	const host = state.players.find((p) => p.isHost);
+	return (
+		<div className="screen">
+			<h2>Final results</h2>
+			<Leaderboard players={state.players} myPlayerId={myPlayerId} />
+			{children}
+			{me?.isHost ? (
+				<div className="remote-final-actions">
+					{/* Two explicit choices rather than a toggle beside one
+					    button -- a running total vs. a clean slate is the whole
+					    decision at this point, so it's spelled out. */}
+					<div className="remote-final-actions__again">
+						<button type="button" className="remote-primary-button" onClick={() => onRestart(true)}>
+							Play again, keep scores
+						</button>
+						<button type="button" className="remote-ready-toggle remote-ready-toggle--active" onClick={() => onRestart(false)}>
+							Play again, reset scores
+						</button>
+					</div>
+					<LeaveControl isHost onLeave={onLeave} />
+				</div>
+			) : (
+				<div className="remote-final-actions">
+					<p className="remote-subtitle">{host && !host.away ? `Waiting for ${host.name} to start another game…` : "The host has left."}</p>
+					<LeaveControl isHost={false} onLeave={onLeave} />
+				</div>
+			)}
+			{error && <p className="remote-error">{error}</p>}
+		</div>
 	);
 }
 
@@ -438,43 +487,7 @@ export function RemoteGame({ state, myPlayerId, error, onGuess, onGiveUp, onPost
 	const round = state.round;
 
 	if (state.status === "finished") {
-		const finishedMe = state.players.find((p) => p.id === myPlayerId);
-		const finishedHost = state.players.find((p) => p.isHost);
-		return (
-			<div className="screen">
-				<h2>Final results</h2>
-				<Leaderboard players={state.players} myPlayerId={myPlayerId} />
-				{/* Same session, another game (2026-09-13): the host restarts
-				    (remoteGameSession.ts's /restart -> back to the lobby, scores
-				    reset); everyone else's device keeps polling here and follows
-				    the status change into the lobby on its own. Leaving from
-				    here is a real leave now -- see RemoteMultiplayer.tsx. */}
-				{finishedMe?.isHost ? (
-					<div className="remote-final-actions">
-						{/* Two explicit choices rather than a toggle beside one
-						    button -- a running total vs. a clean slate is the whole
-						    decision at this point, so it's spelled out. */}
-						<div className="remote-final-actions__again">
-							<button type="button" className="remote-primary-button" onClick={() => onRestart(true)}>
-								Play again, keep scores
-							</button>
-							<button type="button" className="remote-ready-toggle remote-ready-toggle--active" onClick={() => onRestart(false)}>
-								Play again, reset scores
-							</button>
-						</div>
-						<LeaveControl isHost onLeave={onLeave} />
-					</div>
-				) : (
-					<div className="remote-final-actions">
-						<p className="remote-subtitle">
-							{finishedHost && !finishedHost.away ? `Waiting for ${finishedHost.name} to start another game…` : "The host has left."}
-						</p>
-						<LeaveControl isHost={false} onLeave={onLeave} />
-					</div>
-				)}
-				{error && <p className="remote-error">{error}</p>}
-			</div>
-		);
+		return <FinalResults state={state} myPlayerId={myPlayerId} error={error} onRestart={onRestart} onLeave={onLeave} />;
 	}
 
 	if (!round) return null; // status is "in_progress" but round data hasn't arrived yet -- a one-poll gap at worst.
@@ -514,7 +527,13 @@ export function RemoteGame({ state, myPlayerId, error, onGuess, onGiveUp, onPost
 				{!revealPending && secondsToNextHint !== null && <span className="remote-hint-timer">Next hint in {secondsToNextHint}s</span>}
 			</div>
 
-			<Leaderboard players={state.players} myPlayerId={myPlayerId} round={round} compact onOpenChat={() => setChatOpen(true)} />
+			<Leaderboard
+				players={state.players}
+				myPlayerId={myPlayerId}
+				givenUpPlayerIds={roundDecided ? undefined : round.givenUpPlayerIds}
+				compact
+				onOpenChat={() => setChatOpen(true)}
+			/>
 
 			{revealPending ? (
 				<div className="remote-countdown" aria-live="polite">

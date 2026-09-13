@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+	apiAnswerTile,
 	apiCreateSession,
 	apiFetchState,
 	apiGiveUp,
 	apiJoinSession,
 	apiLeaveSession,
 	apiPostMessage,
+	apiReleaseTile,
 	apiRemovePlayer,
 	apiRestart,
+	apiSelectTile,
 	apiSetReady,
 	apiStartGame,
 	apiSubmitGuess,
@@ -49,6 +52,15 @@ interface UseRemoteSessionResult {
 	// remoteGameSession.ts's /restart. `keepScores` carries the wins over
 	// as a running total instead of starting everyone back at 0.
 	restart: (keepScores: boolean) => Promise<void>;
+	// Roll of Honour's grid -- see remoteGameSession.ts's /tile/* routes.
+	// Each resolves to the server's own answer (including its rejections,
+	// which the grid shows inline) rather than routing through `error`.
+	selectTile: (season: string) => Promise<{ lockedForMs: number } | { error: string; retryAfterMs?: number }>;
+	releaseTile: () => Promise<void>;
+	answerTile: (
+		season: string,
+		guess: string,
+	) => Promise<{ result: "correct"; winner: string; imageUrl: string | null } | { result: "wrong"; retryAfterMs: number } | { error: string }>;
 	leave: () => Promise<void>;
 	// Forgets the session locally without telling the server -- for
 	// leaving a session that's already "finished"/"ended", where there's
@@ -241,6 +253,38 @@ export function useRemoteSession(): UseRemoteSessionResult {
 		[identity, refresh],
 	);
 
+	const selectTile = useCallback(
+		async (season: string) => {
+			if (!identity) return { error: "No active session." };
+			const res = await apiSelectTile(identity.sessionCode, identity.playerToken, season);
+			if (res.status !== 200 || !("ok" in res.body)) {
+				return "error" in res.body ? { error: res.body.error, retryAfterMs: res.body.retryAfterMs } : { error: "Couldn't take that season." };
+			}
+			await refresh(identity);
+			return { lockedForMs: res.body.lockedForMs };
+		},
+		[identity, refresh],
+	);
+
+	const releaseTile = useCallback(async () => {
+		if (!identity) return;
+		await apiReleaseTile(identity.sessionCode, identity.playerToken);
+		await refresh(identity);
+	}, [identity, refresh]);
+
+	const answerTile = useCallback(
+		async (season: string, guess: string) => {
+			if (!identity) return { error: "No active session." };
+			const res = await apiAnswerTile(identity.sessionCode, identity.playerToken, season, guess);
+			if (res.status !== 200 || !("result" in res.body)) {
+				return { error: "error" in res.body ? res.body.error : "Couldn't submit that answer." };
+			}
+			await refresh(identity);
+			return res.body;
+		},
+		[identity, refresh],
+	);
+
 	const leave = useCallback(async () => {
 		if (identity) await apiLeaveSession(identity.sessionCode, identity.playerToken);
 		clearIdentity();
@@ -272,6 +316,9 @@ export function useRemoteSession(): UseRemoteSessionResult {
 		giveUp,
 		postMessage,
 		restart,
+		selectTile,
+		releaseTile,
+		answerTile,
 		leave,
 		forget,
 	};

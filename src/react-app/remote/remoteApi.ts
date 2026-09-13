@@ -30,12 +30,36 @@ export interface PublicPlayer {
 // (RemoteGameTypePick.tsx), fixed for the session's life, reported by
 // /state so joiners learn it from the session rather than a link param.
 // Mirrors remoteGameSession.ts's own RemoteGameType.
-export type RemoteGameType = "club-badges" | "teammates";
+export type RemoteGameType = "club-badges" | "teammates" | "roll-of-honour";
 
 export const REMOTE_GAME_LABELS: Record<RemoteGameType, string> = {
 	"club-badges": "Club Run",
 	teammates: "Teammate Tell",
+	"roll-of-honour": "Roll of Honour",
 };
+
+// Roll of Honour's one competition so far -- shown in the lobby before
+// the server has built the grid. Mirrors lib/rollOfHonour.ts.
+export const DEFAULT_HONOUR_COMPETITION = { id: "champions-league", name: "Champions League", seasonCount: 70 };
+
+// Roll of Honour's grid, as /state reports it -- see remoteGameSession.ts's
+// PublicHonour. winner/imageUrl are null until a tile is answered (or the
+// game is over, when every tile is revealed).
+export interface HonourTile {
+	season: string;
+	status: "open" | "locked" | "answered";
+	lockedBy: string | null;
+	answeredBy: string | null;
+	winner: string | null;
+	imageUrl: string | null;
+}
+export interface HonourState {
+	competitionId: string;
+	competitionName: string;
+	startedAt: number | null;
+	tiles: HonourTile[];
+	givenUpPlayerIds: string[];
+}
 
 export interface RoundBadge {
 	name: string;
@@ -93,6 +117,8 @@ export interface SessionState {
 	questionCount: number | null;
 	players: PublicPlayer[];
 	round: RoundInfo | null;
+	// Non-null only for a Roll of Honour session that's started.
+	honour: HonourState | null;
 }
 
 export interface RemoteIdentity {
@@ -222,5 +248,30 @@ export function apiRestart(code: string, token: string, keepScores: boolean) {
 		method: "POST",
 		headers: authHeaders(token),
 		body: JSON.stringify({ keepScores }),
+	});
+}
+
+export function apiSelectTile(code: string, token: string, season: string) {
+	return apiFetch<{ ok: true; lockedForMs: number } | { error: string; retryAfterMs?: number }>(`/sessions/${code}/tile/select`, {
+		method: "POST",
+		headers: authHeaders(token),
+		body: JSON.stringify({ season }),
+	});
+}
+
+export function apiReleaseTile(code: string, token: string) {
+	return apiFetch<{ ok: true } | { error: string }>(`/sessions/${code}/tile/release`, {
+		method: "POST",
+		headers: authHeaders(token),
+	});
+}
+
+export function apiAnswerTile(code: string, token: string, season: string, guess: string) {
+	return apiFetch<
+		{ result: "correct"; winner: string; imageUrl: string | null } | { result: "wrong"; retryAfterMs: number } | { error: string }
+	>(`/sessions/${code}/tile/answer`, {
+		method: "POST",
+		headers: authHeaders(token),
+		body: JSON.stringify({ season, guess }),
 	});
 }

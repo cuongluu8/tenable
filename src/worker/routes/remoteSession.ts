@@ -82,6 +82,13 @@ remoteSession.post("/sessions/:code/message", async (c) => forward(c, "/message"
 
 remoteSession.post("/sessions/:code/restart", async (c) => forward(c, "/restart", { method: "POST", body: await c.req.text() }));
 
+// Roll of Honour's grid (see remoteGameSession.ts's class doc).
+remoteSession.post("/sessions/:code/tile/select", async (c) => forward(c, "/tile/select", { method: "POST", body: await c.req.text() }));
+
+remoteSession.post("/sessions/:code/tile/release", async (c) => forward(c, "/tile/release", { method: "POST" }));
+
+remoteSession.post("/sessions/:code/tile/answer", async (c) => forward(c, "/tile/answer", { method: "POST", body: await c.req.text() }));
+
 remoteSession.post("/sessions/:code/leave", async (c) => forward(c, "/leave", { method: "POST" }));
 
 remoteSession.post("/sessions/:code/remove", async (c) => forward(c, "/remove", { method: "POST", body: await c.req.text() }));

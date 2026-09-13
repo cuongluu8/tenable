@@ -4,6 +4,7 @@ import { RemoteGame } from "./RemoteGame";
 import { RemoteGameTypePick, type RemoteGameType } from "./RemoteGameTypePick";
 import { RemoteHome } from "./RemoteHome";
 import { RemoteLobby } from "./RemoteLobby";
+import { RollOfHonourGame } from "./RollOfHonourGame";
 import { useRemoteSession } from "./useRemoteSession";
 
 interface Props {
@@ -21,7 +22,7 @@ interface Props {
 // exists, since a resumed session already committed to whichever game it
 // started as; there's nothing left to pick.
 export function RemoteMultiplayer({ onBack }: Props) {
-	const { identity, state, error, isHost, create, join, setReady, start, removePlayer, guess, giveUp, postMessage, restart, leave, forget } = useRemoteSession();
+	const { identity, state, error, isHost, create, join, setReady, start, removePlayer, guess, giveUp, postMessage, restart, selectTile, releaseTile, answerTile, leave, forget } = useRemoteSession();
 	// Set when this page was opened via a shared WhatsApp join link (see
 	// shareSession.ts) -- read once at mount, same as App.tsx's own
 	// pathname-based routing helpers read window.location directly rather
@@ -84,6 +85,26 @@ export function RemoteMultiplayer({ onBack }: Props) {
 					void start(count);
 				}}
 				onRemovePlayer={removePlayer}
+				onLeave={leave}
+			/>
+		);
+	}
+
+	if (state.gameType === "roll-of-honour") {
+		// A different engine (one shared grid, no rounds) -- see
+		// remoteGameSession.ts's class doc -- with its own screen; the
+		// lobby/ended states above are shared.
+		return (
+			<RollOfHonourGame
+				state={state}
+				myPlayerId={identity.playerId}
+				error={error}
+				onSelectTile={selectTile}
+				onReleaseTile={releaseTile}
+				onAnswerTile={answerTile}
+				onGiveUp={giveUp}
+				onPostMessage={postMessage}
+				onRestart={restart}
 				onLeave={leave}
 			/>
 		);

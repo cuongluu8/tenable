@@ -1,9 +1,10 @@
 import { DurableObject } from "cloudflare:workers";
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { generateToken } from "../lib/remoteSession";
 import { buildClubBadgeQuestions, pickRandomEligibleQuestions, type ClubBadgeQuestionPublic, type QuestionRow } from "../lib/clubBadgeRound";
 import { buildTeammateQuestions, pickRandomTeammateQuestions, type TeammateQuestionPublic, type TeammateQuestionRow } from "../lib/teammateRound";
 import { checkPlayerGuess } from "../lib/checkPlayerGuess";
+import { buildHonourTiles, DEFAULT_HONOUR_COMPETITION_ID, gradeHonourGuess, HONOUR_COMPETITIONS, type HonourTilePrivate } from "../lib/rollOfHonour";
 
 // The authoritative session for one "remote" multiplayer game -- players
 // on their own devices, as opposed to the existing pass-and-play mode
@@ -99,6 +100,18 @@ import { checkPlayerGuess } from "../lib/checkPlayerGuess";
 // "lobby" with the same players and a fresh scoreboard, so a group can
 // run game after game on one code. "finished" is therefore no longer a
 // terminal status; only "ended" is.
+// Roll of Honour (2026-09-13): a third gameType with a different ENGINE --
+// not rounds at all, but one shared grid of seasons (lib/rollOfHonour.ts)
+// that players race to fill in: tap a season to lock it (HONOUR_LOCK_MS),
+// answer it, a wrong answer frees it and blocks that player from it for
+// HONOUR_RETRY_BLOCK_MS so someone else can try. Score is correct tiles,
+// kept in the same `wins` field so the leaderboard/restart work as-is.
+// Give up bows the player out of the whole game; the game finishes when
+// every tile is answered or every active player has bowed out, and only
+// then are the unanswered winners revealed. No hints. Lobby, chat, away,
+// leave/end, Play again and the start countdown are all shared with the
+// round-based modes; everything round-specific (ready gate, hint tiers,
+// minimum reveal) simply never engages since no round ever starts.
 
 const PLAYER_AWAY_MS = 15_000; // ~3 missed 4s polls -- see class doc.
 const MAX_PLAYERS = 8; // A casual party-game bound, not a locked design
@@ -114,13 +127,58 @@ const MAX_NAME_LENGTH = 24;
 // Which "name the player" format a session plays -- see the class doc.
 // Mirrors the client's own RemoteGameType (remoteApi.ts); not imported
 // from there (separate bundles, same reasoning as HINT_TIER_COUNT).
-type RemoteGameType = "club-badges" | "teammates";
-const GAME_TYPES: readonly RemoteGameType[] = ["club-badges", "teammates"];
-const QUESTIONS_TABLE: Record<RemoteGameType, "club_badge_questions" | "teammate_questions"> = {
+type RemoteGameType = "club-badges" | "teammates" | "roll-of-honour";
+const GAME_TYPES: readonly RemoteGameType[] = ["club-badges", "teammates", "roll-of-honour"];
+// The two round-based formats -- the ones with a questions table.
+type RoundGameType = Exclude<RemoteGameType, "roll-of-honour">;
+const QUESTIONS_TABLE: Record<RoundGameType, "club_badge_questions" | "teammate_questions"> = {
 	"club-badges": "club_badge_questions",
 	teammates: "teammate_questions",
 };
 type RemoteQuestionPublic = ClubBadgeQuestionPublic | TeammateQuestionPublic;
+
+// Roll of Honour timings -- see the class doc. Both real durations, not
+// env-overridable: tests only ever assert the immediate rejections.
+const HONOUR_LOCK_MS = 20_000;
+const HONOUR_RETRY_BLOCK_MS = 5_000;
+
+interface HonourTileRecord extends HonourTilePrivate {
+	lockedBy: string | null;
+	lockedUntil: number | null;
+	answeredBy: string | null;
+	// playerId -> epoch ms until which THAT player may not re-select this
+	// tile (their last answer on it was wrong).
+	blockedUntil: Record<string, number>;
+}
+
+interface HonourRecord {
+	competitionId: string;
+	competitionName: string;
+	tiles: HonourTileRecord[];
+}
+
+interface PublicHonourTile {
+	season: string;
+	status: "open" | "locked" | "answered";
+	lockedBy: string | null;
+	answeredBy: string | null;
+	// Both null until the tile is answered correctly -- or the game is
+	// over, when every tile is revealed.
+	winner: string | null;
+	imageUrl: string | null;
+}
+
+interface PublicHonour {
+	competitionId: string;
+	competitionName: string;
+	// When the game started -- drives the client's shared start countdown
+	// (publicRound is null for this mode, so it can't come from there).
+	startedAt: number | null;
+	tiles: PublicHonourTile[];
+	// Bowed out of the whole game -- SessionRecord.roundGivenUpPlayerIds
+	// doing double duty (this mode has exactly one "round": the game).
+	givenUpPlayerIds: string[];
+}
 
 // Chat -- deliberately tiny: one live message per player (a new one
 // replaces the old), capped at 20 words (the product ask) and, as a
@@ -210,8 +268,13 @@ interface SessionRecord {
 	// roundWinnerId/roundAnswerName each time a new round starts (see
 	// startNewRound). Once every non-away player is in this list, the
 	// round resolves with no winner rather than sitting open forever
-	// waiting for a guess nobody's going to make.
+	// waiting for a guess nobody's going to make. For Roll of Honour the
+	// whole game is the one round, so this is "bowed out of the game".
 	roundGivenUpPlayerIds: string[];
+	// Roll of Honour's grid -- null for the round-based formats, and for a
+	// Roll of Honour session still in the lobby. Absent on records
+	// persisted before the mode existed (read back as null).
+	honour: HonourRecord | null;
 }
 
 interface PlayerRecord {
@@ -353,6 +416,32 @@ function publicQuestion(question: RemoteQuestionPublic, hintsRevealed: number): 
 	};
 }
 
+// Answers stay hidden until a tile is answered correctly -- or the game is
+// over, when the whole roll is revealed (including tiles nobody got).
+function publicHonour(session: SessionRecord, now: number): PublicHonour | null {
+	const honour = session.honour;
+	if (!honour) return null;
+	const over = session.status === "finished";
+	return {
+		competitionId: honour.competitionId,
+		competitionName: honour.competitionName,
+		startedAt: session.roundStartedAt,
+		tiles: honour.tiles.map((t) => {
+			const locked = t.lockedBy !== null && t.lockedUntil !== null && t.lockedUntil > now;
+			const reveal = t.answeredBy !== null || over;
+			return {
+				season: t.season,
+				status: t.answeredBy !== null ? "answered" : locked ? "locked" : "open",
+				lockedBy: locked ? t.lockedBy : null,
+				answeredBy: t.answeredBy,
+				winner: reveal ? t.winner : null,
+				imageUrl: reveal ? t.imageUrl : null,
+			};
+		}),
+		givenUpPlayerIds: session.roundGivenUpPlayerIds,
+	};
+}
+
 function publicRound(session: SessionRecord, now: number): PublicRound | null {
 	if (session.status === "lobby" || session.questions.length === 0) return null;
 
@@ -404,6 +493,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 			if (session && session.roundDecidedAt === undefined) session.roundDecidedAt = session.roundAnswerName !== null ? 0 : null;
 			// And gameType (Teammate Tell added later still) -- see its own doc.
 			if (session && !session.gameType) session.gameType = "club-badges";
+			if (session && session.honour === undefined) session.honour = null;
 			return session;
 		};
 		const getPlayers = () => storage.get<PlayerRecord[]>("players").then((p) => p ?? []);
@@ -448,6 +538,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 		// afterwards. Returns whether it resolved anything, so callers know
 		// to follow up with maybeAdvanceRound.
 		const resolveRoundByGiveUp = async (session: SessionRecord, players: PlayerRecord[], now: number): Promise<boolean> => {
+			if (session.gameType === "roll-of-honour") return false; // Not a round-based format -- see finishHonourIfDone.
 			if (session.status !== "in_progress" || isRoundDecided(session)) return false;
 			const active = players.filter((p) => !isAway(p, now));
 			if (active.length === 0 || !active.every((p) => session.roundGivenUpPlayerIds.includes(p.id))) return false;
@@ -457,7 +548,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 			// answer without grading anything" -- the same lookup Club Run's
 			// own solo give-up uses (clubBadges.ts's /check-guess), reused
 			// rather than duplicating the entities join here.
-			const result = await checkPlayerGuess(this.env.DB, QUESTIONS_TABLE[session.gameType], question.id, { giveUp: true });
+			const result = await checkPlayerGuess(this.env.DB, QUESTIONS_TABLE[session.gameType as RoundGameType], question.id, { giveUp: true });
 			if (!result) return false; // Defensive only -- see /guess's own "Unknown question" note.
 			session.roundAnswerName = result.name;
 			session.roundDecidedAt = now;
@@ -483,6 +574,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 		// and polls are the only requests guaranteed to keep coming.
 		async function maybeAdvanceRound(session: SessionRecord, players: PlayerRecord[], now: number): Promise<void> {
 			if (session.status !== "in_progress" || !isRoundDecided(session)) return;
+			if (session.gameType === "roll-of-honour") return; // No rounds to advance -- see finishHonourIfDone.
 			if (playersNotReady(players, now).length > 0) return;
 			const rawMinRevealMs = Number(env.MIN_REVEAL_MS);
 			const minRevealMs = Number.isFinite(rawMinRevealMs) ? rawMinRevealMs : DEFAULT_MIN_REVEAL_MS;
@@ -490,6 +582,51 @@ export class RemoteGameSession extends DurableObject<Env> {
 
 			startNewRound(session, players, session.roundIndex + 1, now);
 			await storage.put({ session, players });
+		}
+
+		// ---- Roll of Honour helpers (see class doc) ----
+
+		// Drops every lock `playerId` holds (a player holds at most one, but
+		// this is the safe form). Returns whether anything changed.
+		function releaseHonourLocks(session: SessionRecord, playerId: string): boolean {
+			let changed = false;
+			for (const t of session.honour?.tiles ?? []) {
+				if (t.lockedBy === playerId) {
+					t.lockedBy = null;
+					t.lockedUntil = null;
+					changed = true;
+				}
+			}
+			return changed;
+		}
+
+		// Locks are time-limited (HONOUR_LOCK_MS) and expire lazily -- on
+		// whichever request next looks at the grid -- rather than by alarm.
+		function expireHonourLocks(session: SessionRecord, now: number): boolean {
+			let changed = false;
+			for (const t of session.honour?.tiles ?? []) {
+				if (t.lockedBy !== null && (t.lockedUntil === null || t.lockedUntil <= now)) {
+					t.lockedBy = null;
+					t.lockedUntil = null;
+					changed = true;
+				}
+			}
+			return changed;
+		}
+
+		// The game is over once every tile is answered, or once every
+		// non-away player has bowed out (same "at least one active player"
+		// guard as resolveRoundByGiveUp: a room that's all gone quiet is
+		// left for them to come back to). Returns whether it finished.
+		function finishHonourIfDone(session: SessionRecord, players: PlayerRecord[], now: number): boolean {
+			if (session.gameType !== "roll-of-honour" || session.status !== "in_progress" || !session.honour) return false;
+			const allAnswered = session.honour.tiles.every((t) => t.answeredBy !== null);
+			const active = players.filter((p) => !isAway(p, now));
+			const allBowedOut = active.length > 0 && active.every((p) => session.roundGivenUpPlayerIds.includes(p.id));
+			if (!allAnswered && !allBowedOut) return false;
+			session.status = "finished";
+			session.roundDecidedAt = now;
+			return true;
 		}
 
 		this.app.get("/", (c) => c.json({ ok: true }));
@@ -529,6 +666,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 				roundAnswerName: null,
 				roundDecidedAt: null,
 				roundGivenUpPlayerIds: [],
+				honour: null,
 			};
 			// The host is marked ready from the start -- readiness exists to
 			// gate the *other* players before the host starts the game, not to
@@ -608,7 +746,11 @@ export class RemoteGameSession extends DurableObject<Env> {
 			// noticed by someone ELSE's poll -- this one. If that leaves only
 			// given-up players active, the round resolves here rather than
 			// hanging until the away player happens to come back.
-			if (await resolveRoundByGiveUp(session, players, now)) {
+			// Roll of Honour: a lock running out, or the last active player
+			// going away/bowing out, can only be noticed by someone's poll --
+			// this one.
+			const honourChanged = expireHonourLocks(session, now) || finishHonourIfDone(session, players, now);
+			if ((await resolveRoundByGiveUp(session, players, now)) || honourChanged) {
 				await storage.put({ session, players });
 			} else {
 				await storage.put("players", players);
@@ -625,6 +767,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 				questionCount: session.questionCount,
 				players: players.map((p) => toPublicPlayer(p, now)),
 				round: publicRound(session, now),
+				honour: publicHonour(session, now),
 			});
 		});
 
@@ -676,8 +819,10 @@ export class RemoteGameSession extends DurableObject<Env> {
 				const now = Date.now();
 				// The departing player might have been the last one still
 				// racing (everyone else already gave up), or the last one the
-				// round-advance gate was waiting on.
-				if (await resolveRoundByGiveUp(session, remaining, now)) await storage.put("session", session);
+				// round-advance gate was waiting on -- or, Roll of Honour,
+				// holding a tile lock / the last one still filling the grid.
+				const honourChanged = releaseHonourLocks(session, self.id) || finishHonourIfDone(session, remaining, now);
+				if ((await resolveRoundByGiveUp(session, remaining, now)) || honourChanged) await storage.put("session", session);
 				await storage.put("players", remaining);
 				await maybeAdvanceRound(session, remaining, now);
 			}
@@ -703,7 +848,8 @@ export class RemoteGameSession extends DurableObject<Env> {
 
 			const remaining = players.filter((p) => p.id !== target.id);
 			const now = Date.now();
-			if (await resolveRoundByGiveUp(session, remaining, now)) await storage.put("session", session);
+			const honourChanged = releaseHonourLocks(session, target.id) || finishHonourIfDone(session, remaining, now);
+			if ((await resolveRoundByGiveUp(session, remaining, now)) || honourChanged) await storage.put("session", session);
 			await storage.put("players", remaining);
 			await maybeAdvanceRound(session, remaining, now);
 
@@ -720,7 +866,35 @@ export class RemoteGameSession extends DurableObject<Env> {
 			if (!caller.isHost) return c.json({ error: "Only the host can start the game" }, 403);
 			if (session.status !== "lobby") return c.json({ error: "This session has already started" }, 409);
 
-			const body = await c.req.json<{ questionCount?: number }>().catch(() => ({}) as { questionCount?: number });
+			const body = await c.req.json<{ questionCount?: number; competitionId?: string }>().catch(() => ({}) as { questionCount?: number; competitionId?: string });
+
+			if (session.gameType === "roll-of-honour") {
+				// No question count -- the grid IS the game. The competition is
+				// the one choice, defaulting to the only one that exists today.
+				const competition = HONOUR_COMPETITIONS[body.competitionId ?? DEFAULT_HONOUR_COMPETITION_ID];
+				if (!competition) return c.json({ error: "Unknown competition" }, 400);
+				const now = Date.now();
+				const notReady = playersNotReady(players, now);
+				if (notReady.length > 0) {
+					return c.json({ error: "All players must be ready before starting", notReadyPlayerIds: notReady.map((p) => p.id) }, 409);
+				}
+				const tiles = await buildHonourTiles(this.env.DB, competition);
+				session.honour = {
+					competitionId: competition.id,
+					competitionName: competition.name,
+					tiles: tiles.map((t) => ({ ...t, lockedBy: null, lockedUntil: null, answeredBy: null, blockedUntil: {} })),
+				};
+				session.questionCount = tiles.length;
+				session.status = "in_progress";
+				// roundStartedAt drives the same shared start countdown the
+				// round formats use (ROUND_START_GRACE_MS) -- everything else
+				// round-shaped stays null, so no round ever "starts".
+				session.roundStartedAt = now;
+				session.roundGivenUpPlayerIds = [];
+				await storage.put({ session, players });
+				return c.json({ ok: true });
+			}
+
 			const questionCount = body.questionCount;
 			if (
 				typeof questionCount !== "number" ||
@@ -790,6 +964,10 @@ export class RemoteGameSession extends DurableObject<Env> {
 				await storage.put("players", players);
 				return c.json({ error: "You've already given up on this round" }, 409);
 			}
+			if (session.gameType === "roll-of-honour") {
+				await storage.put("players", players);
+				return c.json({ error: "This game is answered on the grid -- see /tile/answer" }, 409);
+			}
 
 			// `||` (not `??`) would wrongly fall back to the default when the
 			// test override is exactly 0 -- Number.isFinite is what actually
@@ -813,7 +991,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 			}
 
 			const question = session.questions[session.roundIndex];
-			const result = await checkPlayerGuess(this.env.DB, QUESTIONS_TABLE[session.gameType], question.id, { guess: rawGuess });
+			const result = await checkPlayerGuess(this.env.DB, QUESTIONS_TABLE[session.gameType as RoundGameType], question.id, { guess: rawGuess });
 			if (!result) {
 				// Defensive only -- question.id always came from a real
 				// club_badge_questions row selected at /start.
@@ -858,6 +1036,16 @@ export class RemoteGameSession extends DurableObject<Env> {
 
 			const now = Date.now();
 			self.lastSeenAt = now;
+
+			if (session.gameType === "roll-of-honour") {
+				// Bows out of the whole game (see class doc): any held tile goes
+				// back, and if nobody active is left playing the game's over.
+				if (!session.roundGivenUpPlayerIds.includes(self.id)) session.roundGivenUpPlayerIds.push(self.id);
+				releaseHonourLocks(session, self.id);
+				finishHonourIfDone(session, players, now);
+				await storage.put({ session, players });
+				return c.json({ ok: true as const });
+			}
 
 			if (isRoundDecided(session)) {
 				await storage.put("players", players);
@@ -923,6 +1111,127 @@ export class RemoteGameSession extends DurableObject<Env> {
 			return c.json({ ok: true as const });
 		});
 
+		// ---- Roll of Honour's grid (see class doc) ----
+
+		// Shared preamble for the three tile routes: a live Roll of Honour
+		// game, a real player who hasn't bowed out. Returns the error
+		// response to send, or the pieces to proceed with.
+		const honourContext = async (c: Context) => {
+			const session = await getSession();
+			if (!session) return { error: c.json({ error: "Session not found" }, 404) };
+			if (session.gameType !== "roll-of-honour" || !session.honour) return { error: c.json({ error: "Not a Roll of Honour game" }, 409) };
+			if (session.status !== "in_progress") return { error: c.json({ error: "No game in progress" }, 409) };
+			const players = await getPlayers();
+			const self = findByToken(players, c.req.header("X-Player-Token"));
+			if (!self) return { error: c.json({ error: "Invalid session token" }, 401) };
+			const now = Date.now();
+			self.lastSeenAt = now;
+			if (session.roundGivenUpPlayerIds.includes(self.id)) {
+				await storage.put("players", players);
+				return { error: c.json({ error: "You've given up on this game" }, 409) };
+			}
+			expireHonourLocks(session, now);
+			return { session, honour: session.honour, players, self, now };
+		};
+
+		// Take a season to answer it. Refused if someone else holds it, if
+		// this player's own wrong answer on it is still inside the retry
+		// block, or during the start countdown. Taking a tile drops any
+		// other tile this player was holding -- one at a time.
+		this.app.post("/tile/select", async (c) => {
+			const ctx = await honourContext(c);
+			if ("error" in ctx) return ctx.error;
+			const { session, honour, players, self, now } = ctx;
+
+			const rawGraceMs = Number(this.env.ROUND_START_GRACE_MS);
+			const roundStartGraceMs = Number.isFinite(rawGraceMs) ? rawGraceMs : DEFAULT_ROUND_START_GRACE_MS;
+			if (session.roundStartedAt !== null && now - session.roundStartedAt < roundStartGraceMs) {
+				await storage.put({ session, players });
+				return c.json({ error: "Too early -- wait for the countdown" }, 409);
+			}
+
+			const body = await c.req.json<{ season?: string }>().catch(() => ({}) as { season?: string });
+			const tile = honour.tiles.find((t) => t.season === body.season);
+			if (!tile) {
+				await storage.put({ session, players });
+				return c.json({ error: "Unknown season" }, 404);
+			}
+			if (tile.answeredBy !== null) {
+				await storage.put({ session, players });
+				return c.json({ error: "That season's already been answered" }, 409);
+			}
+			if (tile.lockedBy !== null && tile.lockedBy !== self.id) {
+				await storage.put({ session, players });
+				return c.json({ error: "Someone else has that season right now" }, 409);
+			}
+			const blockedUntil = tile.blockedUntil[self.id] ?? 0;
+			if (blockedUntil > now) {
+				await storage.put({ session, players });
+				return c.json({ error: "You just got that one wrong -- give someone else a go", retryAfterMs: blockedUntil - now }, 409);
+			}
+
+			releaseHonourLocks(session, self.id);
+			tile.lockedBy = self.id;
+			tile.lockedUntil = now + HONOUR_LOCK_MS;
+			await storage.put({ session, players });
+			return c.json({ ok: true as const, lockedForMs: HONOUR_LOCK_MS });
+		});
+
+		// Put a held season back without answering (Cancel).
+		this.app.post("/tile/release", async (c) => {
+			const ctx = await honourContext(c);
+			if ("error" in ctx) return ctx.error;
+			const { session, players, self } = ctx;
+			releaseHonourLocks(session, self.id);
+			await storage.put({ session, players });
+			return c.json({ ok: true as const });
+		});
+
+		// Answer a season this player currently holds. Correct: the tile is
+		// theirs (wins += 1) and revealed to everyone; wrong: the tile is
+		// freed and this player is blocked from re-taking it for
+		// HONOUR_RETRY_BLOCK_MS. Either way the hold ends.
+		this.app.post("/tile/answer", async (c) => {
+			const ctx = await honourContext(c);
+			if ("error" in ctx) return ctx.error;
+			const { session, honour, players, self, now } = ctx;
+
+			const body = await c.req.json<{ season?: string; guess?: string }>().catch(() => ({}) as { season?: string; guess?: string });
+			const tile = honour.tiles.find((t) => t.season === body.season);
+			if (!tile) {
+				await storage.put({ session, players });
+				return c.json({ error: "Unknown season" }, 404);
+			}
+			if (tile.answeredBy !== null) {
+				await storage.put({ session, players });
+				return c.json({ error: "That season's already been answered" }, 409);
+			}
+			if (tile.lockedBy !== self.id) {
+				// Includes "was yours but the hold ran out" -- expireHonourLocks
+				// in the preamble already cleared it.
+				await storage.put({ session, players });
+				return c.json({ error: "Your hold on that season has run out -- take it again" }, 409);
+			}
+			const guess = (body.guess ?? "").trim();
+			if (!guess) {
+				await storage.put({ session, players });
+				return c.json({ error: "Missing guess" }, 400);
+			}
+
+			tile.lockedBy = null;
+			tile.lockedUntil = null;
+			if (gradeHonourGuess(guess, tile)) {
+				tile.answeredBy = self.id;
+				self.wins += 1;
+				finishHonourIfDone(session, players, now);
+				await storage.put({ session, players });
+				return c.json({ result: "correct" as const, winner: tile.winner, imageUrl: tile.imageUrl });
+			}
+			tile.blockedUntil[self.id] = now + HONOUR_RETRY_BLOCK_MS;
+			await storage.put({ session, players });
+			return c.json({ result: "wrong" as const, retryAfterMs: HONOUR_RETRY_BLOCK_MS });
+		});
+
 		// Host-only: a finished game back to the lobby, same code, same
 		// players, scores reset unless the host asks to keep them running
 		// (`keepScores` -- a running total across games on one code) -- from
@@ -955,6 +1264,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 			session.roundAnswerName = null;
 			session.roundDecidedAt = null;
 			session.roundGivenUpPlayerIds = [];
+			session.honour = null;
 			for (const p of players) {
 				if (!keepScores) p.wins = 0;
 				p.ready = p.isHost; // Same as a fresh /create: the host is ready by definition, everyone else re-readies.

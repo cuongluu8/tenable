@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { colorForPlayerIndex } from "../components/playerColors";
-import { REMOTE_GAME_LABELS, type SessionState } from "./remoteApi";
+import { DEFAULT_HONOUR_COMPETITION, REMOTE_GAME_LABELS, type SessionState } from "./remoteApi";
 import { shareSessionViaWhatsApp } from "./shareSession";
 
 const DEFAULT_QUESTION_COUNT = 5;
@@ -65,16 +65,24 @@ export function RemoteLobby({ state, sessionCode, myPlayerId, isHost, error, onS
 
 			{isHost ? (
 				<div className="remote-host-controls">
-					<label className="remote-field">
-						Number of questions
-						<input
-							type="number"
-							min={MIN_QUESTION_COUNT}
-							max={MAX_QUESTION_COUNT}
-							value={questionCount}
-							onChange={(e) => setQuestionCount(Number(e.target.value))}
-						/>
-					</label>
+					{state.gameType === "roll-of-honour" ? (
+						// No question count -- the grid is the game. The competition
+						// would be the choice here; only one exists so far.
+						<p className="remote-subtitle">
+							{DEFAULT_HONOUR_COMPETITION.name} · {DEFAULT_HONOUR_COMPETITION.seasonCount} seasons to fill in
+						</p>
+					) : (
+						<label className="remote-field">
+							Number of questions
+							<input
+								type="number"
+								min={MIN_QUESTION_COUNT}
+								max={MAX_QUESTION_COUNT}
+								value={questionCount}
+								onChange={(e) => setQuestionCount(Number(e.target.value))}
+							/>
+						</label>
+					)}
 					<button type="button" className="remote-primary-button" onClick={() => onStart(questionCount)}>
 						Start game
 					</button>

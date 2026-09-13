@@ -35,6 +35,10 @@ export function RemoteGameTypePick({ onSelect, onBack }: Props) {
 					<strong>🤝 Teammate Tell</strong>
 					<span>Name them from who they played with</span>
 				</button>
+				<button type="button" className="mode-button" onClick={() => onSelect("roll-of-honour")}>
+					<strong>🏆 Roll of Honour</strong>
+					<span>Race to fill in every Champions League winner</span>
+				</button>
 			</div>
 		</div>
 	);
