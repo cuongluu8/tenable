@@ -194,7 +194,7 @@ function ChatModal({ onPost, now, cooldownUntil, onCooldown, onClose }: ChatModa
 						className="remote-chat-composer__input"
 						value={text}
 						onChange={(e) => setText(e.target.value)}
-						placeholder={coolingDown ? `You can post again in ${Math.ceil(cooldownLeftMs / 1000)}s` : "Up to 20 words…"}
+						placeholder={coolingDown ? `You can post again in ${Math.ceil(cooldownLeftMs / 1000)}s` : "Type a message…"}
 						disabled={sending || coolingDown}
 						aria-label="Chat message"
 						autoFocus
