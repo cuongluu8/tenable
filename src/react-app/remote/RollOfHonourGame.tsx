@@ -102,6 +102,21 @@ export function RollOfHonourGame({ state, myPlayerId, error, onSelectTile, onRel
 	const [feedback, setFeedback] = useState<{ kind: "correct" | "wrong" | "info"; text: string } | null>(null);
 	const [confirmingGiveUp, setConfirmingGiveUp] = useState(false);
 
+	// Escape puts a held tile back, same as the answer modal's backdrop/×.
+	const holding = held !== null;
+	useEffect(() => {
+		if (!holding) return;
+		function onKey(e: KeyboardEvent) {
+			if (e.key === "Escape") {
+				setHeld(null);
+				setGuess("");
+				void onReleaseTile();
+			}
+		}
+		window.addEventListener("keydown", onKey);
+		return () => window.removeEventListener("keydown", onKey);
+	}, [holding, onReleaseTile]);
+
 	const honour = state.honour;
 	const me = state.players.find((p) => p.id === myPlayerId);
 	const iGaveUp = honour?.givenUpPlayerIds.includes(myPlayerId) ?? false;
@@ -209,16 +224,6 @@ export function RollOfHonourGame({ state, myPlayerId, error, onSelectTile, onRel
 				<>
 					{iGaveUp ? (
 						<p className="remote-subtitle">You gave up on this one. Watching the others fill in the rest…</p>
-					) : held ? (
-						<div className="roh-answer">
-							<p className="roh-answer__prompt">
-								Who won in <strong>{held.season}</strong>? <span className="roh-answer__timer">{Math.ceil((held.until - now) / 1000)}s</span>
-							</p>
-							<GuessInput value={guess} onChange={setGuess} onPick={answer} disabled={busy} suggestUrl="/api/roll-of-honour/suggest" />
-							<button type="button" className="give-up-confirm__cancel" onClick={cancelHold} disabled={busy}>
-								Put it back
-							</button>
-						</div>
 					) : (
 						<p className="remote-subtitle roh-hint">Tap a season to claim it, then name the winner.</p>
 					)}
@@ -269,6 +274,31 @@ export function RollOfHonourGame({ state, myPlayerId, error, onSelectTile, onRel
 			{error && <p className="remote-error">{error}</p>}
 
 			<LeaveControl isHost={me?.isHost ?? false} onLeave={onLeave} />
+
+			{/* The answer box is a modal, not inline (2026-09-13): the grid is
+			    70 tiles tall, so an inline box above it was off-screen by the
+			    time a phone had scrolled down to tap 2024-25. Opens the
+			    instant a tile is claimed, wherever the page is scrolled;
+			    closes on answer, "Put it back", Escape, or the backdrop
+			    (all of which release the hold). */}
+			{held && !iGaveUp && (
+				<div className="remote-modal-backdrop" onClick={() => void cancelHold()}>
+					<div className="remote-modal" role="dialog" aria-modal="true" aria-label={`Who won in ${held.season}?`} onClick={(e) => e.stopPropagation()}>
+						<div className="remote-modal__header">
+							<h3 className="remote-modal__title">
+								Who won in {held.season}? <span className="roh-answer__timer">{Math.ceil((held.until - now) / 1000)}s</span>
+							</h3>
+							<button type="button" className="remote-modal__close" onClick={() => void cancelHold()} aria-label="Put it back">
+								×
+							</button>
+						</div>
+						<GuessInput value={guess} onChange={setGuess} onPick={answer} disabled={busy} suggestUrl="/api/roll-of-honour/suggest" />
+						<button type="button" className="give-up-confirm__cancel roh-answer__cancel" onClick={() => void cancelHold()} disabled={busy}>
+							Put it back
+						</button>
+					</div>
+				</div>
+			)}
 
 			{chatOpen && (
 				<ChatModal onPost={onPostMessage} now={now} cooldownUntil={chatCooldownUntil} onCooldown={setChatCooldownUntil} onClose={() => setChatOpen(false)} />

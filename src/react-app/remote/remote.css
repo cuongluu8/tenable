@@ -690,24 +690,15 @@
 	font-size: 0.9rem;
 }
 
-.roh-answer {
-	display: flex;
-	flex-direction: column;
-	gap: 0.5rem;
-	margin: 0.25rem 0 0.75rem;
-}
-.roh-answer__prompt {
-	margin: 0;
-	text-align: center;
-}
 .roh-answer__timer {
 	margin-left: 0.5rem;
 	font-weight: 700;
 	color: #fbbf24;
 	font-variant-numeric: tabular-nums;
 }
-.roh-answer .give-up-confirm__cancel {
-	align-self: center;
+.roh-answer__cancel {
+	display: block;
+	margin: 0.75rem auto 0;
 }
 
 .roh-feedback {
