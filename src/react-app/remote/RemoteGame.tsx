@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BadgeTile } from "../components/BadgeTile";
+import { BadgeChain } from "../components/BadgeChain";
 import { GuessInput } from "../components/GuessInput";
 import { colorForPlayerIndex } from "../components/playerColors";
 import type { SessionState } from "./remoteApi";
@@ -131,11 +131,7 @@ export function RemoteGame({ state, myPlayerId, error, onGuess, onSetReady, onLe
 				))}
 			</ul>
 
-			<div className="cb-badges">
-				{question.badges.map((badge, i) => (
-					<BadgeTile key={i} badge={badge} showCountryHint={round.hintsRevealed >= 1} />
-				))}
-			</div>
+			<BadgeChain question={question} countryRevealed={round.hintsRevealed >= 1} transferDateRevealed={round.hintsRevealed >= 3} />
 
 			{question.nationality && <p className="remote-hint">Nationality: {question.nationality}</p>}
 
