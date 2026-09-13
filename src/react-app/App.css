@@ -657,11 +657,19 @@ input[type="text"].guess-input__field--open:focus-visible {
 	border-bottom-right-radius: 0;
 	box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
 }
-/* placement="below": flush against the input's bottom edge instead. */
+/* placement="below" (see GuessInput.tsx): NOT fixed -- hangs off the
+   .guess-input wrapper (position: relative) directly under the input, so
+   it follows the input wherever the layout puts it, keyboard or not.
+   Flush against the input's bottom edge, so those corners square off. */
 .guess-suggestions--below {
+	position: absolute;
+	top: 100%;
+	left: 0;
+	width: 100%;
 	border-radius: 8px;
 	border-top-left-radius: 0;
 	border-top-right-radius: 0;
+	box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
 }
 .guess-suggestions li + li {
 	margin-top: 0.15rem;

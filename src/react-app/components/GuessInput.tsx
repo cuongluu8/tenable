@@ -27,12 +27,15 @@ interface Props {
 	// burns a turn on something the server was always going to reject as a
 	// duplicate. Filtering it out here means it can't be picked at all.
 	excludeNames?: string[];
-	// Which side of the input the list opens on. "above" (the default, and
-	// every original caller) -- see reposition() for why that's the
-	// predictable choice on a normal page. "below" exists for a caller
-	// whose input sits at the very top of the viewport with nothing above
-	// it to open into (remote/RollOfHonourGame.tsx's answer sheet, 2026-09-
-	// 13 -- opening above there put the list off the top of the screen).
+	// Where the list opens. "above" (the default, and every original
+	// caller): position: fixed above the input, placed by reposition()
+	// against the visual viewport -- see there for why that's the right
+	// call on a normal scrolling page. "below": a plain absolutely-
+	// positioned list hanging off the input's own wrapper, no viewport
+	// maths at all -- for an input inside a modal (remote/RollOfHonourGame
+	// .tsx, 2026-09-13), where the fixed-position approach kept landing
+	// the list over the input on real phones once the keyboard was up,
+	// and where the modal's own placement already guarantees room below.
 	placement?: "above" | "below";
 }
 
@@ -68,11 +71,9 @@ interface DropdownRect {
 	left: number;
 	width: number;
 	maxHeight: number;
-	// Exactly one is set, by `placement`: `bottom` anchors the list's
-	// bottom edge to the input's top ("above"), `top` its top edge to the
-	// input's bottom ("below").
+	// "above" only -- anchors the list's bottom edge to the input's top.
+	// Unused for "below", which is positioned by CSS.
 	bottom?: number;
-	top?: number;
 }
 
 export function GuessInput({ value, onChange, onPick, disabled, suggestUrl, extraQuery = {}, excludeNames = [], placement = "above" }: Props) {
@@ -142,13 +143,9 @@ export function GuessInput({ value, onChange, onPick, disabled, suggestUrl, extr
 		const inputRect = el.getBoundingClientRect();
 		const safe = getSafeViewport();
 		if (placement === "below") {
-			const spaceBelow = safe.bottom - inputRect.bottom - DROPDOWN_GAP;
-			setDropdownRect({
-				top: inputRect.bottom + DROPDOWN_GAP,
-				left: inputRect.left,
-				width: inputRect.width,
-				maxHeight: Math.max(Math.min(spaceBelow, DROPDOWN_MAX_HEIGHT), MIN_USABLE_SPACE),
-			});
+			// In-flow (see the placement prop doc) -- only the height cap is
+			// set from here; left/width/top come from CSS.
+			setDropdownRect({ left: 0, width: 0, maxHeight: DROPDOWN_MAX_HEIGHT });
 			return;
 		}
 		const spaceAbove = inputRect.top - safe.top - DROPDOWN_GAP;
@@ -292,13 +289,11 @@ export function GuessInput({ value, onChange, onPick, disabled, suggestUrl, extr
 				<ul
 					className={placement === "below" ? "guess-suggestions guess-suggestions--below" : "guess-suggestions"}
 					role="listbox"
-					style={{
-						left: dropdownRect.left,
-						width: dropdownRect.width,
-						maxHeight: dropdownRect.maxHeight,
-						bottom: dropdownRect.bottom,
-						top: dropdownRect.top,
-					}}
+					style={
+						placement === "below"
+							? { maxHeight: dropdownRect.maxHeight }
+							: { left: dropdownRect.left, width: dropdownRect.width, maxHeight: dropdownRect.maxHeight, bottom: dropdownRect.bottom }
+					}
 				>
 					{visibleSuggestions.length > 0
 						? visibleSuggestions.map((name, i) => (
