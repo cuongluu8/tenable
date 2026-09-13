@@ -311,6 +311,7 @@ export const DEFAULT_HONOUR_COMPETITION_ID = "champions-league";
 export interface HonourTilePrivate {
 	season: string;
 	winner: string;
+	country: string; // Single player's one hint (see routes/rollOfHonour.ts's /hint).
 	imageUrl: string | null;
 	// Pre-collapsed (collapseToAlnum(normalize(...))) accepted spellings.
 	matchStrings: string[];
@@ -348,6 +349,7 @@ export async function buildHonourTiles(db: D1Database, competition: HonourCompet
 		return {
 			season: s.season,
 			winner: s.winner,
+			country: s.country,
 			imageUrl: row?.image_key ? `/api/media/${row.image_key}` : null,
 			matchStrings: [...new Set(strings.map(collapse).filter(Boolean))],
 		};

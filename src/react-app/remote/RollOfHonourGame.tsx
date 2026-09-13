@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { GuessInput } from "../components/GuessInput";
 import { colorForPlayerIndex } from "../components/playerColors";
-import type { HonourTile, SessionState } from "./remoteApi";
+import { HonourTile } from "../rollOfHonour/HonourTile";
+import type { SessionState } from "./remoteApi";
 import { ChatModal, FinalResults, Leaderboard, LeaveControl, ROUND_START_GRACE_MS } from "./RemoteGame";
 
 interface Props {
@@ -26,54 +27,6 @@ interface Props {
 // but the rule can't tell an async handler declared in the body apart).
 function deadline(ms: number): number {
 	return Date.now() + ms;
-}
-
-// One tile of the grid. `mine`/`blockedForMs`/`lockLeftMs` are this
-// device's own view of the tile (its held lock, its retry block) -- both
-// timed locally from the server's response rather than from server
-// timestamps, so clock skew can't make a 5s block look like 9 or 1.
-interface TileProps {
-	tile: HonourTile;
-	playerIndex: (id: string | null) => number;
-	mine: boolean;
-	lockLeftMs: number | null;
-	blockedForMs: number;
-	disabled: boolean;
-	onSelect: () => void;
-}
-
-function Tile({ tile, playerIndex, mine, lockLeftMs, blockedForMs, disabled, onSelect }: TileProps) {
-	const ownerId = tile.answeredBy ?? tile.lockedBy;
-	const ownerColor = ownerId ? colorForPlayerIndex(playerIndex(ownerId)) : undefined;
-	const classes = ["roh-tile"];
-	if (tile.status === "answered") classes.push("roh-tile--answered");
-	if (tile.status === "locked") classes.push(mine ? "roh-tile--mine" : "roh-tile--locked");
-	if (blockedForMs > 0) classes.push("roh-tile--blocked");
-	const interactive = tile.status === "open" && blockedForMs <= 0 && !disabled;
-	return (
-		<button
-			type="button"
-			className={classes.join(" ")}
-			style={ownerColor ? ({ "--owner-color": ownerColor } as React.CSSProperties) : undefined}
-			onClick={onSelect}
-			disabled={!interactive && !mine}
-			aria-label={`${tile.season}${tile.winner ? `: ${tile.winner}` : ""}`}
-		>
-			<span className="roh-tile__season">{tile.season}</span>
-			{tile.winner ? (
-				<span className="roh-tile__answer">
-					{tile.imageUrl ? <img src={tile.imageUrl} alt="" className="roh-tile__badge" /> : null}
-					<span className="roh-tile__club">{tile.winner}</span>
-				</span>
-			) : mine && lockLeftMs !== null ? (
-				<span className="roh-tile__timer">{Math.ceil(lockLeftMs / 1000)}s</span>
-			) : tile.status === "locked" ? (
-				<span className="roh-tile__lock">🔒</span>
-			) : blockedForMs > 0 ? (
-				<span className="roh-tile__timer roh-tile__timer--blocked">{Math.ceil(blockedForMs / 1000)}s</span>
-			) : null}
-		</button>
-	);
 }
 
 // Roll of Honour's live game and its results -- see remoteGameSession.ts's
@@ -120,7 +73,7 @@ export function RollOfHonourGame({ state, myPlayerId, error, onSelectTile, onRel
 	const honour = state.honour;
 	const me = state.players.find((p) => p.id === myPlayerId);
 	const iGaveUp = honour?.givenUpPlayerIds.includes(myPlayerId) ?? false;
-	const playerIndex = (id: string | null) => state.players.findIndex((p) => p.id === id);
+	const colorFor = (id: string | null) => (id ? colorForPlayerIndex(state.players.findIndex((p) => p.id === id)) : undefined);
 
 	// A held tile whose local deadline has passed, or that the server now
 	// shows as no longer ours (answered by someone / lock expired), is
@@ -140,7 +93,7 @@ export function RollOfHonourGame({ state, myPlayerId, error, onSelectTile, onRel
 						<p className="remote-subtitle roh-final-title">The full {honour.competitionName} roll of honour</p>
 						<div className="roh-grid roh-grid--final">
 							{honour.tiles.map((t) => (
-								<Tile key={t.season} tile={t} playerIndex={playerIndex} mine={false} lockLeftMs={null} blockedForMs={0} disabled onSelect={() => undefined} />
+								<HonourTile key={t.season} tile={t} ownerColor={colorFor(t.answeredBy)} disabled onSelect={() => undefined} />
 							))}
 						</div>
 					</>
@@ -237,10 +190,10 @@ export function RollOfHonourGame({ state, myPlayerId, error, onSelectTile, onRel
 							const mine = held?.season === t.season && t.lockedBy === myPlayerId;
 							const blockedForMs = Math.max(0, (blocked[t.season] ?? 0) - now);
 							return (
-								<Tile
+								<HonourTile
 									key={t.season}
 									tile={t}
-									playerIndex={playerIndex}
+									ownerColor={colorFor(t.answeredBy ?? t.lockedBy)}
 									mine={mine}
 									lockLeftMs={mine && held ? Math.max(0, held.until - now) : null}
 									blockedForMs={blockedForMs}

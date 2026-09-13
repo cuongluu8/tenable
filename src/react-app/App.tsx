@@ -10,6 +10,7 @@ import { Multiplayer } from "./multiplayer/Multiplayer";
 import { RemoteMultiplayer } from "./remote/RemoteMultiplayer";
 import { TeammateSetPlay } from "./teammates/TeammateSetPlay";
 import { TeammateSets } from "./teammates/TeammateSets";
+import { RollOfHonourSolo } from "./rollOfHonour/RollOfHonourSolo";
 import type { CategoriesResponse, Category } from "./types";
 
 type LoadState =
@@ -70,6 +71,11 @@ function isSinglePlayerHomePath(): boolean {
 // once App.tsx mounts it.
 const CLUB_BADGES_BASE_PATH = "/single-player/club-badges";
 const TEAMMATES_BASE_PATH = "/single-player/teammates";
+// Roll of Honour, solo (rollOfHonour/RollOfHonourSolo.tsx) -- same
+// "picker plus one level underneath" shape as the two Sets modes, but
+// its own component rather than SetsModeRoute (no sets, no per-question
+// results; a competition IS the game).
+const ROLL_OF_HONOUR_BASE_PATH = "/single-player/roll-of-honour";
 
 function isUnderPath(base: string): boolean {
 	return window.location.pathname === base || window.location.pathname.startsWith(`${base}/`);
@@ -84,6 +90,7 @@ function App() {
 	const [singlePlayerHomeActive, setSinglePlayerHomeActive] = useState<boolean>(() => isSinglePlayerHomePath());
 	const [clubBadgesActive, setClubBadgesActive] = useState<boolean>(() => isUnderPath(CLUB_BADGES_BASE_PATH));
 	const [teammatesActive, setTeammatesActive] = useState<boolean>(() => isUnderPath(TEAMMATES_BASE_PATH));
+	const [rollOfHonourActive, setRollOfHonourActive] = useState<boolean>(() => isUnderPath(ROLL_OF_HONOUR_BASE_PATH));
 
 	const loadCategories = useCallback(() => {
 		fetch("/api/categories")
@@ -123,6 +130,7 @@ function App() {
 			setSinglePlayerHomeActive(isSinglePlayerHomePath());
 			setClubBadgesActive(isUnderPath(CLUB_BADGES_BASE_PATH));
 			setTeammatesActive(isUnderPath(TEAMMATES_BASE_PATH));
+			setRollOfHonourActive(isUnderPath(ROLL_OF_HONOUR_BASE_PATH));
 		}
 		window.addEventListener("popstate", handlePopState);
 		return () => window.removeEventListener("popstate", handlePopState);
@@ -161,6 +169,12 @@ function App() {
 		setTeammatesActive(true);
 	}
 
+	function handleSoloRollOfHonourSelect() {
+		window.history.pushState(null, "", ROLL_OF_HONOUR_BASE_PATH);
+		setSinglePlayerHomeActive(false);
+		setRollOfHonourActive(true);
+	}
+
 	function handleSelect(cat: Category) {
 		window.history.pushState(null, "", `/play/${cat.slug}`);
 		setActiveSlug(cat.slug);
@@ -183,6 +197,7 @@ function App() {
 		setCategoryListActive(false);
 		setClubBadgesActive(false);
 		setTeammatesActive(false);
+		setRollOfHonourActive(false);
 		setSinglePlayerHomeActive(true);
 	}
 
@@ -195,6 +210,7 @@ function App() {
 		setSinglePlayerHomeActive(false);
 		setClubBadgesActive(false);
 		setTeammatesActive(false);
+		setRollOfHonourActive(false);
 	}
 
 	if (activeSlug) {
@@ -229,6 +245,10 @@ function App() {
 				onExitToParent={handleBackToSinglePlayerHome}
 			/>
 		);
+	}
+
+	if (rollOfHonourActive) {
+		return <RollOfHonourSolo basePath={ROLL_OF_HONOUR_BASE_PATH} onExit={handleBackToSinglePlayerHome} />;
 	}
 
 	if (categoryListActive) {
@@ -282,6 +302,10 @@ function App() {
 					<button type="button" className="mode-button" onClick={handleSoloTeammatesSelect}>
 						<strong>🤝 Teammate Tell</strong>
 						<span>Name the mystery player from their former teammates</span>
+					</button>
+					<button type="button" className="mode-button" onClick={handleSoloRollOfHonourSelect}>
+						<strong>🏆 Roll of Honour</strong>
+						<span>Fill in every season's champion, five lives</span>
 					</button>
 				</div>
 			</div>

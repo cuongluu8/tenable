@@ -1,0 +1,219 @@
+/* Roll of Honour -- the grid, its tiles, and the answer modal's extras.
+   Shared by remote play (remote/RollOfHonourGame.tsx) and single player
+   (RollOfHonourSolo.tsx); moved out of remote.css 2026-09-13 when the
+   solo mode arrived. Uses App.css/remote.css's global classes for
+   everything else (.screen, .remote-modal*, .give-up-*, .lives). */
+
+.roh-hint {
+	text-align: center;
+}
+
+.roh-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+	gap: 0.4rem;
+	margin: 0.75rem 0 1rem;
+}
+.roh-grid--final {
+	margin-top: 0.25rem;
+	margin-bottom: 1.5rem;
+}
+.roh-final-title {
+	margin-top: 0.5rem;
+}
+
+.roh-tile {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 0.15rem;
+	/* Fixed height, whatever the tile holds (season only, a timer, a lock,
+	   or badge + club name) -- the grid mustn't reflow as tiles get
+	   answered. Sized to fit season + badge + one line of club name. */
+	height: 4.6rem;
+	padding: 0.3rem 0.35rem;
+	overflow: hidden;
+	min-width: 0;
+	border-radius: 8px;
+	background: #1f2937;
+	border: 1px solid #374151;
+	color: #e5e7eb;
+	font-size: 0.8rem;
+	line-height: 1.1;
+	text-align: center;
+}
+.roh-tile:hover:not(:disabled) {
+	border-color: #4ade80;
+}
+.roh-tile:disabled {
+	cursor: default;
+}
+.roh-tile__season {
+	font-variant-numeric: tabular-nums;
+	color: #9ca3af;
+	font-size: 0.75rem;
+}
+/* Owned (answered or held) tiles take the owner's colour -- same palette
+   as the leaderboard dots -- so who got what is legible at a glance. */
+.roh-tile--answered {
+	border-color: var(--owner-color, #4ade80);
+	background: color-mix(in srgb, var(--owner-color, #4ade80) 18%, #1f2937);
+}
+.roh-tile--answered .roh-tile__season {
+	color: #e5e7eb;
+}
+/* Held tiles (yours or anyone's) carry the holder's colour the same way
+   answered ones do, plus a dashed border to read as "in play, not
+   done"; yours adds a ring so it stands out from everyone else's. */
+.roh-tile--locked,
+.roh-tile--mine {
+	border-style: dashed;
+	border-color: var(--owner-color, #9ca3af);
+	background: color-mix(in srgb, var(--owner-color, #9ca3af) 32%, #1f2937);
+}
+.roh-tile--locked .roh-tile__season,
+.roh-tile--mine .roh-tile__season {
+	color: #e5e7eb;
+}
+.roh-tile--mine {
+	border-style: solid;
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--owner-color, #4ade80) 45%, transparent);
+}
+.roh-tile--mine .roh-tile__timer {
+	color: #e5e7eb;
+}
+.roh-tile--blocked {
+	opacity: 0.45;
+}
+/* Solo game over: revealed but never answered -- filled in, muted. */
+.roh-tile--missed {
+	border-color: #4b5563;
+	background: #111827;
+}
+.roh-tile--missed .roh-tile__club {
+	color: #9ca3af;
+}
+.roh-tile__answer {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.1rem;
+	width: 100%;
+	min-width: 0;
+	font-weight: 600;
+}
+.roh-tile__badge {
+	width: 1.4rem;
+	height: 1.4rem;
+	object-fit: contain;
+	flex-shrink: 0;
+}
+/* One line, truncated -- "Paris Saint-Germain" and "Manchester United"
+   were wrapping to two and pushing the tile taller than its neighbours. */
+.roh-tile__club {
+	display: block;
+	max-width: 100%;
+	font-size: 0.62rem;
+	line-height: 1.2;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.roh-tile__timer {
+	font-weight: 700;
+	color: #4ade80;
+	font-variant-numeric: tabular-nums;
+}
+.roh-tile__timer--blocked {
+	color: #f87171;
+}
+.roh-tile__lock {
+	font-size: 0.9rem;
+}
+
+.roh-answer__timer {
+	margin-left: 0.5rem;
+	font-weight: 700;
+	color: #fbbf24;
+	font-variant-numeric: tabular-nums;
+}
+/* The answer modal sits a quarter of the way down rather than centred --
+   see RollOfHonourGame.tsx -- leaving the lower three quarters for the
+   typeahead list to open into. */
+.remote-modal-backdrop--upper {
+	align-items: flex-start;
+	padding-top: 25vh;
+}
+.roh-sheet__hint {
+	margin: 0.75rem 0 0;
+	text-align: center;
+	color: #9ca3af;
+	font-size: 0.8rem;
+}
+
+.roh-feedback {
+	margin: 0.25rem 0 0.5rem;
+	text-align: center;
+	font-size: 0.9rem;
+}
+.roh-feedback--correct {
+	color: #4ade80;
+}
+.roh-feedback--wrong {
+	color: #f87171;
+}
+.roh-feedback--info {
+	color: #9ca3af;
+}
+
+/* ---- Single player (RollOfHonourSolo.tsx) ---- */
+.roh-solo-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	margin: 0.25rem 0 0.75rem;
+	color: #9ca3af;
+	font-size: 0.9rem;
+}
+.roh-solo-header .lives {
+	margin: 0;
+}
+.roh-hint-text {
+	margin: 0.75rem 0 0;
+	text-align: center;
+	color: #fbbf24;
+}
+.roh-modal-actions {
+	display: flex;
+	justify-content: center;
+	gap: 0.5rem;
+	margin-top: 0.75rem;
+}
+.roh-over {
+	margin: 0.5rem 0 1rem;
+	padding: 1rem;
+	border-radius: 8px;
+	background: #1f2937;
+	border: 1px solid #374151;
+	text-align: center;
+}
+.roh-over__score {
+	margin: 0.25rem 0 0.75rem;
+	font-size: 1.6rem;
+	font-weight: 700;
+	color: #4ade80;
+}
+.roh-over__actions {
+	display: flex;
+	justify-content: center;
+	gap: 0.5rem;
+	flex-wrap: wrap;
+}
+.roh-comp-progress {
+	display: block;
+	color: #4ade80;
+	font-size: 0.85rem;
+}
