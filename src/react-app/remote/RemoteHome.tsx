@@ -5,16 +5,22 @@ interface Props {
 	onCreate: (hostName: string) => Promise<void>;
 	onJoin: (code: string, name: string) => Promise<void>;
 	onBack: () => void;
+	// Set when this screen was reached via a shared WhatsApp join link
+	// (see shareSession.ts/RemoteMultiplayer.tsx's own doc) -- skips
+	// straight to the join form with the code already filled in, since the
+	// whole point of that link is not making the recipient re-type a code
+	// they were just handed.
+	initialJoinCode?: string;
 }
 
 // Entry point for remote multiplayer -- host a new session, or join one
 // with a code someone else shared. Neither action needs a whole separate
 // screen (this one has all of two fields), so both live here as a small
 // mode toggle rather than their own routes.
-export function RemoteHome({ error, onCreate, onJoin, onBack }: Props) {
-	const [mode, setMode] = useState<"choose" | "create" | "join">("choose");
+export function RemoteHome({ error, onCreate, onJoin, onBack, initialJoinCode }: Props) {
+	const [mode, setMode] = useState<"choose" | "create" | "join">(initialJoinCode ? "join" : "choose");
 	const [name, setName] = useState("");
-	const [code, setCode] = useState("");
+	const [code, setCode] = useState(initialJoinCode ?? "");
 	const [submitting, setSubmitting] = useState(false);
 
 	async function handleCreate(e: React.FormEvent) {
@@ -87,14 +93,21 @@ export function RemoteHome({ error, onCreate, onJoin, onBack }: Props) {
 							value={code}
 							onChange={(e) => setCode(e.target.value.toUpperCase())}
 							maxLength={6}
-							autoFocus
+							autoFocus={!initialJoinCode}
 							disabled={submitting}
 							className="remote-code-input"
 						/>
 					</label>
 					<label className="remote-field">
 						Your name
-						<input type="text" value={name} onChange={(e) => setName(e.target.value)} maxLength={24} disabled={submitting} />
+						<input
+							type="text"
+							value={name}
+							onChange={(e) => setName(e.target.value)}
+							maxLength={24}
+							autoFocus={Boolean(initialJoinCode)}
+							disabled={submitting}
+						/>
 					</label>
 					<button type="submit" className="remote-primary-button" disabled={!name.trim() || !code.trim() || submitting}>
 						Join session

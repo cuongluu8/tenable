@@ -87,6 +87,9 @@
 	font-weight: 700;
 	letter-spacing: 0.2em;
 }
+.remote-code-display button {
+	margin-top: 0.5rem;
+}
 
 .remote-players {
 	list-style: none;

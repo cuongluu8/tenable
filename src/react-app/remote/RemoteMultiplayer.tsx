@@ -22,14 +22,21 @@ interface Props {
 // started as; there's nothing left to pick.
 export function RemoteMultiplayer({ onBack }: Props) {
 	const { identity, state, error, isHost, create, join, setReady, start, removePlayer, guess, leave, forget } = useRemoteSession();
-	const [gameType, setGameType] = useState<RemoteGameType | null>(null);
+	// Set when this page was opened via a shared WhatsApp join link (see
+	// shareSession.ts) -- read once at mount, same as App.tsx's own
+	// pathname-based routing helpers read window.location directly rather
+	// than threading a router through props. A join link always means
+	// "join THIS Club Run game", so it skips the game-type picker
+	// entirely -- there's nothing to pick, the sender already picked it.
+	const [joinCode] = useState(() => new URLSearchParams(window.location.search).get("join")?.toUpperCase() || undefined);
+	const [gameType, setGameType] = useState<RemoteGameType | null>(() => (joinCode ? "club-badges" : null));
 
 	if (!identity && !gameType) {
 		return <RemoteGameTypePick onSelect={setGameType} onBack={onBack} />;
 	}
 
 	if (!identity) {
-		return <RemoteHome error={error} onCreate={create} onJoin={join} onBack={() => setGameType(null)} />;
+		return <RemoteHome error={error} onCreate={create} onJoin={join} onBack={() => setGameType(null)} initialJoinCode={joinCode} />;
 	}
 
 	if (!state) {

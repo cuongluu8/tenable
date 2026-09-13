@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { colorForPlayerIndex } from "../components/playerColors";
 import type { SessionState } from "./remoteApi";
+import { shareSessionViaWhatsApp } from "./shareSession";
 
 const DEFAULT_QUESTION_COUNT = 5;
 const MIN_QUESTION_COUNT = 1;
@@ -34,6 +35,9 @@ export function RemoteLobby({ state, sessionCode, myPlayerId, isHost, error, onS
 			<div className="remote-code-display">
 				<span className="remote-code-display__label">Session code</span>
 				<span className="remote-code-display__value">{sessionCode}</span>
+				<button type="button" onClick={() => shareSessionViaWhatsApp(sessionCode)}>
+					Share via WhatsApp
+				</button>
 			</div>
 
 			{error && <p className="remote-error">{error}</p>}
