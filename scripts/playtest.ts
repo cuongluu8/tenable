@@ -148,6 +148,13 @@ interface SuggestResponse {
 // --- HTTP session: a minimal cookie jar so each "device" behaves like one
 // real browser tab across a whole sequence of requests. ---
 
+// Exactly one automatic restart budget for the whole run (not per-request)
+// -- see Device.request's own doc on what this recovers from and why one
+// is enough without masking a real hang. Module-level rather than a Device
+// field since every Device shares the same underlying wrangler dev process.
+const MAX_SERVER_RESTARTS = 1;
+let serverRestartsUsed = 0;
+
 class Device {
 	private cookie: string | null = null;
 
@@ -161,23 +168,46 @@ class Device {
 		// expected but got "duplicate" — not a silent false pass), while a
 		// transient socket error not retried at all makes this whole gate
 		// flaky, which would undermine the one thing it exists to prove.
+		//
+		// The outer `phase` loop is a separate, more serious fallback: a
+		// CI-only crash (ECONNREFUSED, deterministic per run but at a
+		// different category each time) showed the dev server process
+		// itself can die outright, not just drop one connection -- a beefier
+		// local machine never reproduced it, pointing at CI's more
+		// constrained resources rather than this project's own code. Once
+		// the soft retries above are exhausted, restarting wrangler dev is
+		// safe here specifically because this playtest's progress lives
+		// entirely in local D1 on disk (see resetLocalEnvironment), not in
+		// the dev-server process itself -- a fresh process reading the same
+		// D1 file picks up exactly where the dead one left off. Bounded to
+		// MAX_SERVER_RESTARTS so a genuine, unrelated hang still fails loudly
+		// instead of retrying forever.
 		let lastError: unknown;
-		for (let attempt = 0; attempt < 3; attempt++) {
-			try {
-				const res = await fetch(`${BASE_URL}${path}`, {
-					...init,
-					headers: {
-						...(init?.headers ?? {}),
-						...(this.cookie ? { Cookie: this.cookie } : {}),
-					},
-				});
-				const setCookie = res.headers.get("set-cookie");
-				if (setCookie) this.cookie = setCookie.split(";")[0];
-				const body = (await res.json().catch(() => null)) as T | null;
-				return { status: res.status, body };
-			} catch (err) {
-				lastError = err;
-				await new Promise((resolve) => setTimeout(resolve, 300));
+		for (let phase = 0; phase <= MAX_SERVER_RESTARTS; phase++) {
+			if (phase > 0) {
+				serverRestartsUsed += 1;
+				console.error(
+					`  ! request to ${path} failed after 3 attempts (${String(lastError)}); restarting wrangler dev (restart ${serverRestartsUsed}/${MAX_SERVER_RESTARTS}) and retrying...`,
+				);
+				await restartDevServer();
+			}
+			for (let attempt = 0; attempt < 3; attempt++) {
+				try {
+					const res = await fetch(`${BASE_URL}${path}`, {
+						...init,
+						headers: {
+							...(init?.headers ?? {}),
+							...(this.cookie ? { Cookie: this.cookie } : {}),
+						},
+					});
+					const setCookie = res.headers.get("set-cookie");
+					if (setCookie) this.cookie = setCookie.split(";")[0];
+					const body = (await res.json().catch(() => null)) as T | null;
+					return { status: res.status, body };
+				} catch (err) {
+					lastError = err;
+					await new Promise((resolve) => setTimeout(resolve, 300));
+				}
 			}
 		}
 		throw lastError;
@@ -245,10 +275,19 @@ function killProcessTree(child: ChildProcess): void {
 	}, 2000);
 }
 
-async function startDevServer(): Promise<ChildProcess> {
-	console.log("Building worker bundle (wrangler dev serves the built bundle, not src/ directly)...");
-	execFileSync("npm", ["run", "build"], { cwd: REPO_ROOT, stdio: "inherit" });
+// Tracks whichever wrangler dev process is currently serving requests --
+// module-level (not a local in main()) so restartDevServer (called from
+// deep inside Device.request, see its own doc) can both find the old
+// process to kill and hand the new one back to main()'s cleanup. Only ever
+// one live process at a time; never read before startDevServer's first
+// assignment.
+let currentChild: ChildProcess | null = null;
 
+// The spawn-and-wait-for-ready half of starting wrangler dev, split out
+// from startDevServer (below) so restartDevServer can reuse it without
+// rebuilding the bundle -- the bundle wrangler dev serves hasn't changed
+// when the *process* serving it dies, only the process has.
+async function spawnDevServer(): Promise<ChildProcess> {
 	console.log(`Starting wrangler dev on port ${PORT}...`);
 	// --local and --show-interactive-dev-session=false: explicit rather than
 	// relying on wrangler's own non-TTY autodetection, since this process's
@@ -292,6 +331,22 @@ async function startDevServer(): Promise<ChildProcess> {
 	console.error("wrangler dev never became ready. Captured output:\n" + output);
 	killProcessTree(child);
 	throw new Error("wrangler dev failed to start within 45s");
+}
+
+async function startDevServer(): Promise<ChildProcess> {
+	console.log("Building worker bundle (wrangler dev serves the built bundle, not src/ directly)...");
+	execFileSync("npm", ["run", "build"], { cwd: REPO_ROOT, stdio: "inherit" });
+	currentChild = await spawnDevServer();
+	return currentChild;
+}
+
+// Recovers from a fully-dead wrangler dev process -- see Device.request's
+// own doc for what this is responding to and why re-reading the same local
+// D1 file from a fresh process is safe. killProcessTree on an already-dead
+// process is a harmless no-op (see its own doc).
+async function restartDevServer(): Promise<void> {
+	if (currentChild) killProcessTree(currentChild);
+	currentChild = await spawnDevServer();
 }
 
 // --- the playtest itself ---
@@ -418,7 +473,7 @@ async function playCategoryToWin(
 
 async function main(): Promise<void> {
 	resetLocalEnvironment();
-	const child = await startDevServer();
+	await startDevServer();
 
 	try {
 		const categories = queryLocalD1<CategoryRow>("SELECT slug, entity_type FROM categories ORDER BY id;");
@@ -661,7 +716,7 @@ async function main(): Promise<void> {
 		);
 		assertEqual(afterReplay?.status, "won", "[reset] category shows won again after the replayed round");
 	} finally {
-		killProcessTree(child);
+		if (currentChild) killProcessTree(currentChild);
 	}
 }
 
