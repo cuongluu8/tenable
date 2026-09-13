@@ -46,6 +46,14 @@ import { checkPlayerGuess } from "../lib/checkPlayerGuess";
 //     happened to catch up, a real head start in a "first correct guess
 //     wins" race. See ROUND_START_GRACE_MS below for the fix -- guessing
 //     itself is still fully server-adjudicated regardless.
+//   - Joining is open for the whole game, not just the lobby (2026-09-13
+//     -- originally lobby-only, a plain status check nothing else relied
+//     on). A mid-game joiner starts on zero wins, an accepted
+//     disadvantage; nothing about adjudication, hint timing or the start
+//     countdown reads who was present at /start, so no other rule
+//     changes. "Rejoining" after /leave is just this -- the old record is
+//     gone, they come back as a fresh seat. See /join for the one
+//     wrinkle (readiness when joining during a reveal).
 //   - A player is "away" after 15s of silence (~3 missed polls); both
 //     "everyone ready" and "everyone next-question" gates only wait on
 //     non-away players. The host can also remove a player outright.
@@ -417,8 +425,8 @@ export class RemoteGameSession extends DurableObject<Env> {
 		this.app.post("/join", async (c) => {
 			const session = await getSession();
 			if (!session) return c.json({ error: "Session not found" }, 404);
-			if (session.status !== "lobby") {
-				return c.json({ error: "This session has already started" }, 409);
+			if (session.status === "finished" || session.status === "ended") {
+				return c.json({ error: "This game is over" }, 409);
 			}
 
 			const players = await getPlayers();
@@ -435,7 +443,14 @@ export class RemoteGameSession extends DurableObject<Env> {
 				token: generateToken(),
 				name,
 				isHost: false,
-				ready: false,
+				// Joining during a reveal (the round's already decided, everyone
+				// else is confirming they've seen the answer): pre-marked ready,
+				// or this newcomer -- who never saw the question -- would block
+				// the whole room's advance to the next one until they found the
+				// "Ready" button for an answer that means nothing to them. In
+				// the lobby, or mid-round, the normal not-ready default applies
+				// (startNewRound resets it per round anyway).
+				ready: session.status === "in_progress" && isRoundDecided(session),
 				joinedAt: now,
 				lastSeenAt: now,
 				wins: 0,

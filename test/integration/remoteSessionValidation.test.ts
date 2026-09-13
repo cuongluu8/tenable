@@ -83,7 +83,7 @@ describe("POST /api/remote/sessions/:code/join validation", () => {
 		expect(res.status).toBe(400);
 	});
 
-	it("409s once the session has already started", async () => {
+	it("still accepts a join once the game has started -- late joiners start on zero wins", async () => {
 		const host = await createSession("Host");
 		// No other players, so the host (auto-ready) can start immediately --
 		// see remoteGameSession.ts's own doc on why readiness only gates
@@ -91,8 +91,21 @@ describe("POST /api/remote/sessions/:code/join validation", () => {
 		const start = await post(host.sessionCode, "/start", host.playerToken, { questionCount: 3 });
 		expect(start.status).toBe(200);
 
-		const res = await joinSession(host.sessionCode, "TooLate");
-		expect(res.status).toBe(409);
+		// Mid-game joining was opened up 2026-09-13 (see the class doc's own
+		// bullet) -- this used to be a 409.
+		const res = await joinSession(host.sessionCode, "LateComer");
+		expect(res.status).toBe(200);
+		const late = res.body as JoinResponse;
+		const stateRes = await SELF.fetch(`https://example.com/api/remote/sessions/${host.sessionCode}/state`, {
+			headers: { "X-Player-Token": late.playerToken },
+		});
+		const state = (await stateRes.json()) as { status: string; players: { id: string; wins: number; ready: boolean }[] };
+		expect(state.status).toBe("in_progress");
+		const me = state.players.find((p) => p.id === late.playerId);
+		expect(me?.wins).toBe(0);
+		// Joined mid-round (not during a reveal), so the normal not-ready
+		// default applies -- remoteSessionGiveUp.test.ts covers the reveal case.
+		expect(me?.ready).toBe(false);
 	});
 
 	it("409s once the session is full", async () => {

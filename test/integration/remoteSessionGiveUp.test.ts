@@ -194,3 +194,37 @@ describe("POST /api/remote/sessions/:code/give-up", () => {
 		expect((await post(host.sessionCode, "/give-up", host.playerToken)).status).toBe(409);
 	});
 });
+
+describe("joining mid-game", () => {
+	it("a joiner arriving during a reveal is pre-marked ready, so they don't block the advance; joining a finished game 409s", async () => {
+		const host = await createSession("Host");
+		const guest = await joinSession(host.sessionCode, "Guest");
+		await post(host.sessionCode, "/ready", guest.playerToken, { ready: true });
+		expect((await post(host.sessionCode, "/start", host.playerToken, { questionCount: 1 })).status).toBe(200);
+
+		// Resolve round 0 by everyone giving up -- now it's a reveal, waiting
+		// on the guest's ready.
+		await post(host.sessionCode, "/give-up", host.playerToken);
+		await post(host.sessionCode, "/give-up", guest.playerToken);
+		expect((await getState(host.sessionCode, host.playerToken)).round!.answerName).not.toBeNull();
+
+		const late = await joinSession(host.sessionCode, "LateComer");
+		const during = await getState(host.sessionCode, late.playerToken);
+		expect(during.status).toBe("in_progress");
+		expect(during.players.find((p) => p.id === late.playerId)?.ready).toBe(true);
+
+		// The guest alone confirming is enough -- the newcomer isn't holding
+		// anyone up over an answer they never had a question for.
+		await post(host.sessionCode, "/ready", guest.playerToken, { ready: true });
+		const finished = await getState(host.sessionCode, host.playerToken);
+		expect(finished.status).toBe("finished");
+
+		// Nothing to join once the game's over.
+		const tooLate = await SELF.fetch(`https://example.com/api/remote/sessions/${host.sessionCode}/join`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ name: "WayTooLate" }),
+		});
+		expect(tooLate.status).toBe(409);
+	});
+});

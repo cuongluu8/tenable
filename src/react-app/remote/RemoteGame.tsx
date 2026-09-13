@@ -134,18 +134,19 @@ interface LeaveControlProps {
 
 // The lobby's own "Leave game" (RemoteLobby.tsx), carried into the game
 // itself (2026-09-13) so nobody's stuck in a round with no way out. Two
-// differences from the lobby's plain button, both because mid-game this
-// is final: the host's version is labelled for what it actually does
-// (remoteGameSession.ts's /leave ends the session for EVERYONE when the
-// host calls it -- see its own doc), and both get the same two-step
-// confirm as give-up, since a guest can't rejoin a started game (/join is
-// lobby-only) and a host mis-tap would end everyone's game.
+// differences from the lobby's plain button: the host's version is
+// labelled for what it actually does (remoteGameSession.ts's /leave ends
+// the session for EVERYONE when the host calls it -- see its own doc),
+// and both get the same two-step confirm as give-up -- a host mis-tap
+// would end everyone's game, and a guest who leaves comes back (via the
+// code or join link, mid-game joining is open) as a fresh seat on zero
+// wins, their tally gone.
 function LeaveControl({ isHost, onLeave }: LeaveControlProps) {
 	const [confirming, setConfirming] = useState(false);
 	if (confirming) {
 		return (
 			<div className="remote-leave-confirm">
-				<span>{isHost ? "End the game for everyone?" : "Leave this game? You can't rejoin."}</span>
+				<span>{isHost ? "End the game for everyone?" : "Leave this game? Rejoining starts you back on 0 wins."}</span>
 				<button type="button" className="give-up-confirm__yes" onClick={onLeave}>
 					{isHost ? "Yes, end game" : "Yes, leave"}
 				</button>
