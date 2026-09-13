@@ -7,6 +7,7 @@ import {
 	apiLeaveSession,
 	apiPostMessage,
 	apiRemovePlayer,
+	apiRestart,
 	apiSetReady,
 	apiStartGame,
 	apiSubmitGuess,
@@ -43,6 +44,9 @@ interface UseRemoteSessionResult {
 	// feedback on one field, not a session-level problem. `retryAfterMs`
 	// accompanies a cooldown rejection so the composer can count it down.
 	postMessage: (text: string) => Promise<{ error: string; retryAfterMs?: number } | null>;
+	// Host-only: a finished game back to the lobby for another go -- see
+	// remoteGameSession.ts's /restart.
+	restart: () => Promise<void>;
 	leave: () => Promise<void>;
 	// Forgets the session locally without telling the server -- for
 	// leaving a session that's already "finished"/"ended", where there's
@@ -94,10 +98,11 @@ export function useRemoteSession(): UseRemoteSessionResult {
 		let cancelled = false;
 		refresh(identity);
 		const interval = setInterval(() => {
-			// Nothing left to learn once a session has reached a terminal
-			// status -- see remoteGameSession.ts: neither "finished" nor
-			// "ended" can transition anywhere else.
-			if (state?.status === "finished" || state?.status === "ended") return;
+			// Nothing left to learn once a session has ended -- the one
+			// terminal status (see remoteGameSession.ts). "finished" is NOT
+			// terminal since /restart exists: every device at the results has
+			// to keep polling to notice the host starting another game.
+			if (state?.status === "ended") return;
 			if (!cancelled) refresh(identity);
 		}, POLL_INTERVAL_MS);
 		return () => {
@@ -221,6 +226,16 @@ export function useRemoteSession(): UseRemoteSessionResult {
 		[identity, refresh],
 	);
 
+	const restart = useCallback(async () => {
+		if (!identity) return;
+		const res = await apiRestart(identity.sessionCode, identity.playerToken);
+		if (res.status !== 200) {
+			setError("error" in res.body ? res.body.error : "Couldn't start a new game.");
+			return;
+		}
+		await refresh(identity);
+	}, [identity, refresh]);
+
 	const leave = useCallback(async () => {
 		if (identity) await apiLeaveSession(identity.sessionCode, identity.playerToken);
 		clearIdentity();
@@ -251,6 +266,7 @@ export function useRemoteSession(): UseRemoteSessionResult {
 		guess,
 		giveUp,
 		postMessage,
+		restart,
 		leave,
 		forget,
 	};

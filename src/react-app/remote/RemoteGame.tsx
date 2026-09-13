@@ -403,6 +403,7 @@ interface Props {
 	onGiveUp: () => Promise<void>;
 	onPostMessage: (text: string) => Promise<{ error: string; retryAfterMs?: number } | null>;
 	onSetReady: (ready: boolean) => void;
+	onRestart: () => void;
 	onLeave: () => void;
 }
 
@@ -410,7 +411,7 @@ interface Props {
 // both share this one screen since they're really the same "in-progress
 // or just-finished game" view, not two separate places to navigate
 // between.
-export function RemoteGame({ state, myPlayerId, error, onGuess, onGiveUp, onPostMessage, onSetReady, onLeave }: Props) {
+export function RemoteGame({ state, myPlayerId, error, onGuess, onGiveUp, onPostMessage, onSetReady, onRestart, onLeave }: Props) {
 	// Ticks once a second, for the whole in-progress game, purely to
 	// re-render the display-only clocks: the start countdown, "next hint
 	// in Ns" (the actual hint reveal is decided server-side -- see
@@ -436,6 +437,8 @@ export function RemoteGame({ state, myPlayerId, error, onGuess, onGiveUp, onPost
 	const round = state.round;
 
 	if (state.status === "finished") {
+		const finishedMe = state.players.find((p) => p.id === myPlayerId);
+		const finishedHost = state.players.find((p) => p.isHost);
 		return (
 			<div className="screen">
 				<h2>Final results</h2>
@@ -455,9 +458,27 @@ export function RemoteGame({ state, myPlayerId, error, onGuess, onGiveUp, onPost
 					</p>
 				)}
 				<Leaderboard players={state.players} myPlayerId={myPlayerId} />
-				<button type="button" className="remote-primary-button" onClick={onLeave}>
-					Done
-				</button>
+				{/* Same session, another game (2026-09-13): the host restarts
+				    (remoteGameSession.ts's /restart -> back to the lobby, scores
+				    reset); everyone else's device keeps polling here and follows
+				    the status change into the lobby on its own. Leaving from
+				    here is a real leave now -- see RemoteMultiplayer.tsx. */}
+				{finishedMe?.isHost ? (
+					<div className="remote-final-actions">
+						<button type="button" className="remote-primary-button" onClick={onRestart}>
+							Play again
+						</button>
+						<LeaveControl isHost onLeave={onLeave} />
+					</div>
+				) : (
+					<div className="remote-final-actions">
+						<p className="remote-subtitle">
+							{finishedHost && !finishedHost.away ? `Waiting for ${finishedHost.name} to start another game…` : "The host has left."}
+						</p>
+						<LeaveControl isHost={false} onLeave={onLeave} />
+					</div>
+				)}
+				{error && <p className="remote-error">{error}</p>}
 			</div>
 		);
 	}

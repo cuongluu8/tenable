@@ -92,6 +92,10 @@ import { checkPlayerGuess } from "../lib/checkPlayerGuess";
 // Chat (2026-09-13): /message -- one short message per player at a time,
 // shown next to their name on every client's leaderboard. See
 // MESSAGE_MAX_WORDS and friends below.
+// Play again (2026-09-13): /restart -- host-only, from "finished" back to
+// "lobby" with the same players and a fresh scoreboard, so a group can
+// run game after game on one code. "finished" is therefore no longer a
+// terminal status; only "ended" is.
 
 const PLAYER_AWAY_MS = 15_000; // ~3 missed 4s polls -- see class doc.
 const MAX_PLAYERS = 8; // A casual party-game bound, not a locked design
@@ -161,6 +165,8 @@ const DEFAULT_ROUND_START_GRACE_MS = 5_000;
 // override it to 0 rather than sleeping through it.
 const DEFAULT_MIN_REVEAL_MS = 5_000;
 
+// lobby -> in_progress -> finished -> (lobby again, via /restart) ...;
+// "ended" (host left) is the only terminal status.
 type SessionStatus = "lobby" | "in_progress" | "finished" | "ended";
 
 interface SessionRecord {
@@ -865,6 +871,43 @@ export class RemoteGameSession extends DurableObject<Env> {
 			self.message = { text, postedAt: now };
 			self.lastMessageAt = now;
 			await storage.put("players", players);
+
+			return c.json({ ok: true as const });
+		});
+
+		// Host-only: a finished game back to the lobby, same code, same
+		// players, scores reset -- from there it's the normal ready/start
+		// flow again (everyone re-readies, the host picks a question count),
+		// which is deliberately reused rather than jumping straight into a
+		// new game: someone may have put their phone down at the results.
+		// Players who've drifted away are left in place -- the ready gate
+		// already skips them, and they come back on their next poll.
+		this.app.post("/restart", async (c) => {
+			const session = await getSession();
+			if (!session) return c.json({ error: "Session not found" }, 404);
+
+			const players = await getPlayers();
+			const caller = findByToken(players, c.req.header("X-Player-Token"));
+			if (!caller) return c.json({ error: "Invalid session token" }, 401);
+			if (!caller.isHost) return c.json({ error: "Only the host can start a new game" }, 403);
+			if (session.status !== "finished") return c.json({ error: "The current game hasn't finished" }, 409);
+
+			const now = Date.now();
+			session.status = "lobby";
+			session.questionCount = null;
+			session.questions = [];
+			session.roundIndex = 0;
+			session.roundStartedAt = null;
+			session.roundWinnerId = null;
+			session.roundAnswerName = null;
+			session.roundDecidedAt = null;
+			session.roundGivenUpPlayerIds = [];
+			for (const p of players) {
+				p.wins = 0;
+				p.ready = p.isHost; // Same as a fresh /create: the host is ready by definition, everyone else re-readies.
+			}
+			caller.lastSeenAt = now;
+			await storage.put({ session, players });
 
 			return c.json({ ok: true as const });
 		});

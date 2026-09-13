@@ -261,6 +261,25 @@
 	color: #f87171;
 }
 
+/* Results screen's buttons: "Play again" (host) or the waiting note
+   (everyone else), with the leave/end control on the same row's right --
+   its own margin-top is cancelled here since the row already spaces it. */
+.remote-final-actions {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	flex-wrap: wrap;
+	gap: 1rem;
+}
+.remote-final-actions .remote-subtitle {
+	margin: 0;
+}
+.remote-final-actions .remote-leave-button,
+.remote-final-actions .remote-leave-confirm {
+	margin-top: 0;
+	margin-left: auto;
+}
+
 .remote-standings {
 	list-style: none;
 	margin: 0 0 1.5rem;

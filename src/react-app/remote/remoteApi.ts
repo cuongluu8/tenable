@@ -183,3 +183,10 @@ export function apiPostMessage(code: string, token: string, text: string) {
 		body: JSON.stringify({ text }),
 	});
 }
+
+export function apiRestart(code: string, token: string) {
+	return apiFetch<{ ok: true } | { error: string }>(`/sessions/${code}/restart`, {
+		method: "POST",
+		headers: authHeaders(token),
+	});
+}
