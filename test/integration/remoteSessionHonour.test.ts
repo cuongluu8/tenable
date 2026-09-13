@@ -91,7 +91,7 @@ describe("Roll of Honour over remote play", () => {
 			["european-cup", 37],
 			["champions-league", 33],
 			["first-division", 93],
-			["premier-league", 33],
+			["premier-league", 34],
 		]);
 	});
 

@@ -15,8 +15,9 @@ import { collapseToAlnum, normalize } from "./normalize";
 //
 // Four competitions so far: European Cup / Champions League, and the
 // English First Division / Premier League (added later on 2026-09-13).
-// The most recent season listed anywhere is 2024-25; 2025-26's finals
-// and title need confirming before they're added.
+// The Premier League runs to 2025-26 (Arsenal -- confirmed by the product
+// owner, 2026-09-13); the Champions League stops at 2024-25 until its
+// 2025-26 final is confirmed too.
 
 export interface HonourSeasonDef {
 	season: string; // "1955-56" -- the tile's label
@@ -296,6 +297,7 @@ export const HONOUR_COMPETITIONS: Record<string, HonourCompetitionDef> = {
 			{ season: "2022-23", ...ENG_MCI },
 			{ season: "2023-24", ...ENG_MCI },
 			{ season: "2024-25", ...ENG_LIV },
+			{ season: "2025-26", ...ENG_ARS },
 		],
 	},
 };
