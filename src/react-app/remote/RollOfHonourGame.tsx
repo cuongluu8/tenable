@@ -206,7 +206,7 @@ export function RollOfHonourGame({ state, myPlayerId, error, onSelectTile, onRel
 	}
 
 	return (
-		<div className={held ? "screen roh-screen--holding" : "screen"}>
+		<div className="screen">
 			<div className="remote-round-header">
 				<span>
 					{honour.competitionName} · {answered} of {honour.tiles.length} filled
@@ -275,19 +275,18 @@ export function RollOfHonourGame({ state, myPlayerId, error, onSelectTile, onRel
 
 			<LeaveControl isHost={me?.isHost ?? false} onLeave={onLeave} />
 
-			{/* The answer box is a sheet pinned to the TOP of the viewport, not
-			    inline (2026-09-13): the grid is 70 tiles tall, so an inline box
-			    above it was off-screen by the time a phone had scrolled down
-			    to tap 2024-25. A sheet rather than a modal so the grid stays
-			    tappable behind it -- tapping another season switches the hold
-			    (the server drops the old lock when the new one's taken). Top,
-			    not bottom, so the typeahead list has room to open BELOW the
-			    input (GuessInput's placement="below") inside the viewport; a
-			    bottom sheet's list opened upward off the top of the screen on
-			    phones. Closes, releasing the hold, on answer, Escape, or the ×. */}
+			{/* The answer box is a modal (2026-09-13): the grid is 70 tiles tall,
+			    so an inline box above it was off-screen by the time a phone had
+			    scrolled down to tap 2024-25. Positioned a quarter of the way
+			    down the screen, not centred or pinned to an edge (both tried on
+			    real phones: centred left no room for the typeahead list, and a
+			    top/bottom sheet got shoved around by the on-screen keyboard),
+			    so the list opens BELOW the input (GuessInput's placement=
+			    "below") with the modal itself staying put. Tapping outside, the
+			    ×, or Escape puts the season back -- then tap another. */}
 			{held && !iGaveUp && (
-				<div className="roh-sheet" role="dialog" aria-label={`Who won in ${held.season}?`}>
-					<div className="roh-sheet__inner">
+				<div className="remote-modal-backdrop remote-modal-backdrop--upper" onClick={() => void cancelHold()}>
+					<div className="remote-modal" role="dialog" aria-modal="true" aria-label={`Who won in ${held.season}?`} onClick={(e) => e.stopPropagation()}>
 						<div className="remote-modal__header">
 							<h3 className="remote-modal__title">
 								Who won in {held.season}? <span className="roh-answer__timer">{Math.ceil((held.until - now) / 1000)}s</span>
@@ -297,7 +296,7 @@ export function RollOfHonourGame({ state, myPlayerId, error, onSelectTile, onRel
 							</button>
 						</div>
 						<GuessInput value={guess} onChange={setGuess} onPick={answer} disabled={busy} suggestUrl="/api/roll-of-honour/suggest" placement="below" />
-						<p className="roh-sheet__hint">Tap a different season to switch to it.</p>
+						<p className="roh-sheet__hint">Tap outside to put it back and pick another season.</p>
 					</div>
 				</div>
 			)}
