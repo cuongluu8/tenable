@@ -78,6 +78,8 @@ remoteSession.post("/sessions/:code/guess", async (c) => forward(c, "/guess", { 
 
 remoteSession.post("/sessions/:code/give-up", async (c) => forward(c, "/give-up", { method: "POST" }));
 
+remoteSession.post("/sessions/:code/message", async (c) => forward(c, "/message", { method: "POST", body: await c.req.text() }));
+
 remoteSession.post("/sessions/:code/leave", async (c) => forward(c, "/leave", { method: "POST" }));
 
 remoteSession.post("/sessions/:code/remove", async (c) => forward(c, "/remove", { method: "POST", body: await c.req.text() }));

@@ -5,6 +5,7 @@ import {
 	apiGiveUp,
 	apiJoinSession,
 	apiLeaveSession,
+	apiPostMessage,
 	apiRemovePlayer,
 	apiSetReady,
 	apiStartGame,
@@ -36,6 +37,12 @@ interface UseRemoteSessionResult {
 	// /give-up on why the answer isn't returned here (it arrives via the
 	// next /state, once the round is actually decided).
 	giveUp: () => Promise<void>;
+	// Posts a chat message. Resolves to null on success, or to the
+	// server's own rejection (a 20-word/30s-cooldown message the composer
+	// shows inline) -- kept out of the shared `error` banner since it's
+	// feedback on one field, not a session-level problem. `retryAfterMs`
+	// accompanies a cooldown rejection so the composer can count it down.
+	postMessage: (text: string) => Promise<{ error: string; retryAfterMs?: number } | null>;
 	leave: () => Promise<void>;
 	// Forgets the session locally without telling the server -- for
 	// leaving a session that's already "finished"/"ended", where there's
@@ -201,6 +208,19 @@ export function useRemoteSession(): UseRemoteSessionResult {
 		await refresh(identity);
 	}, [identity, refresh]);
 
+	const postMessage = useCallback(
+		async (text: string): Promise<{ error: string; retryAfterMs?: number } | null> => {
+			if (!identity) return { error: "No active session." };
+			const res = await apiPostMessage(identity.sessionCode, identity.playerToken, text);
+			if (res.status !== 200) {
+				return "error" in res.body ? { error: res.body.error, retryAfterMs: res.body.retryAfterMs } : { error: "Couldn't send that message." };
+			}
+			await refresh(identity);
+			return null;
+		},
+		[identity, refresh],
+	);
+
 	const leave = useCallback(async () => {
 		if (identity) await apiLeaveSession(identity.sessionCode, identity.playerToken);
 		clearIdentity();
@@ -230,6 +250,7 @@ export function useRemoteSession(): UseRemoteSessionResult {
 		removePlayer: removePlayerAction,
 		guess,
 		giveUp,
+		postMessage,
 		leave,
 		forget,
 	};

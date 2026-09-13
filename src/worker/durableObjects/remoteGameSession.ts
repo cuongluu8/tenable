@@ -89,6 +89,9 @@ import { checkPlayerGuess } from "../lib/checkPlayerGuess";
 // the game on the last one).
 // Give up (2026-09-13): /give-up -- per-player bow-out, and the round
 // resolving with no winner once every non-away player has done so.
+// Chat (2026-09-13): /message -- one short message per player at a time,
+// shown next to their name on every client's leaderboard. See
+// MESSAGE_MAX_WORDS and friends below.
 
 const PLAYER_AWAY_MS = 15_000; // ~3 missed 4s polls -- see class doc.
 const MAX_PLAYERS = 8; // A casual party-game bound, not a locked design
@@ -100,6 +103,21 @@ const MAX_QUESTION_COUNT = 20; // Provisional -- comfortably below the
 // eligible club_badge_questions pool (90+, see clubBadgeRound.ts's
 // MIN_CLUBS_FOR_QUESTION), not tied to any other bound.
 const MAX_NAME_LENGTH = 24;
+
+// Chat -- deliberately tiny: one live message per player (a new one
+// replaces the old), capped at 20 words (the product ask) and, as a
+// backstop against a 20-"word" wall of text, a character limit too, at
+// most one post every 30s per player. Emojis are just characters here --
+// nothing strips or rewrites the text beyond trimming it. A message is
+// reported by /state for MESSAGE_VISIBLE_MS after posting, comfortably
+// longer than the client's 4s poll (so a client whose poll just missed
+// it still picks it up) plus the client's own 5s display; the client
+// decides on its own when to scroll it away and never re-shows one it's
+// already dismissed (RemoteGame.tsx's Leaderboard).
+const MESSAGE_MAX_WORDS = 20;
+const MESSAGE_MAX_CHARS = 240;
+const MESSAGE_COOLDOWN_MS = 30_000;
+const MESSAGE_VISIBLE_MS = 20_000;
 
 // Hint tiers, in reveal order -- mirrors clubBadgesState.ts's HINT_KEYS
 // exactly (country, nationality, transferDate), but NOT imported from
@@ -171,6 +189,19 @@ interface PlayerRecord {
 	joinedAt: number;
 	lastSeenAt: number;
 	wins: number;
+	// Chat (see MESSAGE_* above). Both absent on records persisted before
+	// chat existed -- read with `?? null`, never assumed present.
+	message: { text: string; postedAt: number } | null;
+	lastMessageAt: number | null;
+}
+
+interface PublicMessage {
+	text: string;
+	postedAt: number;
+	// Server-computed at /state time so clients can judge "is this still
+	// fresh enough to show" without comparing a server timestamp against
+	// their own possibly-skewed clock. At most one poll interval stale.
+	ageMs: number;
 }
 
 interface PublicPlayer {
@@ -180,6 +211,7 @@ interface PublicPlayer {
 	ready: boolean;
 	away: boolean;
 	wins: number;
+	message: PublicMessage | null;
 }
 
 interface PublicRound {
@@ -216,7 +248,23 @@ function toPublicPlayer(player: PlayerRecord, now: number): PublicPlayer {
 		ready: player.ready,
 		away: isAway(player, now),
 		wins: player.wins,
+		message: publicMessage(player, now),
 	};
+}
+
+function publicMessage(player: PlayerRecord, now: number): PublicMessage | null {
+	const message = player.message ?? null;
+	if (!message) return null;
+	const ageMs = now - message.postedAt;
+	if (ageMs >= MESSAGE_VISIBLE_MS) return null;
+	return { text: message.text, postedAt: message.postedAt, ageMs };
+}
+
+// Whitespace-separated tokens, so an emoji-only message counts as one
+// word and "🔥🔥🔥" as one too -- there's no sensible per-emoji rule
+// worth the complexity (grapheme segmentation) for a 20-word cap.
+function countWords(text: string): number {
+	return text.split(/\s+/).filter(Boolean).length;
 }
 
 // Non-host, non-away players who haven't marked ready -- shared by /start
@@ -416,6 +464,8 @@ export class RemoteGameSession extends DurableObject<Env> {
 				joinedAt: now,
 				lastSeenAt: now,
 				wins: 0,
+				message: null,
+				lastMessageAt: null,
 			};
 			await storage.put({ session, players: [host] });
 
@@ -454,6 +504,8 @@ export class RemoteGameSession extends DurableObject<Env> {
 				joinedAt: now,
 				lastSeenAt: now,
 				wins: 0,
+				message: null,
+				lastMessageAt: null,
 			};
 			await storage.put("players", [...players, player]);
 
@@ -732,6 +784,51 @@ export class RemoteGameSession extends DurableObject<Env> {
 			// whether the round resolved from its own /state refresh, same as
 			// every other player does, rather than from a field that would be
 			// stale the instant maybeAdvanceRound above moved a solo host on.
+			return c.json({ ok: true as const });
+		});
+
+		// Chat -- see MESSAGE_* above. Allowed in any live status (lobby, a
+		// round, the final results), just not once the session's ended;
+		// the client only offers the composer on the game screen today,
+		// but nothing here should need to change if that widens.
+		this.app.post("/message", async (c) => {
+			const session = await getSession();
+			if (!session) return c.json({ error: "Session not found" }, 404);
+			if (session.status === "ended") return c.json({ error: "This session has already ended" }, 409);
+
+			const players = await getPlayers();
+			const self = findByToken(players, c.req.header("X-Player-Token"));
+			if (!self) return c.json({ error: "Invalid session token" }, 401);
+
+			const now = Date.now();
+			self.lastSeenAt = now;
+
+			const body = await c.req.json<{ text?: string }>().catch(() => ({}) as { text?: string });
+			// Internal runs of whitespace collapsed too, not just trimmed --
+			// what's stored is what every other client renders, in a single
+			// nowrap line, so there's nothing a run of spaces or a newline
+			// could usefully mean there.
+			const text = typeof body.text === "string" ? body.text.replace(/\s+/g, " ").trim() : "";
+			if (!text) {
+				await storage.put("players", players);
+				return c.json({ error: "Type a message first" }, 400);
+			}
+			if (text.length > MESSAGE_MAX_CHARS || countWords(text) > MESSAGE_MAX_WORDS) {
+				await storage.put("players", players);
+				return c.json({ error: `Keep it to ${MESSAGE_MAX_WORDS} words` }, 400);
+			}
+
+			const lastMessageAt = self.lastMessageAt ?? null;
+			if (lastMessageAt !== null && now - lastMessageAt < MESSAGE_COOLDOWN_MS) {
+				const retryAfterMs = MESSAGE_COOLDOWN_MS - (now - lastMessageAt);
+				await storage.put("players", players);
+				return c.json({ error: `You can post again in ${Math.ceil(retryAfterMs / 1000)}s`, retryAfterMs }, 429);
+			}
+
+			self.message = { text, postedAt: now };
+			self.lastMessageAt = now;
+			await storage.put("players", players);
+
 			return c.json({ ok: true as const });
 		});
 	}

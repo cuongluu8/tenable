@@ -331,7 +331,86 @@
 	width: 1.5rem;
 }
 .remote-standings__name {
+	flex: 0 0 auto;
+	white-space: nowrap;
+}
+/* Takes the row's spare width (the name no longer does) and clips -- a
+   message scrolling out of its left edge disappears behind the name. */
+.remote-standings__chat {
 	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	position: relative;
+}
+.remote-chat {
+	display: block;
+	overflow: hidden;
+	white-space: nowrap;
+}
+/* Hold still for 5/6 of the duration (5s of 6s -- RemoteGame.tsx's
+   CHAT_HOLD_MS/CHAT_SCROLL_MS set the actual duration inline), then
+   slide left by its own width so even a message longer than the row
+   fully clears the container's left edge. `forwards` so it stays gone
+   for however long React takes to unmount it after animationend. */
+@keyframes remote-chat-scroll {
+	0%,
+	83.333% {
+		transform: translateX(0);
+	}
+	100% {
+		transform: translateX(-100%);
+	}
+}
+.remote-chat__text {
+	display: inline-block;
+	padding: 0.1em 0.6em;
+	border-radius: 999px;
+	background: rgba(74, 222, 128, 0.12);
+	color: #e5e7eb;
+	font-size: 0.85em;
+	animation: remote-chat-scroll 6s linear forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+	@keyframes remote-chat-scroll {
+		0%,
+		83.333% {
+			opacity: 1;
+		}
+		100% {
+			opacity: 0;
+		}
+	}
+}
+
+.remote-chat-composer {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	margin-top: 1.25rem;
+}
+.remote-chat-composer__input {
+	flex: 1;
+	min-width: 0;
+	padding: 0.5em 0.8em;
+	border-radius: 8px;
+	border: 1px solid #374151;
+	background: #1f2937;
+	color: inherit;
+	font-size: 0.95rem;
+}
+.remote-chat-composer__count {
+	color: #9ca3af;
+	font-size: 0.8rem;
+	font-variant-numeric: tabular-nums;
+}
+.remote-chat-composer__count--over {
+	color: #f87171;
+}
+.remote-chat-composer__error {
+	flex-basis: 100%;
+	color: #f87171;
+	font-size: 0.85rem;
 }
 .remote-standings__wins {
 	font-weight: 700;

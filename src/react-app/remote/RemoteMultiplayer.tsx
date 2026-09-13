@@ -21,7 +21,7 @@ interface Props {
 // exists, since a resumed session already committed to whichever game it
 // started as; there's nothing left to pick.
 export function RemoteMultiplayer({ onBack }: Props) {
-	const { identity, state, error, isHost, create, join, setReady, start, removePlayer, guess, giveUp, leave, forget } = useRemoteSession();
+	const { identity, state, error, isHost, create, join, setReady, start, removePlayer, guess, giveUp, postMessage, leave, forget } = useRemoteSession();
 	// Set when this page was opened via a shared WhatsApp join link (see
 	// shareSession.ts) -- read once at mount, same as App.tsx's own
 	// pathname-based routing helpers read window.location directly rather
@@ -84,6 +84,7 @@ export function RemoteMultiplayer({ onBack }: Props) {
 			error={error}
 			onGuess={guess}
 			onGiveUp={giveUp}
+			onPostMessage={postMessage}
 			onSetReady={setReady}
 			onLeave={state.status === "finished" ? forget : leave}
 		/>

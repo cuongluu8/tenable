@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { BadgeChain } from "../components/BadgeChain";
 import { GuessInput } from "../components/GuessInput";
 import { colorForPlayerIndex } from "../components/playerColors";
-import type { PublicPlayer, RoundInfo, SessionState } from "./remoteApi";
+import type { PublicMessage, PublicPlayer, RoundInfo, SessionState } from "./remoteApi";
 
 const HINT_REVEAL_INTERVAL_MS = 30_000; // Matches remoteGameSession.ts's own HINT_REVEAL_INTERVAL_MS.
 const HINT_TIER_COUNT = 3;
@@ -13,6 +13,153 @@ const HINT_TIER_COUNT = 3;
 // guess box for this window, it isn't itself what makes guessing early
 // impossible.
 const ROUND_START_GRACE_MS = 5_000;
+
+// Chat display. A message holds still next to its author's name for
+// CHAT_HOLD_MS, then scrolls off leftwards (behind the name -- the bubble
+// container clips it) over CHAT_SCROLL_MS and never comes back. Both are
+// also baked into remote.css's remote-chat-scroll keyframes (hold = 5/6 of
+// the total), kept in step by hand. CHAT_MAX_FIRST_SEEN_AGE_MS: a message
+// this old on FIRST sight (server-reported ageMs, so clock skew can't
+// affect it) is treated as already over -- it's how a page refresh, or a
+// player joining, doesn't replay something everyone else watched scroll
+// away 15s ago. Comfortably above the 4s poll interval so a message that
+// just missed one poll is still fresh on the next.
+const CHAT_HOLD_MS = 5_000;
+const CHAT_SCROLL_MS = 1_000;
+const CHAT_MAX_FIRST_SEEN_AGE_MS = 12_000;
+const CHAT_MAX_WORDS = 20; // Matches remoteGameSession.ts's MESSAGE_MAX_WORDS.
+const CHAT_COOLDOWN_MS = 30_000; // Matches remoteGameSession.ts's MESSAGE_COOLDOWN_MS.
+
+// Messages this tab has finished showing (scrolled away) or decided were
+// already stale when first seen -- keyed on author + postedAt, which is
+// what makes "a new message from the same player" distinct from "the
+// same message again on the next poll". Module-level rather than
+// component state so it survives the Leaderboard remounting between the
+// round screen and the final results (the server keeps reporting a
+// message for 20s -- see MESSAGE_VISIBLE_MS there -- and the ask is that
+// once gone, it stays gone). Per tab, by design: a refresh is covered by
+// the age check above instead.
+const dismissedMessages = new Set<string>();
+const shownMessages = new Set<string>();
+
+function messageKey(playerId: string, message: PublicMessage): string {
+	return `${playerId}:${message.postedAt}`;
+}
+
+function countWords(text: string): number {
+	return text.split(/\s+/).filter(Boolean).length;
+}
+
+interface ChatBubbleProps {
+	playerId: string;
+	message: PublicMessage;
+}
+
+// One player's live message in their leaderboard row. Mounted once per
+// distinct message (keyed by the parent) so the CSS animation runs
+// exactly once from mount; when it ends the message is recorded as
+// dismissed and unmounted, and the Leaderboard's own check keeps it from
+// ever mounting again.
+function ChatBubble({ playerId, message }: ChatBubbleProps) {
+	const key = messageKey(playerId, message);
+	const [gone, setGone] = useState(false);
+	useEffect(() => {
+		shownMessages.add(key);
+	}, [key]);
+	if (gone) return null;
+	return (
+		<span className="remote-chat" aria-live="polite">
+			<span
+				className="remote-chat__text"
+				style={{ animationDuration: `${CHAT_HOLD_MS + CHAT_SCROLL_MS}ms` }}
+				onAnimationEnd={() => {
+					dismissedMessages.add(key);
+					setGone(true);
+				}}
+			>
+				{message.text}
+			</span>
+		</span>
+	);
+}
+
+function shouldShowMessage(playerId: string, message: PublicMessage | null): message is PublicMessage {
+	if (!message) return false;
+	const key = messageKey(playerId, message);
+	if (dismissedMessages.has(key)) return false;
+	// Already on screen: keep it there until its own animation ends, even
+	// if a later poll reports it older than the first-sight cutoff.
+	if (shownMessages.has(key)) return true;
+	return message.ageMs < CHAT_MAX_FIRST_SEEN_AGE_MS;
+}
+
+interface ChatComposerProps {
+	onPost: (text: string) => Promise<{ error: string; retryAfterMs?: number } | null>;
+	now: number;
+}
+
+// The message box under the round. Enforces the same 20-word cap and 30s
+// cooldown the server does (remoteGameSession.ts's MESSAGE_*), purely as
+// feedback -- the server's own rejection is what actually holds, and its
+// message is shown here inline when it does. `now` is RemoteGame's ticking
+// clock, so the cooldown counts down visibly without its own interval.
+function ChatComposer({ onPost, now }: ChatComposerProps) {
+	const [text, setText] = useState("");
+	const [sending, setSending] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+	// Epoch ms the cooldown ends -- from our own successful post, or from
+	// the server telling us how long is left on one it's already tracking
+	// (a refresh mid-cooldown, say).
+	const [cooldownUntil, setCooldownUntil] = useState<number | null>(null);
+
+	const words = countWords(text);
+	const overLimit = words > CHAT_MAX_WORDS;
+	const cooldownLeftMs = cooldownUntil !== null ? Math.max(0, cooldownUntil - now) : 0;
+	const coolingDown = cooldownLeftMs > 0;
+
+	async function send() {
+		const trimmed = text.trim();
+		if (!trimmed || overLimit || coolingDown || sending) return;
+		setSending(true);
+		setError(null);
+		const result = await onPost(trimmed);
+		setSending(false);
+		if (result) {
+			setError(result.error);
+			if (result.retryAfterMs) setCooldownUntil(Date.now() + result.retryAfterMs);
+			return;
+		}
+		setText("");
+		setCooldownUntil(Date.now() + CHAT_COOLDOWN_MS);
+	}
+
+	return (
+		<form
+			className="remote-chat-composer"
+			onSubmit={(e) => {
+				e.preventDefault();
+				void send();
+			}}
+		>
+			<input
+				type="text"
+				className="remote-chat-composer__input"
+				value={text}
+				onChange={(e) => setText(e.target.value)}
+				placeholder={coolingDown ? `You can post again in ${Math.ceil(cooldownLeftMs / 1000)}s` : "Say something… (20 words max)"}
+				disabled={sending || coolingDown}
+				aria-label="Chat message"
+			/>
+			<span className={overLimit ? "remote-chat-composer__count remote-chat-composer__count--over" : "remote-chat-composer__count"}>
+				{words}/{CHAT_MAX_WORDS}
+			</span>
+			<button type="submit" className="remote-primary-button" disabled={!text.trim() || overLimit || coolingDown || sending}>
+				Send
+			</button>
+			{error && <span className="remote-chat-composer__error">{error}</span>}
+		</form>
+	);
+}
 
 interface GuessAreaProps {
 	onGuess: (guess: string) => Promise<"correct" | "wrong" | null>;
@@ -113,6 +260,12 @@ function Leaderboard({ players, myPlayerId, round, compact }: LeaderboardProps) 
 							{p.name}
 							{p.id === myPlayerId && " (you)"}
 						</span>
+						{/* Always rendered (empty or not) so it's what takes up the
+						    row's spare width -- the message bubble scrolls off into
+						    its left edge, i.e. visually behind the name. */}
+						<span className="remote-standings__chat">
+							{shouldShowMessage(p.id, p.message) && <ChatBubble key={messageKey(p.id, p.message)} playerId={p.id} message={p.message} />}
+						</span>
 						{p.away && <span className="remote-badge remote-badge--away">Away</span>}
 						{round && round.answerName === null && round.givenUpPlayerIds.includes(p.id) && (
 							<span className="remote-badge remote-badge--gave-up">Gave up</span>
@@ -169,6 +322,7 @@ interface Props {
 	error: string | null;
 	onGuess: (guess: string) => Promise<"correct" | "wrong" | null>;
 	onGiveUp: () => Promise<void>;
+	onPostMessage: (text: string) => Promise<{ error: string; retryAfterMs?: number } | null>;
 	onSetReady: (ready: boolean) => void;
 	onLeave: () => void;
 }
@@ -177,27 +331,27 @@ interface Props {
 // both share this one screen since they're really the same "in-progress
 // or just-finished game" view, not two separate places to navigate
 // between.
-export function RemoteGame({ state, myPlayerId, error, onGuess, onGiveUp, onSetReady, onLeave }: Props) {
-	// Ticks once a second purely to re-render the "next hint in Ns"
-	// countdown -- the actual hint reveal is decided server-side (see
-	// remoteGameSession.ts's publicQuestion), this is display-only and
-	// never itself the source of truth for what's revealed. `now` (not a
-	// bare re-render counter) so the countdown's own math can read it
-	// instead of calling Date.now() directly during render, which React's
-	// purity rules disallow.
+export function RemoteGame({ state, myPlayerId, error, onGuess, onGiveUp, onPostMessage, onSetReady, onLeave }: Props) {
+	// Ticks once a second, for the whole in-progress game, purely to
+	// re-render the display-only clocks: the start countdown, "next hint
+	// in Ns" (the actual hint reveal is decided server-side -- see
+	// remoteGameSession.ts's publicQuestion -- this is never the source of
+	// truth for what's revealed) and the chat composer's post cooldown.
+	// Used to stop between rounds, before chat existed; a 1/s re-render of
+	// this one screen isn't worth the bookkeeping of restarting it for
+	// each clock that needs it. `now` (not a bare re-render counter) so
+	// each clock's own math can read it instead of calling Date.now()
+	// directly during render, which React's purity rules disallow.
 	const [now, setNow] = useState(() => Date.now());
-
-	const round = state.round;
-	// answerName, not winnerId, is the "round decided" signal -- a round
-	// where everyone gave up has an answer to show but no winner (see
-	// remoteGameSession.ts's isRoundDecided).
-	const roundOpen = round !== null && round.answerName === null;
+	const inProgress = state.status === "in_progress";
 
 	useEffect(() => {
-		if (!roundOpen || (round && round.hintsRevealed >= HINT_TIER_COUNT)) return;
+		if (!inProgress) return;
 		const id = setInterval(() => setNow(Date.now()), 1000);
 		return () => clearInterval(id);
-	}, [roundOpen, round]);
+	}, [inProgress]);
+
+	const round = state.round;
 
 	if (state.status === "finished") {
 		return (
@@ -299,6 +453,8 @@ export function RemoteGame({ state, myPlayerId, error, onGuess, onGiveUp, onSetR
 			)}
 
 			{error && <p className="remote-error">{error}</p>}
+
+			<ChatComposer onPost={onPostMessage} now={now} />
 
 			<LeaveControl isHost={me?.isHost ?? false} onLeave={onLeave} />
 		</div>
