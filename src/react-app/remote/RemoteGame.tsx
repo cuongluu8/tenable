@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { BadgeChain } from "../components/BadgeChain";
 import { GuessInput } from "../components/GuessInput";
 import { colorForPlayerIndex } from "../components/playerColors";
-import type { SessionState } from "./remoteApi";
+import type { PublicPlayer, RoundInfo, SessionState } from "./remoteApi";
 
 const HINT_REVEAL_INTERVAL_MS = 30_000; // Matches remoteGameSession.ts's own HINT_REVEAL_INTERVAL_MS.
 const HINT_TIER_COUNT = 3;
@@ -82,6 +82,51 @@ function GuessArea({ onGuess, onGiveUp }: GuessAreaProps) {
 	);
 }
 
+interface LeaderboardProps {
+	players: PublicPlayer[];
+	myPlayerId: string;
+	// The open round, when there is one -- only for the per-player Away/
+	// Gave up tags; the final-results screen passes nothing.
+	round?: RoundInfo | null;
+	compact?: boolean;
+}
+
+// Ranked standings, on screen for the whole game (2026-09-13 -- asked for
+// after a real session where the plain join-order roster, with its bare
+// wins count, didn't read as a leaderboard at all), and the same list the
+// final-results screen shows -- one component so "who's winning" mid-game
+// and "who won" at the end are visibly the same thing. Ordered by wins,
+// ties broken by join order (state.players order) so a tie doesn't shuffle
+// people around between polls; tied players share a rank rather than one
+// arbitrarily ranking above the other.
+function Leaderboard({ players, myPlayerId, round, compact }: LeaderboardProps) {
+	const ranked = [...players].sort((a, b) => b.wins - a.wins);
+	return (
+		<ol className={compact ? "remote-standings remote-standings--compact" : "remote-standings"}>
+			{ranked.map((p, i) => {
+				const rank = i > 0 && ranked[i - 1].wins === p.wins ? null : i + 1;
+				return (
+					<li key={p.id} className="remote-standings__item">
+						<span className="remote-standings__rank">{rank ?? "="}</span>
+						<span className="remote-players__color" style={{ background: colorForPlayerIndex(players.indexOf(p)) }} />
+						<span className="remote-standings__name">
+							{p.name}
+							{p.id === myPlayerId && " (you)"}
+						</span>
+						{p.away && <span className="remote-badge remote-badge--away">Away</span>}
+						{round && round.answerName === null && round.givenUpPlayerIds.includes(p.id) && (
+							<span className="remote-badge remote-badge--gave-up">Gave up</span>
+						)}
+						<span className="remote-standings__wins">
+							{p.wins} win{p.wins === 1 ? "" : "s"}
+						</span>
+					</li>
+				);
+			})}
+		</ol>
+	);
+}
+
 interface Props {
 	state: SessionState;
 	myPlayerId: string;
@@ -119,25 +164,10 @@ export function RemoteGame({ state, myPlayerId, error, onGuess, onGiveUp, onSetR
 	}, [roundOpen, round]);
 
 	if (state.status === "finished") {
-		const standings = [...state.players].sort((a, b) => b.wins - a.wins);
 		return (
 			<div className="screen">
 				<h2>Final results</h2>
-				<ol className="remote-standings">
-					{standings.map((p, i) => (
-						<li key={p.id} className="remote-standings__item">
-							<span className="remote-standings__rank">{i + 1}</span>
-							<span className="remote-players__color" style={{ background: colorForPlayerIndex(state.players.indexOf(p)) }} />
-							<span className="remote-standings__name">
-								{p.name}
-								{p.id === myPlayerId && " (you)"}
-							</span>
-							<span className="remote-standings__wins">
-								{p.wins} win{p.wins === 1 ? "" : "s"}
-							</span>
-						</li>
-					))}
-				</ol>
+				<Leaderboard players={state.players} myPlayerId={myPlayerId} />
 				<button type="button" className="remote-primary-button" onClick={onLeave}>
 					Done
 				</button>
@@ -159,6 +189,19 @@ export function RemoteGame({ state, myPlayerId, error, onGuess, onGiveUp, onSetR
 	const secondsToGuessUnlock = round.startedAt
 		? Math.max(0, Math.ceil((round.startedAt + ROUND_START_GRACE_MS - now) / 1000))
 		: 0;
+	// The whole question -- not just the guess box -- stays hidden until
+	// the grace window closes (2026-09-13). Locking only the guess box
+	// still let whoever's poll (or own /ready call) caught the new round
+	// first START READING the badges seconds before everyone else, a real
+	// head start in a race that's mostly recognition. Timed off the
+	// server's roundStartedAt on every device, so the reveal lands at the
+	// same wall-clock instant everywhere rather than staggered by poll
+	// timing -- which is also why this is a client-side hide and NOT the
+	// server withholding the question the way it withholds hints: a
+	// server-side reveal would only reach each client on its next poll,
+	// re-staggering the very thing this exists to line up. The server's
+	// own guess rejection for this same window still stands regardless.
+	const revealPending = !roundDecided && secondsToGuessUnlock > 0;
 
 	return (
 		<div className="screen">
@@ -166,31 +209,24 @@ export function RemoteGame({ state, myPlayerId, error, onGuess, onGiveUp, onSetR
 				<span>
 					Question {round.index + 1} of {round.total}
 				</span>
-				{secondsToNextHint !== null && <span className="remote-hint-timer">Next hint in {secondsToNextHint}s</span>}
+				{!revealPending && secondsToNextHint !== null && <span className="remote-hint-timer">Next hint in {secondsToNextHint}s</span>}
 			</div>
 
-			<ul className="remote-players remote-players--sidebar">
-				{state.players.map((p, i) => (
-					<li key={p.id} className="remote-players__item">
-						<span className="remote-players__color" style={{ background: colorForPlayerIndex(i) }} />
-						<span className="remote-players__name">
-							{p.name}
-							{p.id === myPlayerId && " (you)"}
-						</span>
-						{p.away && <span className="remote-badge remote-badge--away">Away</span>}
-						{!roundDecided && round.givenUpPlayerIds.includes(p.id) && (
-							<span className="remote-badge remote-badge--gave-up">Gave up</span>
-						)}
-						<span className="remote-players__wins">{p.wins}</span>
-					</li>
-				))}
-			</ul>
+			<Leaderboard players={state.players} myPlayerId={myPlayerId} round={round} compact />
 
-			<BadgeChain question={question} countryRevealed={round.hintsRevealed >= 1} transferDateRevealed={round.hintsRevealed >= 3} />
+			{revealPending ? (
+				<div className="remote-countdown" aria-live="polite">
+					<p className="remote-countdown__label">{round.index === 0 ? "First question in" : "Next question in"}</p>
+					<p className="remote-countdown__value">{secondsToGuessUnlock}</p>
+				</div>
+			) : (
+				<>
+					<BadgeChain question={question} countryRevealed={round.hintsRevealed >= 1} transferDateRevealed={round.hintsRevealed >= 3} />
+					{question.nationality && <p className="remote-hint">Nationality: {question.nationality}</p>}
+				</>
+			)}
 
-			{question.nationality && <p className="remote-hint">Nationality: {question.nationality}</p>}
-
-			{roundDecided ? (
+			{revealPending ? null : roundDecided ? (
 				<div className="remote-round-result">
 					{winner ? (
 						<p>
@@ -216,12 +252,6 @@ export function RemoteGame({ state, myPlayerId, error, onGuess, onGiveUp, onSetR
 						</button>
 					)}
 				</div>
-			) : secondsToGuessUnlock > 0 ? (
-				// Every client sees this same countdown, timed off the server's
-				// own roundStartedAt rather than whenever each one's own poll
-				// happened to first notice the round -- see ROUND_START_GRACE_MS's
-				// own doc on the head start this closes.
-				<p className="remote-subtitle">Get ready… guessing unlocks in {secondsToGuessUnlock}s</p>
 			) : iGaveUp ? (
 				// Mirrors RoundPlay.tsx's mid-question pass-and-play copy ("You
 				// gave up on this one.") -- and, like there, the answer itself

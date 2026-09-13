@@ -132,11 +132,6 @@
 	flex-direction: column;
 	gap: 0.5rem;
 }
-.remote-players--sidebar {
-	flex-direction: row;
-	flex-wrap: wrap;
-	margin-bottom: 1rem;
-}
 .remote-players__item {
 	display: flex;
 	align-items: center;
@@ -146,10 +141,6 @@
 	background: #1f2937;
 	border: 1px solid #374151;
 }
-.remote-players--sidebar .remote-players__item {
-	padding: 0.35rem 0.6rem;
-	font-size: 0.85rem;
-}
 .remote-players__color {
 	width: 0.65rem;
 	height: 0.65rem;
@@ -158,10 +149,6 @@
 }
 .remote-players__name {
 	flex: 1;
-}
-.remote-players__wins {
-	font-weight: 700;
-	color: #4ade80;
 }
 
 .remote-badge {
@@ -271,6 +258,50 @@
 	margin-left: auto;
 	margin-right: auto;
 }
+/* In-round leaderboard: same list, tighter, full width of the screen
+   rather than the results screen's narrower centered column. */
+.remote-standings--compact {
+	max-width: none;
+	gap: 0.3rem;
+	margin-bottom: 1rem;
+}
+.remote-standings--compact .remote-standings__item {
+	padding: 0.35rem 0.7rem;
+	font-size: 0.85rem;
+}
+.remote-standings--compact .remote-standings__rank {
+	width: 1.1rem;
+}
+
+/* Pre-reveal countdown -- stands in for the badge chain until the grace
+   window closes (see RemoteGame.tsx's revealPending), so it's sized to
+   feel like the main event of the screen for those few seconds, not a
+   footnote under an empty space. */
+.remote-countdown {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	min-height: 9rem;
+	margin: 0 0 1rem;
+	border-radius: 8px;
+	background: #1f2937;
+	border: 1px solid #374151;
+}
+.remote-countdown__label {
+	margin: 0;
+	color: #9ca3af;
+	font-size: 0.9rem;
+}
+.remote-countdown__value {
+	margin: 0;
+	font-size: 3rem;
+	font-weight: 700;
+	line-height: 1.1;
+	font-variant-numeric: tabular-nums;
+	color: #4ade80;
+}
+
 .remote-standings__item {
 	display: flex;
 	align-items: center;
