@@ -27,6 +27,13 @@ interface Props {
 	// burns a turn on something the server was always going to reject as a
 	// duplicate. Filtering it out here means it can't be picked at all.
 	excludeNames?: string[];
+	// Which side of the input the list opens on. "above" (the default, and
+	// every original caller) -- see reposition() for why that's the
+	// predictable choice on a normal page. "below" exists for a caller
+	// whose input sits at the very top of the viewport with nothing above
+	// it to open into (remote/RollOfHonourGame.tsx's answer sheet, 2026-09-
+	// 13 -- opening above there put the list off the top of the screen).
+	placement?: "above" | "below";
 }
 
 const DEBOUNCE_MS = 200;
@@ -61,10 +68,14 @@ interface DropdownRect {
 	left: number;
 	width: number;
 	maxHeight: number;
-	bottom: number;
+	// Exactly one is set, by `placement`: `bottom` anchors the list's
+	// bottom edge to the input's top ("above"), `top` its top edge to the
+	// input's bottom ("below").
+	bottom?: number;
+	top?: number;
 }
 
-export function GuessInput({ value, onChange, onPick, disabled, suggestUrl, extraQuery = {}, excludeNames = [] }: Props) {
+export function GuessInput({ value, onChange, onPick, disabled, suggestUrl, extraQuery = {}, excludeNames = [], placement = "above" }: Props) {
 	const [suggestions, setSuggestions] = useState<string[]>([]);
 	// True when the server cut the list short (more real matches exist than
 	// were returned) — see suggest.ts's `truncated` flag. Shown as a hint
@@ -130,6 +141,16 @@ export function GuessInput({ value, onChange, onPick, disabled, suggestUrl, extr
 		if (!el) return;
 		const inputRect = el.getBoundingClientRect();
 		const safe = getSafeViewport();
+		if (placement === "below") {
+			const spaceBelow = safe.bottom - inputRect.bottom - DROPDOWN_GAP;
+			setDropdownRect({
+				top: inputRect.bottom + DROPDOWN_GAP,
+				left: inputRect.left,
+				width: inputRect.width,
+				maxHeight: Math.max(Math.min(spaceBelow, DROPDOWN_MAX_HEIGHT), MIN_USABLE_SPACE),
+			});
+			return;
+		}
 		const spaceAbove = inputRect.top - safe.top - DROPDOWN_GAP;
 
 		setDropdownRect({
@@ -138,7 +159,7 @@ export function GuessInput({ value, onChange, onPick, disabled, suggestUrl, extr
 			width: inputRect.width,
 			maxHeight: Math.max(Math.min(spaceAbove, DROPDOWN_MAX_HEIGHT), MIN_USABLE_SPACE),
 		});
-	}, []);
+	}, [placement]);
 
 	// Reposition synchronously before paint whenever the list (re)appears or
 	// its content changes size, and keep it pinned while open. Three things
@@ -265,17 +286,18 @@ export function GuessInput({ value, onChange, onPick, disabled, suggestUrl, extr
 				// While open, the border/bottom corners flush with the list
 				// above (see .guess-suggestions) so the input and its
 				// suggestions read as one control, not two floating panels.
-				className={visible ? "guess-input__field--open" : undefined}
+				className={visible ? (placement === "below" ? "guess-input__field--open guess-input__field--open-below" : "guess-input__field--open") : undefined}
 			/>
 			{visible && dropdownRect && (
 				<ul
-					className="guess-suggestions"
+					className={placement === "below" ? "guess-suggestions guess-suggestions--below" : "guess-suggestions"}
 					role="listbox"
 					style={{
 						left: dropdownRect.left,
 						width: dropdownRect.width,
 						maxHeight: dropdownRect.maxHeight,
 						bottom: dropdownRect.bottom,
+						top: dropdownRect.top,
 					}}
 				>
 					{visibleSuggestions.length > 0

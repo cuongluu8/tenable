@@ -275,13 +275,16 @@ export function RollOfHonourGame({ state, myPlayerId, error, onSelectTile, onRel
 
 			<LeaveControl isHost={me?.isHost ?? false} onLeave={onLeave} />
 
-			{/* The answer box is a bottom sheet, not inline (2026-09-13): the
-			    grid is 70 tiles tall, so an inline box above it was off-screen
-			    by the time a phone had scrolled down to tap 2024-25. A sheet
-			    rather than a modal so the grid stays tappable behind it --
-			    tapping another season switches the hold (the server drops the
-			    old lock when the new one's taken). Closes, releasing the hold,
-			    on answer, "Put it back", Escape, or the ×. */}
+			{/* The answer box is a sheet pinned to the TOP of the viewport, not
+			    inline (2026-09-13): the grid is 70 tiles tall, so an inline box
+			    above it was off-screen by the time a phone had scrolled down
+			    to tap 2024-25. A sheet rather than a modal so the grid stays
+			    tappable behind it -- tapping another season switches the hold
+			    (the server drops the old lock when the new one's taken). Top,
+			    not bottom, so the typeahead list has room to open BELOW the
+			    input (GuessInput's placement="below") inside the viewport; a
+			    bottom sheet's list opened upward off the top of the screen on
+			    phones. Closes, releasing the hold, on answer, Escape, or the ×. */}
 			{held && !iGaveUp && (
 				<div className="roh-sheet" role="dialog" aria-label={`Who won in ${held.season}?`}>
 					<div className="roh-sheet__inner">
@@ -293,7 +296,7 @@ export function RollOfHonourGame({ state, myPlayerId, error, onSelectTile, onRel
 								×
 							</button>
 						</div>
-						<GuessInput value={guess} onChange={setGuess} onPick={answer} disabled={busy} suggestUrl="/api/roll-of-honour/suggest" />
+						<GuessInput value={guess} onChange={setGuess} onPick={answer} disabled={busy} suggestUrl="/api/roll-of-honour/suggest" placement="below" />
 						<p className="roh-sheet__hint">Tap a different season to switch to it.</p>
 					</div>
 				</div>

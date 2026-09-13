@@ -706,20 +706,20 @@
 	color: #fbbf24;
 	font-variant-numeric: tabular-nums;
 }
-/* Bottom sheet for answering a held season -- see RollOfHonourGame.tsx.
-   Fixed to the viewport bottom, no backdrop (the grid behind stays
-   tappable); the screen gets matching bottom padding while it's up so
-   the last rows can still be scrolled clear of it. */
+/* Sheet for answering a held season -- see RollOfHonourGame.tsx. Fixed to
+   the viewport TOP (the typeahead list opens downward from it), no
+   backdrop (the grid behind stays tappable); the screen gets matching top
+   padding while it's up so the first rows can still be scrolled clear. */
 .roh-sheet {
 	position: fixed;
 	left: 0;
 	right: 0;
-	bottom: 0;
+	top: 0;
 	z-index: 20;
-	padding: 0.75rem 1.25rem calc(1rem + env(safe-area-inset-bottom, 0px));
+	padding: calc(0.75rem + env(safe-area-inset-top, 0px)) 1.25rem 0.75rem;
 	background: #1f2937;
-	border-top: 1px solid #374151;
-	box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.55);
+	border-bottom: 1px solid #374151;
+	box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
 }
 .roh-sheet__inner {
 	max-width: 640px;
@@ -732,7 +732,7 @@
 	font-size: 0.8rem;
 }
 .roh-screen--holding {
-	padding-bottom: 12rem;
+	padding-top: 9rem;
 }
 
 .roh-feedback {

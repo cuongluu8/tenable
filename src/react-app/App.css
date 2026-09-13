@@ -621,6 +621,14 @@
 input[type="text"].guess-input__field--open:focus-visible {
 	outline: none;
 }
+/* placement="below" (see GuessInput.tsx): the seam is the input's BOTTOM
+   edge instead, so square those corners and restore the top ones. */
+.guess-input__field--open-below {
+	border-top-left-radius: 8px;
+	border-top-right-radius: 8px;
+	border-bottom-left-radius: 0;
+	border-bottom-right-radius: 0;
+}
 
 .guess-suggestions {
 	/* position: fixed, not absolute — top/left/width/max-height are set
@@ -648,6 +656,12 @@ input[type="text"].guess-input__field--open:focus-visible {
 	border-bottom-left-radius: 0;
 	border-bottom-right-radius: 0;
 	box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
+}
+/* placement="below": flush against the input's bottom edge instead. */
+.guess-suggestions--below {
+	border-radius: 8px;
+	border-top-left-radius: 0;
+	border-top-right-radius: 0;
 }
 .guess-suggestions li + li {
 	margin-top: 0.15rem;
