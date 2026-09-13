@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { RemoteGameSession } from "./durableObjects/remoteGameSession";
 import { enforceCircuitBreaker } from "./lib/circuitBreaker";
 import { refreshEplTicker } from "./lib/eplTicker";
 import { rebuildAll } from "./lib/rebuild";
@@ -50,6 +51,12 @@ app.route("/api/admin/media-audit", mediaAudit);
 // Same "unlisted admin action" reasoning as media-audit.ts above -- see
 // adminRefreshTicker.ts's own doc for what it's for.
 app.route("/api/admin/refresh-ticker", adminRefreshTicker);
+
+// Re-exported (not just imported for its side effect above) because
+// wrangler.json's durable_objects binding resolves `class_name:
+// "RemoteGameSession"` by looking for a matching export from THIS file
+// (wrangler.json's own `main`) -- an import alone doesn't satisfy that.
+export { RemoteGameSession };
 
 export default {
 	fetch: app.fetch,

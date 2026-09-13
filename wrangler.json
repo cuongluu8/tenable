@@ -23,7 +23,16 @@
 		// one-off announcement — a birthday shout-out, etc. — which always
 		// wins over the scores while it's set. A dashboard override is
 		// reset back to this value the next time `wrangler deploy` runs.
-		"TICKER_MESSAGE": ""
+		"TICKER_MESSAGE": "",
+		// Kill switch for the remote multiplayer feature (in progress,
+		// 2026-09-13) — same override pattern as TICKER_MESSAGE: leave
+		// true normally, flip to false via the Cloudflare dashboard
+		// (Workers & Pages → this Worker → Settings → Variables) for an
+		// instant, no-redeploy way to hide the feature and reject new
+		// sessions if something's wrong in production, without touching
+		// anything already in progress (an existing session is left to
+		// finish rather than hard-cut).
+		"REMOTE_MULTIPLAYER_ENABLED": true
 	},
 	"upload_source_maps": true,
 	"triggers": {
@@ -82,6 +91,26 @@
 			// still doesn't touch the D1 free-tier quota at all -- this only
 			// affects the MEDIA binding.
 			"remote": true
+		}
+	],
+	"durable_objects": {
+		"bindings": [
+			{
+				// One instance per remote multiplayer game session (see
+				// src/worker/durableObjects/remoteGameSession.ts's own doc for
+				// why a Durable Object rather than D1 alone). SQLite-backed
+				// (see the migration below), the only backend available on the
+				// Workers Free plan and the one Cloudflare recommends for any
+				// new class regardless of plan.
+				"name": "REMOTE_GAME_SESSION",
+				"class_name": "RemoteGameSession"
+			}
+		]
+	},
+	"migrations": [
+		{
+			"tag": "v1",
+			"new_sqlite_classes": ["RemoteGameSession"]
 		}
 	]
 }

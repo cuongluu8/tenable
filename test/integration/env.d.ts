@@ -34,5 +34,14 @@ declare namespace Cloudflare {
 		SUGGEST_RATE_LIMIT_PER_MINUTE: number;
 		TICKER_MESSAGE: string;
 		FOOTBALL_DATA_API_KEY?: string;
+		REMOTE_MULTIPLAYER_ENABLED: boolean;
+		// Untyped (no <RemoteGameSession> parameter) on purpose -- giving it
+		// one would mean importing the real class from src/worker, which is
+		// exactly the src/worker/index.ts import that caused the
+		// mainModule problem above. Integration tests only ever need the
+		// plain HTTP-shaped .get(id).fetch(request) interface anyway (same
+		// as SELF/Fetcher elsewhere in this file), never strongly-typed RPC
+		// method calls.
+		REMOTE_GAME_SESSION: DurableObjectNamespace;
 	}
 }
