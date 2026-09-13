@@ -89,7 +89,7 @@ describe("Roll of Honour over remote play", () => {
 		const { competitions } = (await res.json()) as { competitions: { id: string; name: string; seasonCount: number }[] };
 		expect(competitions.map((c) => [c.id, c.seasonCount])).toEqual([
 			["european-cup", 37],
-			["champions-league", 33],
+			["champions-league", 34],
 			["first-division", 93],
 			["premier-league", 34],
 		]);
@@ -106,9 +106,9 @@ describe("Roll of Honour over remote play", () => {
 		expect(state.gameType).toBe("roll-of-honour");
 		expect(state.round).toBeNull();
 		expect(state.honour!.competitionName).toBe("Champions League");
-		expect(state.honour!.tiles).toHaveLength(33);
+		expect(state.honour!.tiles).toHaveLength(34);
 		expect(state.honour!.tiles[0].season).toBe("1992-93");
-		expect(state.honour!.tiles[32].season).toBe("2024-25");
+		expect(state.honour!.tiles[33].season).toBe("2025-26");
 		expect(state.honour!.tiles.every((t) => t.status === "open" && t.winner === null && t.imageUrl === null)).toBe(true);
 		expect(JSON.stringify(state.honour)).not.toContain("Marseille");
 		// The round formats' guess route isn't this game's.

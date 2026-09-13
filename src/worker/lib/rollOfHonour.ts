@@ -15,9 +15,9 @@ import { collapseToAlnum, normalize } from "./normalize";
 //
 // Four competitions so far: European Cup / Champions League, and the
 // English First Division / Premier League (added later on 2026-09-13).
-// The Premier League runs to 2025-26 (Arsenal -- confirmed by the product
-// owner, 2026-09-13); the Champions League stops at 2024-25 until its
-// 2025-26 final is confirmed too.
+// Both current competitions run to 2025-26 (Premier League: Arsenal;
+// Champions League: PSG -- both confirmed by the product owner,
+// 2026-09-13).
 
 export interface HonourSeasonDef {
 	season: string; // "1955-56" -- the tile's label
@@ -159,6 +159,7 @@ export const HONOUR_COMPETITIONS: Record<string, HonourCompetitionDef> = {
 			{ season: "2022-23", winner: "Manchester City", country: "England", aliases: ["Man City", "City"] },
 			{ season: "2023-24", ...RM },
 			{ season: "2024-25", winner: "Paris Saint-Germain", country: "France", aliases: ["PSG", "Paris SG", "Paris Saint Germain"] },
+			{ season: "2025-26", winner: "Paris Saint-Germain", country: "France", aliases: ["PSG", "Paris SG", "Paris Saint Germain"] },
 		],
 	},
 	"first-division": {
