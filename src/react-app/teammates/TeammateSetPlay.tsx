@@ -5,6 +5,7 @@ import { SetCompleteScreen } from "../components/SetCompleteScreen";
 import { useSetRound } from "../components/useSetRound";
 import { getSetResults, recordResult } from "./setsStorage";
 import { shareSetViaWhatsApp } from "./shareSet";
+import { TeammateClueCards } from "./TeammateClueCards";
 
 interface CardHint {
 	club: string;
@@ -126,35 +127,15 @@ export function TeammateSetPlay({ setId, onlyQuestionId, onExit }: Props) {
 				isLastOverride={queueIndex === queue.length - 1}
 				soloBanner="Who am I?"
 				extraHints={hints}
+				// Hint 1 -> club + badge in each card; hint 3 (the last hint)
+				// -> the overlap years after it. Same cards remote play shows.
 				middle={(hintsRevealed) => (
-					<>
-						<p className="tm-sub">I played with…</p>
-						<ul className="tm-clues">
-							{current.raw.teammates.map((name, i) => {
-								const card = current.raw.cardHints[i];
-								// Hint 1 -> club + badge in the card; hint 3 (the last
-								// hint) -> the overlap years after it.
-								const showClub = hintsRevealed >= 1;
-								const showYears = hints.length > 0 && hintsRevealed >= hints.length;
-								return (
-									<li key={i} className="tm-clue">
-										<span className="tm-clue__name">{name}</span>
-										{card && (showClub || showYears) && (
-											<span className="tm-clue__meta">
-												{showClub && (
-													<>
-														{card.image && <img src={card.image} alt="" className="tm-clue__badge" />}
-														{card.club}
-													</>
-												)}
-												{showYears && <span className="tm-clue__years">{card.years}</span>}
-											</span>
-										)}
-									</li>
-								);
-							})}
-						</ul>
-					</>
+					<TeammateClueCards
+						teammates={current.raw.teammates}
+						cardHints={current.raw.cardHints}
+						showClub={hintsRevealed >= 1}
+						showYears={hints.length > 0 && hintsRevealed >= hints.length}
+					/>
 				)}
 			/>
 		</div>

@@ -14,6 +14,7 @@ import {
 	clearIdentity,
 	loadIdentity,
 	saveIdentity,
+	type RemoteGameType,
 	type RemoteIdentity,
 	type SessionState,
 } from "./remoteApi";
@@ -28,7 +29,7 @@ interface UseRemoteSessionResult {
 	state: SessionState | null;
 	error: string | null;
 	isHost: boolean;
-	create: (hostName: string) => Promise<void>;
+	create: (hostName: string, gameType: RemoteGameType) => Promise<void>;
 	join: (code: string, name: string) => Promise<void>;
 	setReady: (ready: boolean) => Promise<void>;
 	start: (questionCount: number) => Promise<string | null>;
@@ -118,8 +119,8 @@ export function useRemoteSession(): UseRemoteSessionResult {
 	}, [identity, refresh]);
 
 	const create = useCallback(
-		async (hostName: string) => {
-			const res = await apiCreateSession(hostName);
+		async (hostName: string, gameType: RemoteGameType) => {
+			const res = await apiCreateSession(hostName, gameType);
 			if (res.status !== 200 || !("sessionCode" in res.body)) {
 				setError("error" in res.body ? res.body.error : "Couldn't create a session.");
 				return;

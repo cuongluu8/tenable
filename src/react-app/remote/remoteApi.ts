@@ -26,19 +26,51 @@ export interface PublicPlayer {
 	message: PublicMessage | null;
 }
 
+// Which "name the player" format a session plays -- picked by the host
+// (RemoteGameTypePick.tsx), fixed for the session's life, reported by
+// /state so joiners learn it from the session rather than a link param.
+// Mirrors remoteGameSession.ts's own RemoteGameType.
+export type RemoteGameType = "club-badges" | "teammates";
+
+export const REMOTE_GAME_LABELS: Record<RemoteGameType, string> = {
+	"club-badges": "Club Run",
+	teammates: "Teammate Tell",
+};
+
 export interface RoundBadge {
 	name: string;
 	url: string | null;
 	country: string | null;
 }
 
-export interface RoundQuestion {
+// Club Run: the badge trail. Same shape as components/clubBadgesState.ts's
+// CbQuestion, so BadgeChain renders it directly.
+export interface ClubBadgeRoundQuestion {
 	id: number;
 	badges: RoundBadge[];
 	nationality: string | null;
 	transferDates: (string | null)[];
 	loanMoves: boolean[];
 }
+
+// Teammate Tell: clue names, with the per-card hint fields null until the
+// server's own hint tier reveals them (club + image at tier 1, years at
+// tier 3; nationality at tier 2) -- see remoteGameSession.ts's
+// publicQuestion.
+export interface TeammateCardHint {
+	club: string | null;
+	image: string | null;
+	years: string | null;
+}
+export interface TeammateRoundQuestion {
+	id: number;
+	teammates: string[];
+	cardHints: TeammateCardHint[];
+	nationality: string | null;
+}
+
+// Discriminate with `"badges" in question` (or on SessionState.gameType).
+export type RoundQuestion = ClubBadgeRoundQuestion | TeammateRoundQuestion;
 
 export interface RoundInfo {
 	index: number;
@@ -57,6 +89,7 @@ export type SessionStatus = "lobby" | "in_progress" | "finished" | "ended";
 
 export interface SessionState {
 	status: SessionStatus;
+	gameType: RemoteGameType;
 	questionCount: number | null;
 	players: PublicPlayer[];
 	round: RoundInfo | null;
@@ -110,10 +143,10 @@ function authHeaders(token: string): Record<string, string> {
 	return { "X-Player-Token": token };
 }
 
-export function apiCreateSession(hostName: string) {
+export function apiCreateSession(hostName: string, gameType: RemoteGameType) {
 	return apiFetch<{ sessionCode: string; playerId: string; playerToken: string } | { error: string }>("/sessions", {
 		method: "POST",
-		body: JSON.stringify({ hostName }),
+		body: JSON.stringify({ hostName, gameType }),
 	});
 }
 

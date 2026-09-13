@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { BadgeChain } from "../components/BadgeChain";
 import { GuessInput } from "../components/GuessInput";
 import { colorForPlayerIndex } from "../components/playerColors";
+import { TeammateClueCards } from "../teammates/TeammateClueCards";
 import type { PublicMessage, PublicPlayer, RoundInfo, SessionState } from "./remoteApi";
 
 const HINT_REVEAL_INTERVAL_MS = 30_000; // Matches remoteGameSession.ts's own HINT_REVEAL_INTERVAL_MS.
@@ -536,10 +537,21 @@ export function RemoteGame({ state, myPlayerId, error, onGuess, onGiveUp, onPost
 					<p className="remote-countdown__value">{secondsToGuessUnlock}</p>
 				</div>
 			) : (
-				<>
-					<BadgeChain question={question} countryRevealed={round.hintsRevealed >= 1} transferDateRevealed={round.hintsRevealed >= 3} />
-					{question.nationality && <p className="remote-hint">Nationality: {question.nationality}</p>}
-				</>
+				// Which "name the player" format this session plays -- see
+				// remoteApi.ts's RoundQuestion. The server has already blanked
+				// whatever the current hint tier hasn't reached, so the reveal
+				// flags here only decide layout, never secrecy.
+				"badges" in question ? (
+					<>
+						<BadgeChain question={question} countryRevealed={round.hintsRevealed >= 1} transferDateRevealed={round.hintsRevealed >= 3} />
+						{question.nationality && <p className="remote-hint">Nationality: {question.nationality}</p>}
+					</>
+				) : (
+					<>
+						<TeammateClueCards teammates={question.teammates} cardHints={question.cardHints} showClub={round.hintsRevealed >= 1} showYears={round.hintsRevealed >= 3} />
+						{question.nationality && <p className="remote-hint">They represent {question.nationality}</p>}
+					</>
+				)
 			)}
 
 			{revealPending ? null : roundDecided ? (

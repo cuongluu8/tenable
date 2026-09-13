@@ -2,6 +2,7 @@ import { DurableObject } from "cloudflare:workers";
 import { Hono } from "hono";
 import { generateToken } from "../lib/remoteSession";
 import { buildClubBadgeQuestions, pickRandomEligibleQuestions, type ClubBadgeQuestionPublic, type QuestionRow } from "../lib/clubBadgeRound";
+import { buildTeammateQuestions, pickRandomTeammateQuestions, type TeammateQuestionPublic, type TeammateQuestionRow } from "../lib/teammateRound";
 import { checkPlayerGuess } from "../lib/checkPlayerGuess";
 
 // The authoritative session for one "remote" multiplayer game -- players
@@ -30,13 +31,15 @@ import { checkPlayerGuess } from "../lib/checkPlayerGuess";
 // Design decisions locked in before any of this was written (see the
 // conversation this was built from -- not repeated in full here, only
 // the parts that shape this specific class):
-//   - Questions are Club Run's own badge-trail format (guess the player
-//     from the clubs they played for -- see clubBadgeRound.ts), not the
-//     Top-10 category format -- confirmed explicitly (2026-09-13) rather
-//     than assumed from the hint design below, since guessing wrong here
-//     would mean building the wrong data model entirely. A single correct
-//     answer per question is exactly what makes "first correct guess
-//     wins" a coherent race, unlike a Top-10 list's multiple answers.
+//   - Questions are one of the two "name the player" formats, chosen by
+//     the host at /create and fixed for the session's life (gameType):
+//     Club Run's badge trail (clubBadgeRound.ts) or, since later on
+//     2026-09-13, Teammate Tell's "I played with..." clue cards
+//     (teammateRound.ts) -- not the Top-10 category format. A single
+//     correct answer per question is exactly what makes "first correct
+//     guess wins" a coherent race, unlike a Top-10 list's multiple
+//     answers. Everything below that isn't question assembly or the
+//     per-tier hint gating in publicQuestion() is identical for both.
 //   - Clients POLL a /state endpoint every 4s -- no WebSockets. Plain
 //     poll-timing jitter alone was NOT actually harmless in practice,
 //     though -- confirmed live across three real devices (2026-09-13):
@@ -108,6 +111,17 @@ const MAX_QUESTION_COUNT = 20; // Provisional -- comfortably below the
 // MIN_CLUBS_FOR_QUESTION), not tied to any other bound.
 const MAX_NAME_LENGTH = 24;
 
+// Which "name the player" format a session plays -- see the class doc.
+// Mirrors the client's own RemoteGameType (remoteApi.ts); not imported
+// from there (separate bundles, same reasoning as HINT_TIER_COUNT).
+type RemoteGameType = "club-badges" | "teammates";
+const GAME_TYPES: readonly RemoteGameType[] = ["club-badges", "teammates"];
+const QUESTIONS_TABLE: Record<RemoteGameType, "club_badge_questions" | "teammate_questions"> = {
+	"club-badges": "club_badge_questions",
+	teammates: "teammate_questions",
+};
+type RemoteQuestionPublic = ClubBadgeQuestionPublic | TeammateQuestionPublic;
+
 // Chat -- deliberately tiny: one live message per player (a new one
 // replaces the old), capped at 20 words (the product ask) and, as a
 // backstop against a 20-"word" wall of text, a character limit too, at
@@ -171,10 +185,14 @@ type SessionStatus = "lobby" | "in_progress" | "finished" | "ended";
 
 interface SessionRecord {
 	status: SessionStatus;
+	// Absent on sessions persisted before Teammate Tell existed -- read
+	// back as "club-badges" (the only thing they could have been).
+	gameType: RemoteGameType;
 	questionCount: number | null;
 	createdAt: number;
-	// Phase 2 -- all null/empty while status is "lobby".
-	questions: ClubBadgeQuestionPublic[];
+	// Phase 2 -- all null/empty while status is "lobby". Shape follows
+	// gameType; the client discriminates on that, not on the question.
+	questions: RemoteQuestionPublic[];
 	roundIndex: number; // 0-based index into `questions`.
 	roundStartedAt: number | null; // Epoch ms the current round began -- hint timing reads off this.
 	roundWinnerId: string | null; // Set the instant someone's guess is graded correct; stays null if the round instead resolves by everyone giving up.
@@ -241,7 +259,7 @@ interface PublicRound {
 	total: number;
 	startedAt: number | null;
 	hintsRevealed: number;
-	question: ClubBadgeQuestionPublic;
+	question: RemoteQuestionPublic;
 	winnerId: string | null;
 	answerName: string | null;
 	// Who's bowed out of this round so far (see SessionRecord.
@@ -301,22 +319,37 @@ function playersNotReady(players: PlayerRecord[], now: number): PlayerRecord[] {
 // Reveals hint-gated fields only once the corresponding tier's 30s window
 // has elapsed (or immediately, once the round's already been won -- no
 // reason to keep the reveal artificial once there's nothing left to race
-// for). This is the one place single-player's own equivalent (clubBadges.
-// ts's /round, via clubBadgeRound.ts) deliberately diverges from what
-// this sends: solo/pass-and-play ship every field up front and hide them
+// for). This is the one place single-player's own equivalents (clubBadges.
+// ts's and teammates.ts's /round) deliberately diverge from what this
+// sends: solo/pass-and-play ship every field up front and hide them
 // client-side only (nothing to cheat against on a shared or solo device);
 // a real race across separate devices needs the server itself to withhold
 // them, or a technically-inclined player could read the raw response and
-// skip the wait entirely.
-function publicQuestion(question: ClubBadgeQuestionPublic, hintsRevealed: number): ClubBadgeQuestionPublic {
+// skip the wait entirely. Tier order per format mirrors what the solo
+// screens reveal in order: Club Run country -> nationality -> transfer
+// dates (clubBadgesState.ts's HINT_KEYS); Teammate Tell club+badge ->
+// nationality -> overlap years (TeammateSetPlay.tsx's `hints`).
+function publicQuestion(question: RemoteQuestionPublic, hintsRevealed: number): RemoteQuestionPublic {
+	if ("badges" in question) {
+		return {
+			id: question.id,
+			badges: question.badges.map((b) => ({ ...b, country: hintsRevealed >= 1 ? b.country : null })),
+			nationality: hintsRevealed >= 2 ? question.nationality : null,
+			transferDates: hintsRevealed >= 3 ? question.transferDates : question.transferDates.map(() => null),
+			// Never itself a hint (see clubBadgeRound.ts's own doc) -- always
+			// visible, same as single-player.
+			loanMoves: question.loanMoves,
+		};
+	}
 	return {
 		id: question.id,
-		badges: question.badges.map((b) => ({ ...b, country: hintsRevealed >= 1 ? b.country : null })),
+		teammates: question.teammates,
+		cardHints: question.cardHints.map((h) => ({
+			club: hintsRevealed >= 1 ? h.club : null,
+			image: hintsRevealed >= 1 ? h.image : null,
+			years: hintsRevealed >= 3 ? h.years : null,
+		})),
 		nationality: hintsRevealed >= 2 ? question.nationality : null,
-		transferDates: hintsRevealed >= 3 ? question.transferDates : question.transferDates.map(() => null),
-		// Never itself a hint (see clubBadgeRound.ts's own doc) -- always
-		// visible, same as single-player.
-		loanMoves: question.loanMoves,
 	};
 }
 
@@ -369,6 +402,8 @@ export class RemoteGameSession extends DurableObject<Env> {
 			// without it that IS decided is treated as decided long ago, so
 			// the minimum-reveal check never holds a pre-existing session up.
 			if (session && session.roundDecidedAt === undefined) session.roundDecidedAt = session.roundAnswerName !== null ? 0 : null;
+			// And gameType (Teammate Tell added later still) -- see its own doc.
+			if (session && !session.gameType) session.gameType = "club-badges";
 			return session;
 		};
 		const getPlayers = () => storage.get<PlayerRecord[]>("players").then((p) => p ?? []);
@@ -422,7 +457,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 			// answer without grading anything" -- the same lookup Club Run's
 			// own solo give-up uses (clubBadges.ts's /check-guess), reused
 			// rather than duplicating the entities join here.
-			const result = await checkPlayerGuess(this.env.DB, "club_badge_questions", question.id, { giveUp: true });
+			const result = await checkPlayerGuess(this.env.DB, QUESTIONS_TABLE[session.gameType], question.id, { giveUp: true });
 			if (!result) return false; // Defensive only -- see /guess's own "Unknown question" note.
 			session.roundAnswerName = result.name;
 			session.roundDecidedAt = now;
@@ -472,14 +507,19 @@ export class RemoteGameSession extends DurableObject<Env> {
 				return c.json({ error: "Session already exists" }, 409);
 			}
 
-			const body = await c.req.json<{ hostName?: string }>().catch(() => ({}) as { hostName?: string });
+			const body = await c.req.json<{ hostName?: string; gameType?: string }>().catch(() => ({}) as { hostName?: string; gameType?: string });
 			const hostName = (body.hostName ?? "").trim();
 			if (!hostName) return c.json({ error: "Missing host name" }, 400);
 			if (hostName.length > MAX_NAME_LENGTH) return c.json({ error: "Name is too long" }, 400);
+			// Omitted means Club Run -- what every client sent before the
+			// field existed.
+			const gameType = (body.gameType ?? "club-badges") as RemoteGameType;
+			if (!GAME_TYPES.includes(gameType)) return c.json({ error: "Unknown game type" }, 400);
 
 			const now = Date.now();
 			const session: SessionRecord = {
 				status: "lobby",
+				gameType,
 				questionCount: null,
 				createdAt: now,
 				questions: [],
@@ -581,6 +621,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 
 			return c.json({
 				status: session.status,
+				gameType: session.gameType,
 				questionCount: session.questionCount,
 				players: players.map((p) => toPublicPlayer(p, now)),
 				round: publicRound(session, now),
@@ -699,9 +740,16 @@ export class RemoteGameSession extends DurableObject<Env> {
 				return c.json({ error: "All players must be ready before starting", notReadyPlayerIds: notReady.map((p) => p.id) }, 409);
 			}
 
-			const { results: questionRows } = await this.env.DB.prepare("SELECT id, player_id, club_sequence FROM club_badge_questions").all<QuestionRow>();
-			const picked = pickRandomEligibleQuestions(questionRows ?? [], questionCount);
-			const questions = await buildClubBadgeQuestions(this.env.DB, picked);
+			// The one place the two formats' assembly differs -- everything
+			// downstream works off the built RemoteQuestionPublic list.
+			let questions: RemoteQuestionPublic[];
+			if (session.gameType === "teammates") {
+				const { results: rows } = await this.env.DB.prepare("SELECT id, player_id, teammate_ids, hints FROM teammate_questions").all<TeammateQuestionRow>();
+				questions = await buildTeammateQuestions(this.env.DB, pickRandomTeammateQuestions(rows ?? [], questionCount));
+			} else {
+				const { results: rows } = await this.env.DB.prepare("SELECT id, player_id, club_sequence FROM club_badge_questions").all<QuestionRow>();
+				questions = await buildClubBadgeQuestions(this.env.DB, pickRandomEligibleQuestions(rows ?? [], questionCount));
+			}
 			if (questions.length < questionCount) {
 				// Never expected in practice (the eligible pool is comfortably
 				// larger than MAX_QUESTION_COUNT -- see that constant's own
@@ -765,7 +813,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 			}
 
 			const question = session.questions[session.roundIndex];
-			const result = await checkPlayerGuess(this.env.DB, "club_badge_questions", question.id, { guess: rawGuess });
+			const result = await checkPlayerGuess(this.env.DB, QUESTIONS_TABLE[session.gameType], question.id, { guess: rawGuess });
 			if (!result) {
 				// Defensive only -- question.id always came from a real
 				// club_badge_questions row selected at /start.

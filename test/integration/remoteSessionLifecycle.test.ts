@@ -70,6 +70,7 @@ describe("POST /api/remote/sessions (create)", () => {
 		const { body } = await getState(created.sessionCode, created.playerToken);
 		expect(body).toEqual({
 			status: "lobby",
+			gameType: "club-badges",
 			questionCount: null,
 			round: null,
 			players: [{ id: created.playerId, name: "Alice", isHost: true, ready: true, away: false, wins: 0, message: null }],

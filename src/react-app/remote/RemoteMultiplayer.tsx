@@ -26,8 +26,10 @@ export function RemoteMultiplayer({ onBack }: Props) {
 	// shareSession.ts) -- read once at mount, same as App.tsx's own
 	// pathname-based routing helpers read window.location directly rather
 	// than threading a router through props. A join link always means
-	// "join THIS Club Run game", so it skips the game-type picker
-	// entirely -- there's nothing to pick, the sender already picked it.
+	// "join THIS game", so it skips the game-type picker entirely --
+	// there's nothing to pick, the host already picked it, and what they
+	// picked comes back from the server in state.gameType once joined
+	// (the preset below is only to get past the picker).
 	const [joinCode] = useState(() => new URLSearchParams(window.location.search).get("join")?.toUpperCase() || undefined);
 	const [gameType, setGameType] = useState<RemoteGameType | null>(() => (joinCode ? "club-badges" : null));
 
@@ -36,7 +38,17 @@ export function RemoteMultiplayer({ onBack }: Props) {
 	}
 
 	if (!identity) {
-		return <RemoteHome error={error} onCreate={create} onJoin={join} onBack={() => setGameType(null)} initialJoinCode={joinCode} />;
+		return (
+			<RemoteHome
+				error={error}
+				// gameType is always set by here (the picker above ran, or a
+				// join link preset it) -- the fallback only satisfies the type.
+				onCreate={(name) => create(name, gameType ?? "club-badges")}
+				onJoin={join}
+				onBack={() => setGameType(null)}
+				initialJoinCode={joinCode}
+			/>
+		);
 	}
 
 	if (!state) {

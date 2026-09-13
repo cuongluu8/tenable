@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { TEAMMATE_SETS, TEAMMATE_SET_NAMES } from "../lib/teammateSets";
 import { buildSetsIndex, resolveSetQuestions } from "../lib/setsIndex";
 import { checkPlayerGuess } from "../lib/checkPlayerGuess";
+import { buildTeammateQuestions, pickRandomTeammateQuestions, type TeammateQuestionRow } from "../lib/teammateRound";
 
 const teammates = new Hono<{ Bindings: Env }>();
 
@@ -10,20 +11,6 @@ const teammates = new Hono<{ Bindings: Env }>();
 // clubBadges.ts.
 const QUESTIONS_PER_ROUND = 10;
 
-interface QuestionRow {
-	id: number;
-	player_id: number;
-	teammate_ids: string;
-	hints: string | null;
-}
-
-interface Hints {
-	clubs: string[];
-	clubImages: (string | null)[];
-	nationality: string | null;
-	years: string[];
-}
-
 // GET /api/teammates/round  -- 10 "who am I? I played with..." questions.
 // The mystery player's own name/id is never sent -- just the clue names,
 // plus the hint pieces per question: `cardHints` (each clue's club +
@@ -31,7 +18,8 @@ interface Hints {
 // `nationality` (hint 2, shown as text). The client reveals one hint at a
 // time for a 15-point penalty each, same as club-badges. Clue count
 // varies 3-6, one per club the mystery player was at -- see
-// build_teammate_questions.py.
+// build_teammate_questions.py. Assembly itself lives in
+// lib/teammateRound.ts, shared with remote play (remoteGameSession.ts).
 //
 // ?setId=N (1-indexed) hands back exactly one curated set's questions (see
 // teammateSets.ts), in that FIXED order rather than shuffled, so "Set 3"
@@ -48,7 +36,7 @@ interface Hints {
 teammates.get("/round", async (c) => {
 	const { results: all } = await c.env.DB
 		.prepare("SELECT id, player_id, teammate_ids, hints FROM teammate_questions")
-		.all<QuestionRow>();
+		.all<TeammateQuestionRow>();
 	if (!all || all.length === 0) {
 		return c.json({ error: "No teammate questions available" }, 500);
 	}
@@ -59,47 +47,22 @@ teammates.get("/round", async (c) => {
 	// Dev/test-only: ?playerId=552 forces that one player's question, same
 	// escape hatch clubBadges /round has.
 	const forcedPlayerId = c.req.query("playerId");
-	let picked: QuestionRow[];
+	let picked: TeammateQuestionRow[];
 	if (set) {
 		picked = resolveSetQuestions(all, set);
 	} else if (forcedPlayerId) {
 		picked = all.filter((q) => q.player_id === Number(forcedPlayerId));
 	} else {
-		picked = [...all].sort(() => Math.random() - 0.5).slice(0, QUESTIONS_PER_ROUND);
+		picked = pickRandomTeammateQuestions(all, QUESTIONS_PER_ROUND);
 	}
 	if (picked.length === 0) {
 		return c.json({ error: "No matching question" }, 404);
 	}
 
-	const clueIds = [...new Set(picked.flatMap((q) => JSON.parse(q.teammate_ids) as number[]))];
-	const { results: nameRows } = await c.env.DB
-		.prepare(`SELECT id, canonical_name FROM entities WHERE id IN (${clueIds.map(() => "?").join(",")})`)
-		.bind(...clueIds)
-		.all<{ id: number; canonical_name: string }>();
-	const nameById = new Map((nameRows ?? []).map((r) => [r.id, r.canonical_name]));
-
-	const questions = picked.map((q) => {
-		const names = (JSON.parse(q.teammate_ids) as number[]).map((tid) => nameById.get(tid) ?? "Unknown");
-		const h = q.hints ? (JSON.parse(q.hints) as Hints) : null;
-		return {
-			id: q.id,
-			// Clue cards show names only -- club/nationality/years withheld
-			// behind the hints.
-			teammates: names,
-			// The per-clue hint data, parallel to `teammates`: hint 1 drops
-			// the club + badge into each card, hint 3 the overlap years.
-			// `image` is a ready /api/media URL (or null if not sourced).
-			cardHints: h
-				? h.clubs.map((club, i) => ({
-						club: club ?? "?",
-						image: h.clubImages[i] ? `/api/media/${h.clubImages[i]}` : null,
-						years: h.years[i] ?? "?",
-					}))
-				: [],
-			// Hint 2 -- a single value, shown as text below the cards.
-			nationality: h?.nationality ?? null,
-		};
-	});
+	// Every hint field is sent up front here and hidden client-side only
+	// (RoundPlay.tsx) -- a solo device has nobody to cheat against. Remote
+	// play withholds them server-side instead; see remoteGameSession.ts.
+	const questions = await buildTeammateQuestions(c.env.DB, picked);
 	return c.json({ setName: set ? TEAMMATE_SET_NAMES[setIndex] : undefined, questions });
 });
 

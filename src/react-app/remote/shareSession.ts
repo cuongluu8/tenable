@@ -23,8 +23,8 @@ export function buildJoinUrl(sessionCode: string): string {
 	return `${window.location.origin}/remote?join=${sessionCode}`;
 }
 
-export function shareSessionViaWhatsApp(sessionCode: string): void {
+export function shareSessionViaWhatsApp(sessionCode: string, gameLabel: string): void {
 	const url = buildJoinUrl(sessionCode);
-	const text = `Join my Club Run game on Top-10 Tension! Code: ${sessionCode} ${url}`;
+	const text = `Join my ${gameLabel} game on Top-10 Tension! Code: ${sessionCode} ${url}`;
 	window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
 }

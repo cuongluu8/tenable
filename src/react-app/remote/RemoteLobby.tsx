@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { colorForPlayerIndex } from "../components/playerColors";
-import type { SessionState } from "./remoteApi";
+import { REMOTE_GAME_LABELS, type SessionState } from "./remoteApi";
 import { shareSessionViaWhatsApp } from "./shareSession";
 
 const DEFAULT_QUESTION_COUNT = 5;
@@ -31,11 +31,12 @@ export function RemoteLobby({ state, sessionCode, myPlayerId, isHost, error, onS
 	return (
 		<div className="screen">
 			<h2>Waiting room</h2>
+			<p className="remote-subtitle">{REMOTE_GAME_LABELS[state.gameType]}</p>
 
 			<div className="remote-code-display">
 				<span className="remote-code-display__label">Session code</span>
 				<span className="remote-code-display__value">{sessionCode}</span>
-				<button type="button" onClick={() => shareSessionViaWhatsApp(sessionCode)}>
+				<button type="button" onClick={() => shareSessionViaWhatsApp(sessionCode, REMOTE_GAME_LABELS[state.gameType])}>
 					Share via WhatsApp
 				</button>
 			</div>

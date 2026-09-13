@@ -1,4 +1,6 @@
-export type RemoteGameType = "club-badges";
+import type { RemoteGameType } from "./remoteApi";
+
+export type { RemoteGameType };
 
 interface Props {
 	onSelect: (gameType: RemoteGameType) => void;
@@ -7,11 +9,10 @@ interface Props {
 
 // First step of remote play, ahead of RemoteHome's own host-or-join
 // choice -- same "one shared fork point" reasoning as local multiplayer's
-// MultiplayerGameTypePick.tsx. Only Club Run is actually wired up
-// (RemoteGameSession only ever serves badge-trail questions -- see that
-// class's own doc), but all three of this app's game types are shown
-// here rather than just the one that works today, so the other two read
-// as "coming soon", not as never having been considered.
+// MultiplayerGameTypePick.tsx. Club Run and (since 2026-09-13) Teammate
+// Tell are wired up -- both "name the player" formats RemoteGameSession
+// serves; Top 10 is shown too rather than hidden, so it reads as "coming
+// soon", not as never having been considered.
 export function RemoteGameTypePick({ onSelect, onBack }: Props) {
 	return (
 		<div className="screen">
@@ -30,9 +31,9 @@ export function RemoteGameTypePick({ onSelect, onBack }: Props) {
 					<strong>🛡️ Club Run</strong>
 					<span>Name them from the clubs they've played for</span>
 				</button>
-				<button type="button" className="mode-button" disabled>
+				<button type="button" className="mode-button" onClick={() => onSelect("teammates")}>
 					<strong>🤝 Teammate Tell</strong>
-					<span>Coming soon</span>
+					<span>Name them from who they played with</span>
 				</button>
 			</div>
 		</div>
