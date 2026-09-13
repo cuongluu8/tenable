@@ -17,14 +17,16 @@ const ROUND_START_GRACE_MS = 5_000;
 // Chat display. A message holds still next to its author's name for
 // CHAT_HOLD_MS, then scrolls off leftwards (behind the name -- the bubble
 // container clips it) over CHAT_SCROLL_MS and never comes back. Both are
-// also baked into remote.css's remote-chat-scroll keyframes (hold = 5/6 of
-// the total), kept in step by hand. CHAT_MAX_FIRST_SEEN_AGE_MS: a message
+// also baked into remote.css's remote-chat-scroll keyframes (hold = 10/11
+// of the total) and the row flash's duration there, kept in step by hand.
+// Hold was 5s at first; doubled 2026-09-13 as too short to read across a
+// room. CHAT_MAX_FIRST_SEEN_AGE_MS: a message
 // this old on FIRST sight (server-reported ageMs, so clock skew can't
 // affect it) is treated as already over -- it's how a page refresh, or a
 // player joining, doesn't replay something everyone else watched scroll
 // away 15s ago. Comfortably above the 4s poll interval so a message that
 // just missed one poll is still fresh on the next.
-const CHAT_HOLD_MS = 5_000;
+const CHAT_HOLD_MS = 10_000;
 const CHAT_SCROLL_MS = 1_000;
 const CHAT_MAX_FIRST_SEEN_AGE_MS = 12_000;
 const CHAT_MAX_WORDS = 20; // Matches remoteGameSession.ts's MESSAGE_MAX_WORDS.

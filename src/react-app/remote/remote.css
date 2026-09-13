@@ -368,21 +368,21 @@
 		opacity: 1;
 	}
 }
-/* Hold still for 5/6 of the duration (5s of 6s -- RemoteGame.tsx's
+/* Hold still for 10/11 of the duration (10s of 11s -- RemoteGame.tsx's
    CHAT_HOLD_MS/CHAT_SCROLL_MS set the actual duration inline), then
    slide left by its own width so even a message longer than the row
    fully clears the container's left edge. `forwards` so it stays gone
    for however long React takes to unmount it after animationend. */
 @keyframes remote-chat-scroll {
 	0%,
-	83.333% {
+	90.909% {
 		transform: translateX(0);
 	}
 	100% {
 		transform: translateX(-100%);
 	}
 }
-/* Glow ripple while it holds -- three rings over the first ~4s so the
+/* Glow ripple while it holds -- six rings over the first ~8s so the
    bubble keeps drawing the eye until it's about to leave. */
 @keyframes remote-chat-glow {
 	from {
@@ -405,21 +405,21 @@
 	   properties (transform vs. box-shadow). The scroll's own duration is
 	   set inline by RemoteGame.tsx; the glow's isn't. */
 	animation:
-		remote-chat-scroll 6s linear forwards,
-		remote-chat-glow 1.3s ease-out 3;
+		remote-chat-scroll 11s linear forwards,
+		remote-chat-glow 1.3s ease-out 6;
 }
 /* The author's whole row lights up for the hold too, so the message
    registers even from across the room / a glance at a phone. */
 .remote-standings__item--speaking {
-	animation: remote-chat-row-flash 6s ease-out both;
+	animation: remote-chat-row-flash 11s ease-out both;
 }
 @keyframes remote-chat-row-flash {
 	0% {
 		background: rgba(74, 222, 128, 0.45);
 		border-color: #4ade80;
 	}
-	15%,
-	80% {
+	10%,
+	88% {
 		background: rgba(74, 222, 128, 0.14);
 		border-color: #4ade80;
 	}
@@ -433,7 +433,7 @@
 		animation: none;
 	}
 	.remote-chat__text {
-		animation: remote-chat-scroll 6s linear forwards;
+		animation: remote-chat-scroll 11s linear forwards;
 	}
 	.remote-standings__item--speaking {
 		animation: none;
@@ -442,7 +442,7 @@
 	}
 	@keyframes remote-chat-scroll {
 		0%,
-		83.333% {
+		90.909% {
 			opacity: 1;
 		}
 		100% {
