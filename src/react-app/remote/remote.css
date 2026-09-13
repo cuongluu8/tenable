@@ -352,6 +352,10 @@
 	display: block;
 	overflow: visible;
 	white-space: nowrap;
+	/* Inset from the clip box's left edge so the pill's rounded end and
+	   its glow ring aren't cropped while it holds. The scroll-off below
+	   travels this same extra distance so it still exits fully. */
+	padding-left: 12px;
 	/* Entrance: pops in from small with an overshoot, on this wrapper (not
 	   __text below) because the scroll-off animates that element's own
 	   transform and a second transform animation there would override it. */
@@ -379,7 +383,7 @@
 		transform: translateX(0);
 	}
 	100% {
-		transform: translateX(-100%);
+		transform: translateX(calc(-100% - 12px));
 	}
 }
 /* Glow ripple while it holds -- six rings over the first ~8s so the
