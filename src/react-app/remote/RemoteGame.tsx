@@ -147,7 +147,11 @@ export function RemoteGame({ state, myPlayerId, error, onGuess, onSetReady, onLe
 					{me?.isHost ? (
 						<p className="remote-subtitle">Waiting for everyone to be ready for the next question…</p>
 					) : (
-						<button type="button" className="remote-primary-button" onClick={() => onSetReady(!me?.ready)}>
+						<button
+							type="button"
+							className={me?.ready ? "remote-ready-toggle remote-ready-toggle--active" : "remote-ready-toggle"}
+							onClick={() => onSetReady(!me?.ready)}
+						>
 							{me?.ready ? "Not ready" : "Ready for next question"}
 						</button>
 					)}

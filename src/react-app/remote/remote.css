@@ -70,11 +70,34 @@
 .remote-leave-button {
 	display: block;
 	margin-top: 1.5rem;
+	margin-left: auto;
 	color: #f87171;
 }
 .remote-leave-button:hover:not(:disabled) {
 	border-color: #f87171;
 	background: rgba(248, 113, 113, 0.15);
+}
+
+/* Same base look as remote-primary-button, but only while it's the
+   affirmative "I'm ready"/"Ready for next question" action -- once
+   already ready, this same button becomes "Not ready" (an UN-ready
+   toggle), and staying green there read as confusing/still-affirmative
+   for an action that's actually undoing readiness. */
+.remote-ready-toggle {
+	background: #4ade80;
+	color: #14181f;
+	font-weight: 600;
+	border: none;
+}
+.remote-ready-toggle:hover:not(:disabled) {
+	background: #22c55e;
+}
+.remote-ready-toggle--active {
+	background: #374151;
+	color: #e5e7eb;
+}
+.remote-ready-toggle--active:hover:not(:disabled) {
+	background: #4b5563;
 }
 
 .remote-code-display {
