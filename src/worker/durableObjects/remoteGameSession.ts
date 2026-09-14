@@ -41,7 +41,9 @@ import { buildHonourTiles, DEFAULT_HONOUR_COMPETITION_ID, gradeHonourGuess, HONO
 //     guess wins" a coherent race, unlike a Top-10 list's multiple
 //     answers. Everything below that isn't question assembly or the
 //     per-tier hint gating in publicQuestion() is identical for both.
-//   - Clients POLL a /state endpoint every 4s -- no WebSockets. Plain
+//   - Clients POLL a /state endpoint every 4s (1.5s during a Roll of
+//     Honour game, where another player's lock/release changes what you
+//     can tap -- see useRemoteSession.ts) -- no WebSockets. Plain
 //     poll-timing jitter alone was NOT actually harmless in practice,
 //     though -- confirmed live across three real devices (2026-09-13):
 //     the host's own client re-fetches /state right after /start
@@ -119,6 +121,9 @@ import { buildHonourTiles, DEFAULT_HONOUR_COMPETITION_ID, gradeHonourGuess, HONO
 // minimum reveal) simply never engages since no round ever starts.
 
 const PLAYER_AWAY_MS = 15_000; // ~3 missed 4s polls -- see class doc.
+// /state's heartbeat write (lastSeenAt) is skipped when the previous one is
+// younger than this -- see that handler. Comfortably inside PLAYER_AWAY_MS.
+const HEARTBEAT_WRITE_MIN_MS = 3_000;
 const MAX_PLAYERS = 8; // A casual party-game bound, not a locked design
 // decision -- easy to raise later if a real session ever wants more. Caps
 // this DO's own per-request storage-read/write cost more than it limits
@@ -755,7 +760,14 @@ export class RemoteGameSession extends DurableObject<Env> {
 			// signal, so simply reaching this handler at all proves the
 			// caller isn't away, regardless of how stale their last poll was.
 			const now = Date.now();
-			self.lastSeenAt = now;
+			// The heartbeat write is throttled: lastSeenAt only needs to be
+			// accurate to well within PLAYER_AWAY_MS (15s), so a poll arriving
+			// less than HEARTBEAT_WRITE_MIN_MS after the last recorded one
+			// doesn't pay a storage write just to move it a second -- which is
+			// what lets the client poll Roll of Honour games at 1.5s (see
+			// useRemoteSession.ts) without multiplying row writes.
+			const heartbeatDue = now - self.lastSeenAt >= HEARTBEAT_WRITE_MIN_MS;
+			if (heartbeatDue) self.lastSeenAt = now;
 			// "Away" is purely time-based (no request marks it), so the moment
 			// a still-racing player crosses PLAYER_AWAY_MS can only ever be
 			// noticed by someone ELSE's poll -- this one. If that leaves only
@@ -767,7 +779,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 			const honourChanged = expireHonourLocks(session, now) || finishHonourIfDone(session, players, now);
 			if ((await resolveRoundByGiveUp(session, players, now)) || honourChanged) {
 				await storage.put({ session, players });
-			} else {
+			} else if (heartbeatDue) {
 				await storage.put("players", players);
 			}
 			// Unconditional -- see maybeAdvanceRound's own doc on why a poll

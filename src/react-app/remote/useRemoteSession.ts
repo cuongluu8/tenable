@@ -27,6 +27,13 @@ import {
 // doc): no WebSockets, a few seconds of UI lag doesn't affect fairness
 // since the server decides who won each question, not the client.
 const POLL_INTERVAL_MS = 4_000;
+// Roll of Honour is the one format where other players' actions change
+// what YOU can tap: a season held by someone else is disabled until your
+// next poll shows it released, and at 4s that read as a 1-2s dead tile
+// (reported 2026-09-14). Faster while such a game is in progress; the
+// server skips its per-poll heartbeat write when nothing else changed
+// (see /state), so the extra polls cost requests but not writes.
+const HONOUR_POLL_INTERVAL_MS = 1_500;
 
 interface UseRemoteSessionResult {
 	identity: RemoteIdentity | null;
@@ -135,6 +142,11 @@ export function useRemoteSession(): UseRemoteSessionResult {
 		lastFeedIdRef.current = 0;
 	}
 
+	// The cadence only changes on a real transition (a Roll of Honour game
+	// starting or ending), so depending on this derived value rebuilds the
+	// interval then and only then -- not on every poll.
+	const pollMs = state?.gameType === "roll-of-honour" && state.status === "in_progress" ? HONOUR_POLL_INTERVAL_MS : POLL_INTERVAL_MS;
+
 	useEffect(() => {
 		if (!identity) return;
 		let cancelled = false;
@@ -146,7 +158,7 @@ export function useRemoteSession(): UseRemoteSessionResult {
 			// to keep polling to notice the host starting another game.
 			if (state?.status === "ended") return;
 			if (!cancelled) refresh(identity);
-		}, POLL_INTERVAL_MS);
+		}, pollMs);
 		return () => {
 			cancelled = true;
 			clearInterval(interval);
@@ -154,9 +166,9 @@ export function useRemoteSession(): UseRemoteSessionResult {
 		// state.status is read inside the interval callback (to stop polling
 		// once terminal), not depended on here -- depending on it would tear
 		// down and rebuild the interval every single poll, defeating a fixed
-		// 4s cadence.
+		// cadence. pollMs IS depended on: see its own comment.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [identity, refresh]);
+	}, [identity, refresh, pollMs]);
 
 	const create = useCallback(
 		async (hostName: string, gameType: RemoteGameType) => {

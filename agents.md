@@ -239,8 +239,11 @@ simpler content model.
   `RemoteGameSession`, a SQLite-backed Durable Object per 6-character
   session code (`lib/remoteSession.ts`), reached only through
   `routes/remoteSession.ts`, which does no business logic itself. Clients
-  **poll `/state` every 4s** (no WebSockets) and prove identity with a
-  per-player token header. Rules worth knowing before touching it (each
+  **poll `/state` every 4s** (1.5s while a Roll of Honour game is in
+  progress, since another player's lock/release changes what you can
+  tap; the server throttles the per-poll heartbeat write to once per 3s
+  so the faster cadence costs requests, not row writes) -- no WebSockets
+  -- and prove identity with a per-player token header. Rules worth knowing before touching it (each
   has a doc comment at the code):
   - **first correct guess wins** a question; wrong guesses are free. A
     server-enforced start countdown (`ROUND_START_GRACE_MS`, 5s) closes the
