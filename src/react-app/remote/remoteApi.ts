@@ -132,6 +132,15 @@ export interface SessionState {
 	honour: HonourState | null;
 	// Only the entries newer than the `since` the poll asked with.
 	feed: FeedEntry[];
+	// Fingerprint of everything above except `feed` -- echoed back as the
+	// next poll's `v` so an unchanged state comes back as a few bytes.
+	v: string;
+}
+
+// /state's reply when nothing changed since the `v` the poll carried.
+export interface UnchangedState {
+	unchanged: true;
+	v: string;
 }
 
 export interface RemoteIdentity {
@@ -204,10 +213,11 @@ export function apiJoinSession(code: string, name: string) {
 	});
 }
 
-export function apiFetchState(code: string, token: string, sinceFeedId = 0) {
-	return apiFetch<SessionState | { error: string }>(`/sessions/${code}/state?since=${sinceFeedId}`, {
-		headers: authHeaders(token),
-	});
+export function apiFetchState(code: string, token: string, sinceFeedId = 0, lastVersion = "") {
+	return apiFetch<SessionState | UnchangedState | { error: string }>(
+		`/sessions/${code}/state?since=${sinceFeedId}&v=${encodeURIComponent(lastVersion)}`,
+		{ headers: authHeaders(token) },
+	);
 }
 
 export function apiSetReady(code: string, token: string, ready: boolean) {

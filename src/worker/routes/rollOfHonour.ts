@@ -1,8 +1,9 @@
 import { Hono } from "hono";
 import { normalize } from "../lib/normalize";
 import { suggestNames } from "../lib/categories";
-import { enforceSuggestRateLimit } from "../lib/suggestRateLimit";
+import { enforceSuggestRateLimit } from "../lib/rateLimits";
 import { HONOUR_COMPETITIONS, allHonourWinnerNames, buildHonourTiles, gradeHonourGuess, type HonourTilePrivate } from "../lib/rollOfHonour";
+import { cachedContentQuery } from "../lib/responseCache";
 
 const rollOfHonour = new Hono<{ Bindings: Env }>();
 
@@ -15,6 +16,31 @@ rollOfHonour.get("/competitions", (c) =>
 		competitions: Object.values(HONOUR_COMPETITIONS).map((comp) => ({ id: comp.id, name: comp.name, seasonCount: comp.seasons.length })),
 	}),
 );
+
+// GET /api/roll-of-honour/clubs -- the whole club typeahead pool in one
+// go (2026-09-14): every club entity's canonical name with its curated
+// aliases, plus any curated winner without an entities row. ~700 clubs;
+// a few tens of KB, gzipped on the wire. The client fetches it once per
+// visit and filters locally (GuessInput's `localIndex`), so a Roll of
+// Honour keystroke costs no request at all -- the single biggest request
+// type in that mode gone (docs/scaling.md §3c). Public and identical for
+// everyone, so it sits behind the edge cache keyed by content_version
+// (same as the category list) and is browser-cacheable for a day.
+rollOfHonour.get("/clubs", async (c) => {
+	const clubs = await cachedContentQuery(c.env.DB, c.executionCtx, "roll-of-honour-clubs", async () => {
+		const { results } = await c.env.DB.prepare(
+			`SELECT e.canonical_name AS name, GROUP_CONCAT(a.alias, '\u001f') AS aliases
+			 FROM entities e LEFT JOIN entity_aliases a ON a.entity_id = e.id
+			 WHERE e.entity_type = 'club'
+			 GROUP BY e.id ORDER BY e.canonical_name`,
+		).all<{ name: string; aliases: string | null }>();
+		const rows = (results ?? []).map((r) => ({ name: r.name, aliases: r.aliases ? r.aliases.split("\u001f") : [] }));
+		const have = new Set(rows.map((r) => normalize(r.name)));
+		for (const winner of allHonourWinnerNames()) if (!have.has(normalize(winner))) rows.push({ name: winner, aliases: [] });
+		return rows;
+	});
+	return c.json({ clubs }, 200, { "cache-control": "public, max-age=86400" });
+});
 
 // GET /api/roll-of-honour/suggest?q= -- club typeahead for the grid's
 // guess box. The WHOLE entities club table (~700 rows), not just the

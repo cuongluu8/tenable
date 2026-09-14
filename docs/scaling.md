@@ -86,6 +86,13 @@ What is **not** a bottleneck, and why it's worth knowing:
 Target: **20-30 people playing at once for an evening, possibly from one
 venue**, with no bill. Three changes, all cheap, all in this repo.
 
+> **Done 2026-09-14** (all three, same day this doc was written): the
+> Rate Limiting binding replaced both D1 guards (`lib/rateLimits.ts`);
+> `/state` answers `{ unchanged: true }` to a poll carrying the last
+> fingerprint; Roll of Honour's typeahead filters a once-fetched, edge-
+> cached club list in the browser. Ceilings #1, #5 and #6 in §2 no longer
+> exist. What remains for this tier is Cloudflare's request quotas (#2-#4).
+
 ### 3a. Take the guardrails off the hot path
 
 The budget counter and rate limiter each cost a contended D1 write per

@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { normalize, toFtsPrefixQuery } from "../lib/normalize";
 import { suggestNames } from "../lib/categories";
-import { enforceSuggestRateLimit } from "../lib/suggestRateLimit";
+import { enforceSuggestRateLimit } from "../lib/rateLimits";
 import { CLUB_BADGE_SETS, CLUB_BADGE_SET_NAMES } from "../lib/clubBadgeSets";
 import { buildSetsIndex, resolveSetQuestions } from "../lib/setsIndex";
 import { checkPlayerGuess } from "../lib/checkPlayerGuess";

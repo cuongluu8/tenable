@@ -95,6 +95,9 @@ export function useRemoteSession(): UseRemoteSessionResult {
 	// The last feed id received, for the next poll's `since` -- a ref, not
 	// state, so refresh() (a stable callback) always reads the latest.
 	const lastFeedIdRef = useRef(0);
+	// The fingerprint of the last state applied -- echoed as the next
+	// poll's `v` (see remoteApi.ts's UnchangedState).
+	const lastVersionRef = useRef("");
 	const [error, setError] = useState<string | null>(null);
 	// Avoids setting state after the identity that produced it has already
 	// been cleared (e.g. a 401 from a stale localStorage entry racing
@@ -105,7 +108,7 @@ export function useRemoteSession(): UseRemoteSessionResult {
 	identityRef.current = identity;
 
 	const refresh = useCallback(async (id: RemoteIdentity) => {
-		const res = await apiFetchState(id.sessionCode, id.playerToken, lastFeedIdRef.current);
+		const res = await apiFetchState(id.sessionCode, id.playerToken, lastFeedIdRef.current, lastVersionRef.current);
 		if (identityRef.current !== id) return; // superseded while this was in flight
 		if (res.status === 401 || res.status === 404) {
 			// The session this identity pointed at is gone or never existed --
@@ -122,7 +125,9 @@ export function useRemoteSession(): UseRemoteSessionResult {
 			return;
 		}
 		setError(null);
+		if ("unchanged" in res.body) return; // Nothing new -- no re-render either.
 		const body = res.body as SessionState;
+		lastVersionRef.current = body.v;
 		if (body.feed.length > 0) {
 			// Two polls can overlap (a poll and an action's own refresh), so
 			// merge by id rather than blindly appending.
@@ -140,6 +145,7 @@ export function useRemoteSession(): UseRemoteSessionResult {
 	function resetFeed() {
 		setFeed([]);
 		lastFeedIdRef.current = 0;
+		lastVersionRef.current = "";
 	}
 
 	// The cadence only changes on a real transition (a Roll of Honour game

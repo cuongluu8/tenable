@@ -4,6 +4,7 @@ import "./rollOfHonour.css";
 import { GuessInput } from "../components/GuessInput";
 import { LivesIndicator } from "../components/LivesIndicator";
 import { HonourTile } from "./HonourTile";
+import { useClubIndex } from "./useClubIndex";
 
 const MAX_LIVES = 5;
 const MY_COLOR = "#4ade80";
@@ -164,6 +165,7 @@ function Board({ competitionId, onBack }: { competitionId: string; onBack: () =>
 	const [board, setBoard] = useState<BoardData | null>(null);
 	const [loadError, setLoadError] = useState<string | null>(null);
 	const [game, setGame] = useState<SavedGame>(() => loadGame(competitionId));
+	const clubIndex = useClubIndex();
 	const [selected, setSelected] = useState<string | null>(null);
 	const [guess, setGuess] = useState("");
 	const [busy, setBusy] = useState(false);
@@ -384,7 +386,7 @@ function Board({ competitionId, onBack }: { competitionId: string; onBack: () =>
 								×
 							</button>
 						</div>
-						<GuessInput value={guess} onChange={setGuess} onPick={answer} disabled={busy} suggestUrl="/api/roll-of-honour/suggest" placement="below" />
+						<GuessInput value={guess} onChange={setGuess} onPick={answer} disabled={busy} suggestUrl="/api/roll-of-honour/suggest" localIndex={clubIndex ?? undefined} placement="below" />
 						{feedback && feedback.kind !== "correct" && <p className={`roh-feedback roh-feedback--${feedback.kind}`}>{feedback.text}</p>}
 						{game.hints[selected] ? (
 							<p className="roh-hint-text">Country: {game.hints[selected]}</p>

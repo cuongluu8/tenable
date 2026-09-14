@@ -75,6 +75,7 @@ describe("POST /api/remote/sessions (create)", () => {
 			round: null,
 			honour: null,
 			feed: [],
+			v: expect.stringMatching(/^[0-9a-f]{8}$/),
 			players: [{ id: created.playerId, name: "Alice", isHost: true, ready: true, away: false, wins: 0 }],
 		});
 	});

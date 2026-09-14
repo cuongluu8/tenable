@@ -113,4 +113,22 @@ describe("the session activity feed", () => {
 		expect(state.feed[0].text).toBe("Question 1 of 1");
 		expect(state.feed[6].text).toBe("New game -- scores reset");
 	});
+
+	it("a poll echoing the last fingerprint gets a tiny 'unchanged' reply until something visible changes", async () => {
+		const host = await createSession("Host");
+		const url = (v: string) => `https://example.com/api/remote/sessions/${host.sessionCode}/state?since=0&v=${v}`;
+		const headers = { "X-Player-Token": host.playerToken };
+		const first = (await (await SELF.fetch(url(""), { headers })).json()) as { v: string };
+		expect(first.v).toMatch(/^[0-9a-f]{8}$/);
+
+		const again = (await (await SELF.fetch(url(first.v), { headers })).json()) as { unchanged?: true; v: string };
+		expect(again).toEqual({ unchanged: true, v: first.v });
+
+		// Someone joining is a visible change: full state, new fingerprint.
+		await joinSession(host.sessionCode, "Guest");
+		const changed = (await (await SELF.fetch(url(first.v), { headers })).json()) as { unchanged?: true; v: string; players?: unknown[] };
+		expect(changed.unchanged).toBeUndefined();
+		expect(changed.players).toHaveLength(2);
+		expect(changed.v).not.toBe(first.v);
+	});
 });

@@ -37,6 +37,48 @@ interface Props {
 	// the list over the input on real phones once the keyboard was up,
 	// and where the modal's own placement already guarantees room below.
 	placement?: "above" | "below";
+	// When given, suggestions come from THIS list, filtered in the browser,
+	// and `suggestUrl` is never fetched -- for pools small enough to ship
+	// whole (Roll of Honour's ~700 clubs; see rollOfHonour/useClubIndex.ts).
+	// Matches the way the server does: a word of the name starting with
+	// the typed text, or an alias starting with it. Same 20-row cap and
+	// `truncated` hint.
+	localIndex?: LocalSuggestEntry[];
+}
+
+export interface LocalSuggestEntry {
+	name: string;
+	aliases: string[];
+}
+
+const LOCAL_MAX_RESULTS = 20; // Matches suggest.ts's MAX_RESULTS.
+
+// The client-side twin of normalize.ts's normalize(): lowercase, strip
+// diacritics and punctuation, collapse whitespace.
+function localNormalize(s: string): string {
+	return s
+		.normalize("NFD")
+		.replace(/[\u0300-\u036f]/g, "")
+		.toLowerCase()
+		.replace(/[^a-z0-9\s]/g, " ")
+		.replace(/\s+/g, " ")
+		.trim();
+}
+
+function localSuggest(index: LocalSuggestEntry[], query: string): { suggestions: string[]; truncated: boolean } {
+	const q = localNormalize(query);
+	if (!q) return { suggestions: [], truncated: false };
+	const hits: string[] = [];
+	for (const entry of index) {
+		const name = localNormalize(entry.name);
+		const wordHit = name.startsWith(q) || name.split(" ").some((w) => w.startsWith(q));
+		const aliasHit = !wordHit && entry.aliases.some((a) => localNormalize(a).startsWith(q));
+		if (wordHit || aliasHit) {
+			hits.push(entry.name);
+			if (hits.length > LOCAL_MAX_RESULTS) break;
+		}
+	}
+	return { suggestions: hits.slice(0, LOCAL_MAX_RESULTS), truncated: hits.length > LOCAL_MAX_RESULTS };
 }
 
 const DEBOUNCE_MS = 200;
@@ -76,7 +118,7 @@ interface DropdownRect {
 	bottom?: number;
 }
 
-export function GuessInput({ value, onChange, onPick, disabled, suggestUrl, extraQuery = {}, excludeNames = [], placement = "above" }: Props) {
+export function GuessInput({ value, onChange, onPick, disabled, suggestUrl, extraQuery = {}, excludeNames = [], placement = "above", localIndex }: Props) {
 	const [suggestions, setSuggestions] = useState<string[]>([]);
 	// True when the server cut the list short (more real matches exist than
 	// were returned) — see suggest.ts's `truncated` flag. Shown as a hint
@@ -96,9 +138,32 @@ export function GuessInput({ value, onChange, onPick, disabled, suggestUrl, extr
 	const [loading, setLoading] = useState(false);
 	const requestId = useRef(0);
 	const inputRef = useRef<HTMLInputElement>(null);
-	// Picking a suggestion changes `value` too (it fills the input), which
-	// would otherwise re-trigger the fetch below right after selection.
-	const justPickedRef = useRef(false);
+	// Picking a suggestion may change `value` too (a caller that fills the
+	// input with the picked name), which would otherwise re-trigger the
+	// lookup below right after selection. Holds the picked name so that
+	// ONLY that value change is skipped -- a boolean here swallowed the
+	// player's next real query whenever the caller cleared the input
+	// instead of filling it (Roll of Honour's answer modal after a wrong
+	// answer), leaving them typing with no suggestions until the next
+	// keystroke; found by the e2e suite once suggestions became
+	// synchronous (2026-09-14).
+	const pickedValueRef = useRef<string | null>(null);
+	// The blur handler dismisses the list on a short delay (so a click on a
+	// suggestion lands before the list goes). That delay outlives a blur
+	// caused by the input being DISABLED while a guess is graded -- so a
+	// player who starts typing again within ~150ms of the input coming
+	// back had their fresh list hidden under them by the stale timer, with
+	// nothing to bring it back until the next keystroke (found by the
+	// Roll of Honour e2e, which retypes instantly after a wrong answer).
+	// Tracked so focus and a new query can cancel it.
+	const blurTimerRef = useRef<number | null>(null);
+	function cancelPendingDismiss() {
+		if (blurTimerRef.current !== null) {
+			window.clearTimeout(blurTimerRef.current);
+			blurTimerRef.current = null;
+		}
+	}
+	useEffect(() => cancelPendingDismiss, []);
 
 	// Already-found names are dropped from the fetched list entirely — see
 	// the `excludeNames` prop doc above — rather than just being marked
@@ -199,13 +264,28 @@ export function GuessInput({ value, onChange, onPick, disabled, suggestUrl, extr
 	}, [visible, visibleSuggestions.length, reposition]);
 
 	useEffect(() => {
-		if (justPickedRef.current) {
-			justPickedRef.current = false;
-			return;
+		// A blur-dismiss scheduled just before this query arrived (the input
+		// is disabled while a guess is graded, which blurs it) must not hide
+		// the list this query is about to show -- see blurTimerRef.
+		cancelPendingDismiss();
+		if (pickedValueRef.current !== null) {
+			const wasPickFill = query === pickedValueRef.current.trim();
+			pickedValueRef.current = null;
+			if (wasPickFill) return;
 		}
 		if (query.length < MIN_QUERY_LENGTH) return; // `visible` already hides any stale list
 
 		const id = ++requestId.current;
+		if (localIndex) {
+			// No network, no debounce, no skeleton -- the answer is a few
+			// hundred string comparisons away.
+			const data = localSuggest(localIndex, query);
+			setSuggestions(data.suggestions);
+			setTruncated(data.truncated);
+			setDismissed(false);
+			setHighlight(-1);
+			return;
+		}
 		const timer = setTimeout(() => {
 			setLoading(true); // the request is actually going out now
 			const params = new URLSearchParams({ q: query, ...extraQuery });
@@ -230,10 +310,10 @@ export function GuessInput({ value, onChange, onPick, disabled, suggestUrl, extr
 		// `extraQuery={{ category: slug }}`) would otherwise re-fire this
 		// effect, and re-debounce, on every unrelated parent re-render.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [query, suggestUrl, JSON.stringify(extraQuery)]);
+	}, [query, suggestUrl, JSON.stringify(extraQuery), localIndex]);
 
 	function pick(name: string) {
-		justPickedRef.current = true;
+		pickedValueRef.current = name;
 		setDismissed(true);
 		setSuggestions([]);
 		setTruncated(false);
@@ -271,8 +351,17 @@ export function GuessInput({ value, onChange, onPick, disabled, suggestUrl, extr
 				value={value}
 				onChange={(e) => onChange(e.target.value)}
 				onKeyDown={handleKeyDown}
-				onFocus={() => visibleSuggestions.length > 0 && setDismissed(false)}
-				onBlur={() => setTimeout(() => setDismissed(true), 150)}
+				onFocus={() => {
+					cancelPendingDismiss();
+					if (visibleSuggestions.length > 0) setDismissed(false);
+				}}
+				onBlur={() => {
+					cancelPendingDismiss();
+					blurTimerRef.current = window.setTimeout(() => {
+						blurTimerRef.current = null;
+						setDismissed(true);
+					}, 150);
+				}}
 				placeholder="Type your guess…"
 				autoFocus
 				disabled={disabled}

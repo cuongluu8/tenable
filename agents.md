@@ -266,6 +266,12 @@ simpler content model.
     fetched incrementally via `/state?since=`) is shown in a side pane.
   - `REMOTE_MULTIPLAYER_ENABLED` (wrangler var) is the kill switch: `false`
     makes every `/api/remote/*` route return 503 without a deploy.
+  - Polls carry the last state fingerprint (`?v=`); an unchanged state
+    comes back as a few bytes (`{ unchanged: true }`), so a 1.5s Roll of
+    Honour poll normally costs ~40 bytes, not the ~10KB grid. Roll of
+    Honour's club typeahead is fetched once (`/api/roll-of-honour/clubs`,
+    edge-cached) and filtered in the browser -- a keystroke there makes
+    no request.
   - Tested three ways: `lib/remoteSession.test.ts` (codes/tokens),
     `test/integration/remoteSession*.test.ts` (every route against the real
     object, with `ROUND_START_GRACE_MS`/`MIN_REVEAL_MS` overridden to 0 in
@@ -280,9 +286,10 @@ simpler content model.
   all failed on real phones.
 
 Behaviour knobs, all `wrangler.json` `vars` (read per request, so a
-dashboard change needs no deploy): `DAILY_REQUEST_BUDGET`,
-`SUGGEST_RATE_LIMIT_PER_MINUTE`, `TICKER_MESSAGE`,
+dashboard change needs no deploy): `TICKER_MESSAGE`,
 `REMOTE_MULTIPLAYER_ENABLED`, `ROUND_START_GRACE_MS`, `MIN_REVEAL_MS`.
+Rate limits are the `ratelimits` bindings there (a change is a deploy) --
+see "App-level cost guardrails" below.
 
 **Scaling remote play** -- what each player costs, which limit fails
 first (spoiler: our own `DAILY_REQUEST_BUDGET`, then polling against the
@@ -1101,38 +1108,35 @@ Given that, app-level guardrails were added as defense-in-depth for the
 scenario where Workers *is* ever upgraded to Paid (deliberately or by a
 collaborator with billing access) — see below.
 
-### App-level cost guardrails (added 2026-08-27)
+### App-level cost guardrails (added 2026-08-27; moved to the Rate Limiting binding 2026-09-14)
 
-Two fail-closed circuit breakers, independent of and in addition to
-whatever the Cloudflare plan's own limits are — see the code comments in
-each file for full reasoning:
+Fail-closed guards independent of, and in addition to, the Cloudflare
+plan's own limits -- now **`src/worker/lib/rateLimits.ts`**, on
+Cloudflare's Rate Limiting binding (`wrangler.json` `ratelimits`;
+in-memory at the edge, free-plan compatible, no storage ops):
 
-- **`src/worker/lib/circuitBreaker.ts`** — a hard ceiling on total requests
-  handled per day, across the whole app (`app.use("/api/*", ...)` in
-  `index.ts`). Once the daily count exceeds `DAILY_REQUEST_BUDGET`
-  (wrangler.json `vars`, default 20,000), every route returns `503` for the
-  rest of that UTC day.
-- **`src/worker/lib/suggestRateLimit.ts`** — a per-IP-per-minute limit on
-  `/api/suggest` specifically (the one endpoint that scales with keystrokes,
-  not deliberate plays, so it's the fastest way a scripted client could run
-  up D1 read volume). Once a single IP exceeds `SUGGEST_RATE_LIMIT_PER_MINUTE`
-  (default 30) within a rolling 1-minute window, further suggest requests
-  from that IP get `429` until the window rolls over; guessing itself is
-  unaffected.
+- **`PLAYER_RATE_LIMITER`** (120/min) -- every `/api/*` request except the
+  remote-play poll, keyed **per player**: the remote-play token, else the
+  daily game's device cookie, else the IP. `429` past it.
+- **`SUGGEST_RATE_LIMITER`** (60/min, same key) -- the typeahead routes
+  specifically (the one thing that scales with keystrokes, not plays).
+- **`GLOBAL_RATE_LIMITER`** (3,000/min, one key) -- a burst ceiling for the
+  whole app; `503` past it. This is the "runaway cost on a paid plan"
+  backstop the old daily budget provided. Enforcement is per Cloudflare
+  location and best-effort, so read it as "bounded", not "exact".
 
-Both are backed by two new D1 tables (`request_budget`, `suggest_rate_limit`
-in `db/schema.sql`) rather than KV, deliberately — they're written on every
-request they guard, and D1 row-writes are far cheaper and have a far larger
-included allotment than KV writes (see the free-tier table above and current
-pricing), so a KV-backed counter would work against the very guardrail it's
-meant to be.
+Limits are static in `wrangler.json` (a change is a deploy). A missing
+binding fails open -- these are guardrails, not gates.
 
-Both defaults were chosen to sit far above this hobby-scale app's real
-traffic (confirmed against a full `npm run playtest` run — ~690 total
-requests, ~7 suggest calls in one window — and manually confirmed to
-actually trip: 30 rapid `/api/suggest` calls succeed, the 31st+ return
-`429`) and are configurable via `wrangler.json` `vars` if real traffic ever
-approaches them — raise deliberately, don't delete the guardrail.
+**Why it changed (2026-09-14, see `docs/scaling.md` §2-3):** the previous
+version -- a D1 `request_budget` row upserted on *every* request
+(`DAILY_REQUEST_BUDGET`, 20,000/day, then `503` until midnight) and a
+per-IP D1 `suggest_rate_limit` row -- cost one or two contended D1 writes
+on the hot path of every API call, and was the first thing the app hit
+under any real load (~500-1,000 answered questions a day, since typeahead
+counts). Per-IP keying also meant a whole room on one Wi-Fi shared one
+30/min bucket. Both D1 tables are dropped from `db/schema.sql`; production
+still has them, empty and harmless.
 
 **Rule for agents:** if you add a new route or a new source of write volume
 (KV or D1), consider whether it needs its own guard the way `/api/suggest`

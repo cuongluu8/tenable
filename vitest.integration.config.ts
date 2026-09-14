@@ -56,7 +56,6 @@ export default defineConfig({
 					// handful of requests instead of 20,000+ -- every other
 					// test file's own request count is nowhere near even this
 					// small a number, so this has no effect on anything else.
-					DAILY_REQUEST_BUDGET: 50,
 					// Dropped from wrangler.json's real 5000 so
 					// remoteSessionGameplay.test.ts doesn't need a real
 					// multi-second sleep between starting a round and guessing

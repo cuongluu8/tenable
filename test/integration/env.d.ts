@@ -30,8 +30,9 @@ declare namespace Cloudflare {
 		DB: D1Database;
 		PROGRESS: KVNamespace;
 		MEDIA: R2Bucket;
-		DAILY_REQUEST_BUDGET: number;
-		SUGGEST_RATE_LIMIT_PER_MINUTE: number;
+		PLAYER_RATE_LIMITER: RateLimit;
+		SUGGEST_RATE_LIMITER: RateLimit;
+		GLOBAL_RATE_LIMITER: RateLimit;
 		TICKER_MESSAGE: string;
 		FOOTBALL_DATA_API_KEY?: string;
 		REMOTE_MULTIPLAYER_ENABLED: boolean;

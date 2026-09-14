@@ -30,6 +30,20 @@ describe("GET /api/roll-of-honour/board", () => {
 	});
 });
 
+describe("GET /api/roll-of-honour/clubs", () => {
+	it("returns every club with its aliases, plus curated winners the entity table lacks, browser-cacheable", async () => {
+		const res = await SELF.fetch("https://example.com/api/roll-of-honour/clubs");
+		expect(res.status).toBe(200);
+		expect(res.headers.get("cache-control")).toContain("max-age=86400");
+		const { clubs } = (await res.json()) as { clubs: { name: string; aliases: string[] }[] };
+		// The fixture has no club entities, so the list is the curated
+		// fallback: every Roll of Honour winner, with no aliases.
+		expect(clubs.length).toBeGreaterThan(30);
+		expect(clubs.find((c) => c.name === "Steaua București")).toEqual({ name: "Steaua București", aliases: [] });
+		expect(clubs.find((c) => c.name === "Real Madrid")).toBeTruthy();
+	});
+});
+
 describe("POST /api/roll-of-honour/check, /hint, /reveal", () => {
 	it("grades by canonical name or alias, revealing the winner only when right", async () => {
 		const wrong = await post("/check", { competitionId: "premier-league", season: "1994-95", guess: "Manchester United" });

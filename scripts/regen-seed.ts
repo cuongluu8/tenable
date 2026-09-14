@@ -3,7 +3,7 @@
 // project has repeated by hand after every content batch. See
 // db/seed_header.txt for the header itself, and this file's own TABLES
 // list for exactly which tables are seeded (deliberately not
-// content_version/request_budget/suggest_rate_limit -- those are runtime
+// content_version -- that's runtime
 // state schema.sql already seeds correctly on its own; including
 // content_version in the export once crashed a fresh local reset with
 // `UNIQUE constraint failed: content_version.id`).

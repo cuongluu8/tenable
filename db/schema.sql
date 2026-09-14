@@ -361,26 +361,7 @@ CREATE TRIGGER IF NOT EXISTS entity_search_ad AFTER DELETE ON entities BEGIN
 	DELETE FROM entity_search WHERE rowid = OLD.id;
 END;
 
--- Cost guardrails (see agents.md — Cloudflare has no account-wide spending
--- cap for Workers/D1/KV, so these are the app's own fail-closed ceilings).
--- Both are D1-backed rather than KV-backed deliberately: they're written on
--- every request they guard, and D1 row-writes are far cheaper and have a
--- far larger included allotment than KV writes (see agents.md) — using KV
--- for a per-request counter would undermine the guardrail it's meant to be.
-
--- One row per calendar day (UTC), incremented once per request across the
--- whole app. See circuitBreaker.ts.
-CREATE TABLE IF NOT EXISTS request_budget (
-	date TEXT PRIMARY KEY,           -- "YYYY-MM-DD"
-	count INTEGER NOT NULL DEFAULT 0
-);
-
--- One row per distinct client IP ever seen at /api/suggest (not per
--- IP-per-window — the window resets in place, so this table's size is
--- bounded by real distinct visitors, not visitors x time). See
--- suggestRateLimit.ts.
-CREATE TABLE IF NOT EXISTS suggest_rate_limit (
-	ip TEXT PRIMARY KEY,
-	window TEXT NOT NULL,            -- "YYYY-MM-DDTHH:MM", the 1-minute bucket count applies to
-	count INTEGER NOT NULL DEFAULT 0
-);
+-- (request_budget / suggest_rate_limit -- the D1-backed cost guardrails --
+-- were dropped from this schema 2026-09-14 in favour of Cloudflare's Rate
+-- Limiting binding; see lib/rateLimits.ts. Production still has the two
+-- empty tables; they're harmless and can be dropped by hand at any time.)

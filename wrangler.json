@@ -8,11 +8,6 @@
 		"enabled": true
 	},
 	"vars": {
-		// Cost guardrails — see circuitBreaker.ts / suggestRateLimit.ts.
-		// Raise deliberately if real traffic ever approaches these, don't
-		// delete the guardrail.
-		"DAILY_REQUEST_BUDGET": 20000,
-		"SUGGEST_RATE_LIMIT_PER_MINUTE": 30,
 		// The scrolling ticker banner's manual-override message (see
 		// routes/ticker.ts / components/Ticker.tsx) — leave empty (the
 		// normal state) and the ticker shows the latest Premier League
@@ -36,7 +31,7 @@
 		// remoteGameSession.ts's own ROUND_START_GRACE_MS -- how long after a
 		// round starts guesses are rejected, closing the poll-timing head
 		// start described there. A real, tunable var (not a bare constant)
-		// for the same reason DAILY_REQUEST_BUDGET is: integration tests
+		// so integration tests
 		// override this to 0 (vitest.integration.config.ts) so they don't
 		// need a real multi-second sleep between starting a round and
 		// guessing on it.
@@ -47,6 +42,23 @@
 		// Same tunable-var pattern and test override (to 0) as above.
 		"MIN_REVEAL_MS": 5000
 	},
+	// Cloudflare's Rate Limiting binding -- in-memory at the edge, free-plan
+	// compatible, no storage ops. Replaces (2026-09-14) the D1-backed daily
+	// request counter and per-IP suggest limiter, each of which cost a
+	// contended D1 write on every request -- see docs/scaling.md and
+	// lib/rateLimits.ts. Limits are static here (a change needs a deploy);
+	// `period` may only be 10 or 60 seconds. Enforcement is per Cloudflare
+	// location and best-effort, which is fine for a per-player abuse guard
+	// and a burst backstop, not for accounting.
+	"ratelimits": [
+		// Per player (token / device / IP fallback): every non-poll API call.
+		{ "name": "PLAYER_RATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 120, "period": 60 } },
+		// Per player: typeahead keystrokes specifically.
+		{ "name": "SUGGEST_RATE_LIMITER", "namespace_id": "1002", "simple": { "limit": 60, "period": 60 } },
+		// Whole app, one key: a per-location burst ceiling standing in for the
+		// old daily budget as the "runaway cost" guard on a paid plan.
+		{ "name": "GLOBAL_RATE_LIMITER", "namespace_id": "1003", "simple": { "limit": 3000, "period": 60 } }
+	],
 	"upload_source_maps": true,
 	"triggers": {
 		// Two schedules, told apart by event.cron in index.ts's scheduled():

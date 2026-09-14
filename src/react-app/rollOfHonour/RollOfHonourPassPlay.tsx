@@ -5,6 +5,7 @@ import "../remote/remote.css";
 import "./rollOfHonour.css";
 import { GuessInput } from "../components/GuessInput";
 import { HonourTile } from "./HonourTile";
+import { useClubIndex } from "./useClubIndex";
 import { initialPassPlayState, passPlayReducer, rankPassPlayers } from "./passPlayState";
 
 interface Competition {
@@ -83,6 +84,7 @@ export function RollOfHonourPassPlay({ playerNames, competitionId, onExit }: Pro
 	const [board, setBoard] = useState<BoardData | null>(null);
 	const [loadError, setLoadError] = useState<string | null>(null);
 	const [state, dispatch] = useReducer(passPlayReducer, initialPassPlayState);
+	const clubIndex = useClubIndex();
 	const [selected, setSelected] = useState<string | null>(null);
 	const [guess, setGuess] = useState("");
 	const [busy, setBusy] = useState(false);
@@ -316,7 +318,7 @@ export function RollOfHonourPassPlay({ playerNames, competitionId, onExit }: Pro
 								×
 							</button>
 						</div>
-						<GuessInput value={guess} onChange={setGuess} onPick={answer} disabled={busy} suggestUrl="/api/roll-of-honour/suggest" placement="below" />
+						<GuessInput value={guess} onChange={setGuess} onPick={answer} disabled={busy} suggestUrl="/api/roll-of-honour/suggest" localIndex={clubIndex ?? undefined} placement="below" />
 						{feedback?.kind === "info" && <p className="roh-feedback roh-feedback--info">{feedback.text}</p>}
 						<p className="roh-sheet__hint">One attempt -- right or wrong, the turn passes.</p>
 					</div>

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { GuessInput } from "../components/GuessInput";
 import { colorForPlayerIndex } from "../components/playerColors";
 import { HonourTile } from "../rollOfHonour/HonourTile";
+import { useClubIndex } from "../rollOfHonour/useClubIndex";
 import { ChatDock } from "./ChatPane";
 import type { FeedEntry, SessionState } from "./remoteApi";
 import { FinalResults, Leaderboard, LeaveControl, ROUND_START_GRACE_MS } from "./RemoteGame";
@@ -37,6 +38,7 @@ function deadline(ms: number): number {
 // the round-based formats use, imported from RemoteGame.tsx.
 export function RollOfHonourGame({ state, feed, myPlayerId, error, onSelectTile, onReleaseTile, onAnswerTile, onGiveUp, onPostMessage, onRestart, onLeave }: Props) {
 	const [now, setNow] = useState(() => Date.now());
+	const clubIndex = useClubIndex();
 	const inProgress = state.status === "in_progress";
 	useEffect(() => {
 		if (!inProgress) return;
@@ -275,7 +277,7 @@ export function RollOfHonourGame({ state, feed, myPlayerId, error, onSelectTile,
 								×
 							</button>
 						</div>
-						<GuessInput value={guess} onChange={setGuess} onPick={answer} disabled={busy} suggestUrl="/api/roll-of-honour/suggest" placement="below" />
+						<GuessInput value={guess} onChange={setGuess} onPick={answer} disabled={busy} suggestUrl="/api/roll-of-honour/suggest" localIndex={clubIndex ?? undefined} placement="below" />
 						<p className="roh-sheet__hint">Tap outside to put it back and pick another season.</p>
 					</div>
 				</div>

@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { RemoteGameSession } from "./durableObjects/remoteGameSession";
-import { enforceCircuitBreaker } from "./lib/circuitBreaker";
+import { enforcePlayerRateLimit } from "./lib/rateLimits";
 import { refreshEplTicker } from "./lib/eplTicker";
 import { rebuildAll } from "./lib/rebuild";
 import adminRefreshTicker from "./routes/adminRefreshTicker";
@@ -23,8 +23,8 @@ import ticker from "./routes/ticker";
 
 const app = new Hono<{ Bindings: Env }>();
 
-// Cost guardrail, applied ahead of every route — see circuitBreaker.ts.
-app.use("/api/*", enforceCircuitBreaker);
+// Cost guardrails, applied ahead of every route — see lib/rateLimits.ts.
+app.use("/api/*", enforcePlayerRateLimit);
 
 app.route("/api/categories", categories);
 app.route("/api/categories", category);

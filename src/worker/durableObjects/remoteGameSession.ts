@@ -455,6 +455,17 @@ function publicHonour(session: SessionRecord, now: number): PublicHonour | null 
 	};
 }
 
+// FNV-1a, 32-bit, as 8 hex chars -- cheap, and a collision only costs one
+// poll's worth of a missed update (the next differing poll corrects it).
+function fingerprint(s: string): string {
+	let h = 0x811c9dc5;
+	for (let i = 0; i < s.length; i++) {
+		h ^= s.charCodeAt(i);
+		h = Math.imul(h, 0x01000193);
+	}
+	return (h >>> 0).toString(16).padStart(8, "0");
+}
+
 function publicRound(session: SessionRecord, now: number): PublicRound | null {
 	if (session.status === "lobby" || session.questions.length === 0) return null;
 
@@ -794,15 +805,29 @@ export class RemoteGameSession extends DurableObject<Env> {
 			const since = Number(c.req.query("since") ?? 0);
 			const feed = Number.isFinite(since) && since > 0 ? session.feed.filter((e) => e.id > since) : session.feed;
 
-			return c.json({
+			// Versioned polls (2026-09-14): the public state is fingerprinted
+			// and the client echoes the fingerprint it last saw as `v`. When
+			// nothing (visible) has changed and there's no new feed, the reply
+			// is a few bytes instead of the whole state -- a 93-tile Roll of
+			// Honour grid is ~10KB and most of its 1.5s polls change nothing.
+			// A fingerprint of the OUTPUT rather than a mutation counter on
+			// purpose: hint tiers, "away" flags and lock expiry are computed
+			// from the clock at read time, so a counter bumped only on writes
+			// would miss the moment a hint reveals. The server still builds
+			// the state each poll; what's saved is bytes on the wire and the
+			// client's parse/re-render, which is where a phone feels it.
+			const body = {
 				status: session.status,
 				gameType: session.gameType,
 				questionCount: session.questionCount,
 				players: players.map((p) => toPublicPlayer(p, now)),
 				round: publicRound(session, now),
 				honour: publicHonour(session, now),
-				feed,
-			});
+			};
+			const v = fingerprint(JSON.stringify(body));
+			if (feed.length === 0 && c.req.query("v") === v) return c.json({ unchanged: true as const, v });
+
+			return c.json({ ...body, feed, v });
 		});
 
 		this.app.post("/ready", async (c) => {

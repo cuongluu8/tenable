@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { normalize } from "../lib/normalize";
 import { suggestNames, getCategoryBySlug } from "../lib/categories";
-import { enforceSuggestRateLimit } from "../lib/suggestRateLimit";
+import { enforceSuggestRateLimit } from "../lib/rateLimits";
 
 const suggest = new Hono<{ Bindings: Env }>();
 
