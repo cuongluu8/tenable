@@ -6,9 +6,9 @@ import { expect, test } from "@playwright/test";
 import { AFTER_COUNTDOWN, POLL, guestJoins, guestReadies, hostCreates, newPlayer, pickGuess } from "./remoteHelpers";
 
 test.setTimeout(150_000);
-// Phone width: the chat pane is a drawer behind a floating button here
-// (from 960px up it's a permanent column with no button -- the other
-// remote specs run at the default desktop size and cover that layout).
+// Phone width: chat is the always-visible bar across the top here (from
+// 960px up it's a permanent column -- the other remote specs run at the
+// default desktop size and cover that layout).
 test.use({ viewport: { width: 390, height: 780 } });
 
 test("chat, a mid-game joiner, a guest leaving, and the host ending the game", async ({ browser }) => {
@@ -28,29 +28,26 @@ test("chat, a mid-game joiner, a guest leaving, and the host ending the game", a
 	await expect(guest.getByPlaceholder("Type your guess…")).toBeVisible(AFTER_COUNTDOWN);
 	await pickGuess(guest, "Lionel Messi", /Messi/);
 
-	// Chat lives in the side pane: the floating 💬 opens it, the message
-	// posts into the history with the round's events, and the other player
-	// gets an unread badge until they open it.
-	await host.getByRole("button", { name: /Open chat/ }).click();
-	await expect(host.getByRole("complementary", { name: "Chat and activity" })).toBeVisible();
-	await expect(host.locator(".remote-pane__entry--system").first()).toHaveText("Question 1 of 1");
-	await expect(host.locator(".remote-pane__entry--event")).toContainText(/Luka.*✗.*Messi/, POLL);
+	// Chat is the always-visible bar across the top: the round's events and
+	// every guess are already in it, a message posts into it, and the other
+	// player sees it on their own bar without doing anything. The ticker is
+	// hidden while the game screen is up.
+	await expect(host.locator(".ticker")).toBeHidden();
+	const hostBar = host.getByRole("complementary", { name: "Chat and activity" });
+	await expect(hostBar).toBeVisible();
+	await expect(hostBar.locator(".remote-pane__entry--system").first()).toHaveText("Question 1 of 1");
+	await expect(hostBar.locator(".remote-pane__entry--event")).toContainText(/Luka.*✗.*Messi/, POLL);
 	await host.getByLabel("Chat message").fill("no idea who this is");
 	await host.getByRole("button", { name: "Add an emoji" }).click();
 	await host.getByRole("button", { name: "😂" }).click();
 	await expect(host.getByLabel("Chat message")).toHaveValue("no idea who this is 😂");
 	await host.getByRole("button", { name: "Send", exact: true }).click();
-	await expect(host.locator(".remote-pane__bubble")).toHaveText("no idea who this is 😂");
+	await expect(hostBar.locator(".remote-pane__entry--chat")).toContainText("You: no idea who this is 😂");
 	// Posting again inside the cooldown is refused.
 	await expect(host.getByPlaceholder(/You can post again in/)).toBeVisible();
-	await host.getByRole("button", { name: "Close chat" }).click();
 
-	await expect(guest.getByRole("button", { name: /Open chat, 1 new message/ })).toBeVisible(POLL);
-	await guest.getByRole("button", { name: /Open chat/ }).click();
-	await expect(guest.locator(".remote-pane__bubble")).toHaveText("no idea who this is 😂");
-	await expect(guest.locator(".remote-pane__who").filter({ hasText: "Cuong" }).first()).toBeVisible();
-	await guest.getByRole("button", { name: "Close chat" }).click();
-	await expect(guest.getByRole("button", { name: "Open chat", exact: true })).toBeVisible();
+	const guestBar = guest.getByRole("complementary", { name: "Chat and activity" });
+	await expect(guestBar.locator(".remote-pane__entry--chat")).toContainText("Cuong: no idea who this is 😂", POLL);
 
 	// Joining a game already in progress lands straight in the round.
 	await guestJoins(late, "Club Run", code, "Geoff");
