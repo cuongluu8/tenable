@@ -70,7 +70,10 @@ remoteSession.post("/sessions", async (c) => {
 
 remoteSession.post("/sessions/:code/join", async (c) => forward(c, "/join", { method: "POST", body: await c.req.text() }));
 
-remoteSession.get("/sessions/:code/state", async (c) => forward(c, "/state"));
+// The query string rides along: /state?since=<feed id> is how the client
+// asks for only the activity-feed entries it hasn't seen (see
+// remoteGameSession.ts's /state).
+remoteSession.get("/sessions/:code/state", async (c) => forward(c, `/state${new URL(c.req.url).search}`));
 
 remoteSession.post("/sessions/:code/ready", async (c) => forward(c, "/ready", { method: "POST", body: await c.req.text() }));
 

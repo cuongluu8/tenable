@@ -29,7 +29,7 @@ test("a one-question Teammate Tell game, then the guest leaves from the results"
 	await expect(guest.getByText("Not quite -- try again!")).toBeVisible();
 
 	await giveUpInRound(guest);
-	await expect(host.getByText("Gave up")).toBeVisible(POLL);
+	await expect(host.locator(".remote-badge--gave-up")).toBeVisible(POLL);
 	await expect(host.getByPlaceholder("Type your guess…")).toBeVisible(AFTER_COUNTDOWN);
 	await giveUpInRound(host);
 
@@ -45,5 +45,5 @@ test("a one-question Teammate Tell game, then the guest leaves from the results"
 	await guest.getByRole("button", { name: "Leave game" }).click();
 	await guest.getByRole("button", { name: "Yes, leave" }).click();
 	await expect(guest.getByRole("heading", { name: "Remote play" })).toBeVisible();
-	await expect(host.getByText("Luka")).toBeHidden(POLL);
+	await expect(host.locator(".remote-standings__name").filter({ hasText: "Luka" })).toBeHidden(POLL);
 });

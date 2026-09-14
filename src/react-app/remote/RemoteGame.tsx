@@ -3,7 +3,8 @@ import { BadgeChain } from "../components/BadgeChain";
 import { GuessInput } from "../components/GuessInput";
 import { colorForPlayerIndex } from "../components/playerColors";
 import { TeammateClueCards } from "../teammates/TeammateClueCards";
-import type { PublicMessage, PublicPlayer, SessionState } from "./remoteApi";
+import { ChatDock } from "./ChatPane";
+import type { FeedEntry, PublicMessage, PublicPlayer, SessionState } from "./remoteApi";
 
 const HINT_REVEAL_INTERVAL_MS = 30_000; // Matches remoteGameSession.ts's own HINT_REVEAL_INTERVAL_MS.
 const HINT_TIER_COUNT = 3;
@@ -30,8 +31,6 @@ export const ROUND_START_GRACE_MS = 5_000;
 const CHAT_HOLD_MS = 10_000;
 const CHAT_SCROLL_MS = 1_000;
 const CHAT_MAX_FIRST_SEEN_AGE_MS = 12_000;
-const CHAT_MAX_WORDS = 20; // Matches remoteGameSession.ts's MESSAGE_MAX_WORDS.
-const CHAT_COOLDOWN_MS = 30_000; // Matches remoteGameSession.ts's MESSAGE_COOLDOWN_MS.
 
 // Messages this tab has finished showing (scrolled away) or decided were
 // already stale when first seen -- keyed on author + postedAt, which is
@@ -47,10 +46,6 @@ const shownMessages = new Set<string>();
 
 function messageKey(playerId: string, message: PublicMessage): string {
 	return `${playerId}:${message.postedAt}`;
-}
-
-function countWords(text: string): number {
-	return text.split(/\s+/).filter(Boolean).length;
 }
 
 interface ChatBubbleProps {
@@ -98,138 +93,6 @@ function shouldShowMessage(playerId: string, message: PublicMessage | null): mes
 	// if a later poll reports it older than the first-sight cutoff.
 	if (shownMessages.has(key)) return true;
 	return message.ageMs < CHAT_MAX_FIRST_SEEN_AGE_MS;
-}
-
-// The emoji picker's set -- a fixed, hand-picked grid rather than a
-// full Unicode picker library: reactions and football, which is what a
-// 20-word heckle mid-round actually wants, and nothing to download.
-const CHAT_EMOJIS = [
-	"😂", "🤣", "😅", "😭", "😍", "🤔", "🤯", "😱", "🙄", "😴", "🤡", "😎",
-	"🥳", "😤", "🤷", "🤦", "😬", "🥴", "🫣", "🤫", "👀", "🙏", "👏", "🙌",
-	"👍", "👎", "💪", "🤝", "🔥", "💀", "🐐", "🐢", "⚽", "🥅", "🧤", "🏆",
-	"🥇", "👑", "🎯", "⏰", "🍀", "❤️", "💚", "🎉",
-];
-
-interface ChatModalProps {
-	onPost: (text: string) => Promise<{ error: string; retryAfterMs?: number } | null>;
-	now: number;
-	// Epoch ms the poster's cooldown ends (null: none running). Owned by
-	// RemoteGame, not here, so it outlives this modal being closed and
-	// reopened -- the countdown has to still be right on the next open.
-	cooldownUntil: number | null;
-	onCooldown: (until: number) => void;
-	onClose: () => void;
-}
-
-// The chat composer, as a modal (2026-09-13 -- was an inline box under the
-// round; moved off the page so the round screen stays about the round,
-// opened from the 💬 next to your own name on the leaderboard). Enforces
-// the same 20-word cap and 30s cooldown the server does
-// (remoteGameSession.ts's MESSAGE_*), purely as feedback -- the server's
-// own rejection is what actually holds, and its message is shown inline
-// when it does. Closes itself once a message is accepted. `now` is
-// RemoteGame's ticking clock, so the cooldown counts down visibly
-// without its own interval.
-export function ChatModal({ onPost, now, cooldownUntil, onCooldown, onClose }: ChatModalProps) {
-	const [text, setText] = useState("");
-	const [sending, setSending] = useState(false);
-	const [error, setError] = useState<string | null>(null);
-	const [emojiOpen, setEmojiOpen] = useState(false);
-
-	const words = countWords(text);
-	const overLimit = words > CHAT_MAX_WORDS;
-	const cooldownLeftMs = cooldownUntil !== null ? Math.max(0, cooldownUntil - now) : 0;
-	const coolingDown = cooldownLeftMs > 0;
-
-	// Escape closes, same as the backdrop -- a real subscription on
-	// window, so an effect is the right tool.
-	useEffect(() => {
-		function onKey(e: KeyboardEvent) {
-			if (e.key === "Escape") onClose();
-		}
-		window.addEventListener("keydown", onKey);
-		return () => window.removeEventListener("keydown", onKey);
-	}, [onClose]);
-
-	async function send() {
-		const trimmed = text.trim();
-		if (!trimmed || overLimit || coolingDown || sending) return;
-		setSending(true);
-		setError(null);
-		const result = await onPost(trimmed);
-		setSending(false);
-		if (result) {
-			setError(result.error);
-			if (result.retryAfterMs) onCooldown(Date.now() + result.retryAfterMs);
-			return;
-		}
-		onCooldown(Date.now() + CHAT_COOLDOWN_MS);
-		onClose();
-	}
-
-	function addEmoji(emoji: string) {
-		// A space before it unless we're at the start or already after one
-		// -- keeps the word count honest (an emoji run stays one word, an
-		// emoji after a word becomes its own).
-		setText((t) => (t === "" || /\s$/.test(t) ? t + emoji : `${t} ${emoji}`));
-	}
-
-	return (
-		<div className="remote-modal-backdrop" onClick={onClose}>
-			<div className="remote-modal" role="dialog" aria-modal="true" aria-label="Send a message" onClick={(e) => e.stopPropagation()}>
-				<div className="remote-modal__header">
-					<h3 className="remote-modal__title">Say something</h3>
-					<button type="button" className="remote-modal__close" onClick={onClose} aria-label="Close">
-						×
-					</button>
-				</div>
-				<form
-					className="remote-chat-composer"
-					onSubmit={(e) => {
-						e.preventDefault();
-						void send();
-					}}
-				>
-					<input
-						type="text"
-						className="remote-chat-composer__input"
-						value={text}
-						onChange={(e) => setText(e.target.value)}
-						placeholder={coolingDown ? `You can post again in ${Math.ceil(cooldownLeftMs / 1000)}s` : "Type a message…"}
-						disabled={sending || coolingDown}
-						aria-label="Chat message"
-						autoFocus
-					/>
-					<button
-						type="button"
-						className={emojiOpen ? "remote-emoji-toggle remote-emoji-toggle--open" : "remote-emoji-toggle"}
-						onClick={() => setEmojiOpen((o) => !o)}
-						aria-label={emojiOpen ? "Hide emojis" : "Add an emoji"}
-						aria-expanded={emojiOpen}
-						disabled={sending || coolingDown}
-					>
-						😀
-					</button>
-					<span className={overLimit ? "remote-chat-composer__count remote-chat-composer__count--over" : "remote-chat-composer__count"}>
-						{words}/{CHAT_MAX_WORDS}
-					</span>
-					<button type="submit" className="remote-primary-button" disabled={!text.trim() || overLimit || coolingDown || sending}>
-						Send
-					</button>
-					{error && <span className="remote-chat-composer__error">{error}</span>}
-				</form>
-				{emojiOpen && (
-					<div className="remote-emoji-grid" role="group" aria-label="Emojis">
-						{CHAT_EMOJIS.map((emoji) => (
-							<button key={emoji} type="button" className="remote-emoji-grid__item" onClick={() => addEmoji(emoji)}>
-								{emoji}
-							</button>
-						))}
-					</div>
-				)}
-			</div>
-		</div>
-	);
 }
 
 interface GuessAreaProps {
@@ -307,9 +170,6 @@ interface LeaderboardProps {
 	// (or round) is still open. The final-results screen passes nothing.
 	givenUpPlayerIds?: string[];
 	compact?: boolean;
-	// When given, a 💬 button sits next to the local player's own name --
-	// the way into ChatModal. The final-results screen passes nothing.
-	onOpenChat?: () => void;
 }
 
 // Ranked standings, on screen for the whole game (2026-09-13 -- asked for
@@ -320,7 +180,7 @@ interface LeaderboardProps {
 // ties broken by join order (state.players order) so a tie doesn't shuffle
 // people around between polls; tied players share a rank rather than one
 // arbitrarily ranking above the other.
-export function Leaderboard({ players, myPlayerId, givenUpPlayerIds, compact, onOpenChat }: LeaderboardProps) {
+export function Leaderboard({ players, myPlayerId, givenUpPlayerIds, compact }: LeaderboardProps) {
 	const ranked = [...players].sort((a, b) => b.wins - a.wins);
 	return (
 		<ol className={compact ? "remote-standings remote-standings--compact" : "remote-standings"}>
@@ -335,11 +195,6 @@ export function Leaderboard({ players, myPlayerId, givenUpPlayerIds, compact, on
 							{p.name}
 							{p.id === myPlayerId && " (you)"}
 						</span>
-						{onOpenChat && p.id === myPlayerId && (
-							<button type="button" className="remote-chat-launch" onClick={onOpenChat} aria-label="Send a message" title="Send a message">
-								💬
-							</button>
-						)}
 						{/* Always rendered (empty or not) so it's what takes up the
 						    row's spare width -- the message bubble scrolls off into
 						    its left edge, i.e. visually behind the name. */}
@@ -447,6 +302,7 @@ export function FinalResults({ state, myPlayerId, error, onRestart, onLeave, chi
 
 interface Props {
 	state: SessionState;
+	feed: FeedEntry[];
 	myPlayerId: string;
 	error: string | null;
 	onGuess: (guess: string) => Promise<"correct" | "wrong" | null>;
@@ -461,7 +317,7 @@ interface Props {
 // both share this one screen since they're really the same "in-progress
 // or just-finished game" view, not two separate places to navigate
 // between.
-export function RemoteGame({ state, myPlayerId, error, onGuess, onGiveUp, onPostMessage, onSetReady, onRestart, onLeave }: Props) {
+export function RemoteGame({ state, feed, myPlayerId, error, onGuess, onGiveUp, onPostMessage, onSetReady, onRestart, onLeave }: Props) {
 	// Ticks once a second, for the whole in-progress game, purely to
 	// re-render the display-only clocks: the start countdown, "next hint
 	// in Ns" (the actual hint reveal is decided server-side -- see
@@ -474,9 +330,6 @@ export function RemoteGame({ state, myPlayerId, error, onGuess, onGiveUp, onPost
 	// directly during render, which React's purity rules disallow.
 	const [now, setNow] = useState(() => Date.now());
 	const inProgress = state.status === "in_progress";
-	const [chatOpen, setChatOpen] = useState(false);
-	// See ChatModalProps.cooldownUntil on why this lives here.
-	const [chatCooldownUntil, setChatCooldownUntil] = useState<number | null>(null);
 
 	useEffect(() => {
 		if (!inProgress) return;
@@ -487,7 +340,12 @@ export function RemoteGame({ state, myPlayerId, error, onGuess, onGiveUp, onPost
 	const round = state.round;
 
 	if (state.status === "finished") {
-		return <FinalResults state={state} myPlayerId={myPlayerId} error={error} onRestart={onRestart} onLeave={onLeave} />;
+		return (
+			<>
+				<FinalResults state={state} myPlayerId={myPlayerId} error={error} onRestart={onRestart} onLeave={onLeave} />
+				<ChatDock feed={feed} players={state.players} myPlayerId={myPlayerId} onPost={onPostMessage} now={now} />
+			</>
+		);
 	}
 
 	if (!round) return null; // status is "in_progress" but round data hasn't arrived yet -- a one-poll gap at worst.
@@ -532,7 +390,6 @@ export function RemoteGame({ state, myPlayerId, error, onGuess, onGiveUp, onPost
 				myPlayerId={myPlayerId}
 				givenUpPlayerIds={roundDecided ? undefined : round.givenUpPlayerIds}
 				compact
-				onOpenChat={() => setChatOpen(true)}
 			/>
 
 			{revealPending ? (
@@ -598,15 +455,7 @@ export function RemoteGame({ state, myPlayerId, error, onGuess, onGiveUp, onPost
 
 			<LeaveControl isHost={me?.isHost ?? false} onLeave={onLeave} />
 
-			{chatOpen && (
-				<ChatModal
-					onPost={onPostMessage}
-					now={now}
-					cooldownUntil={chatCooldownUntil}
-					onCooldown={setChatCooldownUntil}
-					onClose={() => setChatOpen(false)}
-				/>
-			)}
+			<ChatDock feed={feed} players={state.players} myPlayerId={myPlayerId} onPost={onPostMessage} now={now} />
 		</div>
 	);
 }

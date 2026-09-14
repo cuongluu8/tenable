@@ -17,6 +17,7 @@ import {
 	clearIdentity,
 	loadIdentity,
 	saveIdentity,
+	type FeedEntry,
 	type RemoteGameType,
 	type RemoteIdentity,
 	type SessionState,
@@ -30,6 +31,11 @@ const POLL_INTERVAL_MS = 4_000;
 interface UseRemoteSessionResult {
 	identity: RemoteIdentity | null;
 	state: SessionState | null;
+	// The whole activity feed this tab has seen for the current session,
+	// oldest first -- accumulated from each poll's incremental slice (see
+	// remoteGameSession.ts's /state `since`), so it survives across
+	// rounds and Play again. Reset with the identity.
+	feed: FeedEntry[];
 	error: string | null;
 	isHost: boolean;
 	create: (hostName: string, gameType: RemoteGameType) => Promise<void>;
@@ -78,6 +84,10 @@ interface UseRemoteSessionResult {
 export function useRemoteSession(): UseRemoteSessionResult {
 	const [identity, setIdentity] = useState<RemoteIdentity | null>(() => loadIdentity());
 	const [state, setState] = useState<SessionState | null>(null);
+	const [feed, setFeed] = useState<FeedEntry[]>([]);
+	// The last feed id received, for the next poll's `since` -- a ref, not
+	// state, so refresh() (a stable callback) always reads the latest.
+	const lastFeedIdRef = useRef(0);
 	const [error, setError] = useState<string | null>(null);
 	// Avoids setting state after the identity that produced it has already
 	// been cleared (e.g. a 401 from a stale localStorage entry racing
@@ -88,7 +98,7 @@ export function useRemoteSession(): UseRemoteSessionResult {
 	identityRef.current = identity;
 
 	const refresh = useCallback(async (id: RemoteIdentity) => {
-		const res = await apiFetchState(id.sessionCode, id.playerToken);
+		const res = await apiFetchState(id.sessionCode, id.playerToken, lastFeedIdRef.current);
 		if (identityRef.current !== id) return; // superseded while this was in flight
 		if (res.status === 401 || res.status === 404) {
 			// The session this identity pointed at is gone or never existed --
@@ -97,6 +107,7 @@ export function useRemoteSession(): UseRemoteSessionResult {
 			clearIdentity();
 			setIdentity(null);
 			setState(null);
+			resetFeed();
 			return;
 		}
 		if (res.status !== 200) {
@@ -104,8 +115,25 @@ export function useRemoteSession(): UseRemoteSessionResult {
 			return;
 		}
 		setError(null);
-		setState(res.body as SessionState);
+		const body = res.body as SessionState;
+		if (body.feed.length > 0) {
+			// Two polls can overlap (a poll and an action's own refresh), so
+			// merge by id rather than blindly appending.
+			setFeed((prev) => {
+				const known = new Set(prev.map((e) => e.id));
+				const fresh = body.feed.filter((e) => !known.has(e.id));
+				return fresh.length === 0 ? prev : [...prev, ...fresh].sort((a, b) => a.id - b.id);
+			});
+			lastFeedIdRef.current = Math.max(lastFeedIdRef.current, ...body.feed.map((e) => e.id));
+		}
+		setState(body);
 	}, []);
+
+	// A new identity is a new session: start its history from scratch.
+	function resetFeed() {
+		setFeed([]);
+		lastFeedIdRef.current = 0;
+	}
 
 	useEffect(() => {
 		if (!identity) return;
@@ -140,6 +168,7 @@ export function useRemoteSession(): UseRemoteSessionResult {
 			const id: RemoteIdentity = { sessionCode: res.body.sessionCode, playerId: res.body.playerId, playerToken: res.body.playerToken };
 			saveIdentity(id);
 			setError(null);
+			resetFeed();
 			setIdentity(id);
 			await refresh(id);
 		},
@@ -156,6 +185,7 @@ export function useRemoteSession(): UseRemoteSessionResult {
 			const id: RemoteIdentity = { sessionCode: code, playerId: res.body.playerId, playerToken: res.body.playerToken };
 			saveIdentity(id);
 			setError(null);
+			resetFeed();
 			setIdentity(id);
 			await refresh(id);
 		},
@@ -291,6 +321,7 @@ export function useRemoteSession(): UseRemoteSessionResult {
 		setIdentity(null);
 		setState(null);
 		setError(null);
+		resetFeed();
 	}, [identity]);
 
 	const forget = useCallback(() => {
@@ -298,6 +329,7 @@ export function useRemoteSession(): UseRemoteSessionResult {
 		setIdentity(null);
 		setState(null);
 		setError(null);
+		resetFeed();
 	}, []);
 
 	const isHost = state?.players.find((p) => p.id === identity?.playerId)?.isHost ?? false;
@@ -305,6 +337,7 @@ export function useRemoteSession(): UseRemoteSessionResult {
 	return {
 		identity,
 		state,
+		feed,
 		error,
 		isHost,
 		create,

@@ -96,6 +96,11 @@ import { buildHonourTiles, DEFAULT_HONOUR_COMPETITION_ID, gradeHonourGuess, HONO
 // Chat (2026-09-13): /message -- one short message per player at a time,
 // shown next to their name on every client's leaderboard. See
 // MESSAGE_MAX_WORDS and friends below.
+// Activity feed (2026-09-14): every chat message, every guess (right or
+// wrong), give-ups and round/game events, kept for the whole session
+// (across Play again) in SessionRecord.feed and served incrementally by
+// /state?since=<id> -- the client's side pane (remote/ChatPane.tsx). See
+// FEED_MAX_ENTRIES.
 // Play again (2026-09-13): /restart -- host-only, from "finished" back to
 // "lobby" with the same players and a fresh scoreboard, so a group can
 // run game after game on one code. "finished" is therefore no longer a
@@ -195,6 +200,24 @@ const MESSAGE_MAX_CHARS = 240;
 const MESSAGE_COOLDOWN_MS = 30_000;
 const MESSAGE_VISIBLE_MS = 20_000;
 
+// The activity feed's cap. Oldest entries drop off past this -- a 4-player
+// game night with chat and every guess logged is a few hundred entries;
+// the DO stores the whole session record as one value (128KB cap), and
+// 300 entries of ~100 bytes is comfortably inside that.
+const FEED_MAX_ENTRIES = 300;
+
+interface FeedEntry {
+	id: number; // Monotonic within the session -- /state?since= filters on it.
+	at: number;
+	kind: "chat" | "guess" | "give-up" | "system";
+	playerId: string | null; // null for system entries.
+	text: string; // The message, the guess, or the system line.
+	// guess: whether it was right. system/chat/give-up: absent.
+	correct?: boolean;
+	// Roll of Honour guesses: which season was being answered.
+	season?: string;
+}
+
 // Hint tiers, in reveal order -- mirrors clubBadgesState.ts's HINT_KEYS
 // exactly (country, nationality, transferDate), but NOT imported from
 // there: that module lives under src/react-app (the client bundle), and
@@ -275,6 +298,15 @@ interface SessionRecord {
 	// Roll of Honour session still in the lobby. Absent on records
 	// persisted before the mode existed (read back as null).
 	honour: HonourRecord | null;
+	// Activity feed -- see FEED_MAX_ENTRIES. Survives Play again (it's the
+	// session's history, not the game's). Both absent on older records.
+	feed: FeedEntry[];
+	feedNextId: number;
+}
+
+function pushFeed(session: SessionRecord, now: number, entry: Omit<FeedEntry, "id" | "at">): void {
+	session.feed.push({ id: session.feedNextId++, at: now, ...entry });
+	if (session.feed.length > FEED_MAX_ENTRIES) session.feed.splice(0, session.feed.length - FEED_MAX_ENTRIES);
 }
 
 interface PlayerRecord {
@@ -494,6 +526,10 @@ export class RemoteGameSession extends DurableObject<Env> {
 			// And gameType (Teammate Tell added later still) -- see its own doc.
 			if (session && !session.gameType) session.gameType = "club-badges";
 			if (session && session.honour === undefined) session.honour = null;
+			if (session && !Array.isArray(session.feed)) {
+				session.feed = [];
+				session.feedNextId = 1;
+			}
 			return session;
 		};
 		const getPlayers = () => storage.get<PlayerRecord[]>("players").then((p) => p ?? []);
@@ -522,6 +558,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 			// whatever readiness got someone PAST the previous round would
 			// otherwise instantly satisfy the gate for the next one too.
 			for (const p of players) p.ready = p.isHost;
+			pushFeed(session, now, { kind: "system", playerId: null, text: `Question ${index + 1} of ${session.questions.length}` });
 		}
 
 		// Resolves the current round with no winner once every non-away
@@ -552,6 +589,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 			if (!result) return false; // Defensive only -- see /guess's own "Unknown question" note.
 			session.roundAnswerName = result.name;
 			session.roundDecidedAt = now;
+			pushFeed(session, now, { kind: "system", playerId: null, text: `Nobody got it -- it was ${result.name}` });
 			return true;
 		};
 
@@ -626,6 +664,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 			if (!allAnswered && !allBowedOut) return false;
 			session.status = "finished";
 			session.roundDecidedAt = now;
+			pushFeed(session, now, { kind: "system", playerId: null, text: allAnswered ? "Every season filled -- game over" : "Everyone gave up -- game over" });
 			return true;
 		}
 
@@ -667,6 +706,8 @@ export class RemoteGameSession extends DurableObject<Env> {
 				roundDecidedAt: null,
 				roundGivenUpPlayerIds: [],
 				honour: null,
+				feed: [],
+				feedNextId: 1,
 			};
 			// The host is marked ready from the start -- readiness exists to
 			// gate the *other* players before the host starts the game, not to
@@ -761,6 +802,12 @@ export class RemoteGameSession extends DurableObject<Env> {
 			// there's nothing to advance.
 			await maybeAdvanceRound(session, players, now);
 
+			// Incremental feed: `since` is the last entry id the client has,
+			// so a steady-state poll carries only what's new (usually nothing);
+			// a fresh load (since=0) gets the whole retained history.
+			const since = Number(c.req.query("since") ?? 0);
+			const feed = Number.isFinite(since) && since > 0 ? session.feed.filter((e) => e.id > since) : session.feed;
+
 			return c.json({
 				status: session.status,
 				gameType: session.gameType,
@@ -768,6 +815,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 				players: players.map((p) => toPublicPlayer(p, now)),
 				round: publicRound(session, now),
 				honour: publicHonour(session, now),
+				feed,
 			});
 		});
 
@@ -1004,11 +1052,13 @@ export class RemoteGameSession extends DurableObject<Env> {
 				session.roundWinnerId = self.id;
 				session.roundAnswerName = result.name;
 				session.roundDecidedAt = now;
+				pushFeed(session, now, { kind: "guess", playerId: self.id, text: result.name, correct: true });
 				await storage.put({ session, players });
 				return c.json({ result: "correct" as const, answerName: result.name });
 			}
 
-			await storage.put("players", players);
+			pushFeed(session, now, { kind: "guess", playerId: self.id, text: rawGuess, correct: false });
+			await storage.put({ session, players });
 			return c.json({ result: "wrong" as const });
 		});
 
@@ -1040,7 +1090,10 @@ export class RemoteGameSession extends DurableObject<Env> {
 			if (session.gameType === "roll-of-honour") {
 				// Bows out of the whole game (see class doc): any held tile goes
 				// back, and if nobody active is left playing the game's over.
-				if (!session.roundGivenUpPlayerIds.includes(self.id)) session.roundGivenUpPlayerIds.push(self.id);
+				if (!session.roundGivenUpPlayerIds.includes(self.id)) {
+					session.roundGivenUpPlayerIds.push(self.id);
+					pushFeed(session, now, { kind: "give-up", playerId: self.id, text: "gave up" });
+				}
 				releaseHonourLocks(session, self.id);
 				finishHonourIfDone(session, players, now);
 				await storage.put({ session, players });
@@ -1052,7 +1105,10 @@ export class RemoteGameSession extends DurableObject<Env> {
 				return c.json({ error: "This round is already over" }, 409);
 			}
 
-			if (!session.roundGivenUpPlayerIds.includes(self.id)) session.roundGivenUpPlayerIds.push(self.id);
+			if (!session.roundGivenUpPlayerIds.includes(self.id)) {
+				session.roundGivenUpPlayerIds.push(self.id);
+				pushFeed(session, now, { kind: "give-up", playerId: self.id, text: "gave up" });
+			}
 			await resolveRoundByGiveUp(session, players, now);
 			await storage.put({ session, players });
 			// A solo host (no other players) has nobody to wait on -- same
@@ -1106,7 +1162,8 @@ export class RemoteGameSession extends DurableObject<Env> {
 
 			self.message = { text, postedAt: now };
 			self.lastMessageAt = now;
-			await storage.put("players", players);
+			pushFeed(session, now, { kind: "chat", playerId: self.id, text });
+			await storage.put({ session, players });
 
 			return c.json({ ok: true as const });
 		});
@@ -1223,10 +1280,12 @@ export class RemoteGameSession extends DurableObject<Env> {
 			if (gradeHonourGuess(guess, tile)) {
 				tile.answeredBy = self.id;
 				self.wins += 1;
+				pushFeed(session, now, { kind: "guess", playerId: self.id, text: tile.winner, correct: true, season: tile.season });
 				finishHonourIfDone(session, players, now);
 				await storage.put({ session, players });
 				return c.json({ result: "correct" as const, winner: tile.winner, imageUrl: tile.imageUrl });
 			}
+			pushFeed(session, now, { kind: "guess", playerId: self.id, text: guess, correct: false, season: tile.season });
 			tile.blockedUntil[self.id] = now + HONOUR_RETRY_BLOCK_MS;
 			await storage.put({ session, players });
 			return c.json({ result: "wrong" as const, retryAfterMs: HONOUR_RETRY_BLOCK_MS });
@@ -1265,6 +1324,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 			session.roundDecidedAt = null;
 			session.roundGivenUpPlayerIds = [];
 			session.honour = null;
+			pushFeed(session, now, { kind: "system", playerId: null, text: keepScores ? "New game -- scores carried over" : "New game -- scores reset" });
 			for (const p of players) {
 				if (!keepScores) p.wins = 0;
 				p.ready = p.isHost; // Same as a fresh /create: the host is ready by definition, everyone else re-readies.

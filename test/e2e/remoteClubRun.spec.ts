@@ -26,7 +26,7 @@ test("a two-question Club Run game from lobby to Play again to End game", async 
 	await expect(guest.getByText(/First question in/)).toBeVisible(POLL);
 	await expect(host.getByPlaceholder("Type your guess…")).toBeVisible(AFTER_COUNTDOWN);
 	await expect(guest.getByPlaceholder("Type your guess…")).toBeVisible(AFTER_COUNTDOWN);
-	await expect(guest.getByText("Question 1 of 2")).toBeVisible();
+	await expect(guest.locator(".remote-round-header").getByText("Question 1 of 2")).toBeVisible();
 
 	// A wrong guess costs nothing and can be repeated.
 	await pickGuess(guest, "Lionel Messi", /Messi/);
@@ -36,7 +36,7 @@ test("a two-question Club Run game from lobby to Play again to End game", async 
 	// One player giving up bows them out; the round stays open for the rest.
 	await giveUpInRound(guest);
 	await expect(guest.getByText(/You gave up on this one/)).toBeVisible();
-	await expect(host.getByText("Gave up")).toBeVisible(POLL);
+	await expect(host.locator(".remote-badge--gave-up")).toBeVisible(POLL);
 	await expect(host.getByPlaceholder("Type your guess…")).toBeVisible();
 
 	// Everyone giving up resolves the round with no winner -- the answer is
@@ -49,8 +49,8 @@ test("a two-question Club Run game from lobby to Play again to End game", async 
 	await expect(guest.getByRole("button", { name: "Not ready" })).toBeVisible();
 
 	// The reveal is held for everyone before the next question arrives.
-	await expect(host.getByText("Question 2 of 2")).toBeVisible(AFTER_COUNTDOWN);
-	await expect(guest.getByText("Question 2 of 2")).toBeVisible(AFTER_COUNTDOWN);
+	await expect(host.locator(".remote-round-header").getByText("Question 2 of 2")).toBeVisible(AFTER_COUNTDOWN);
+	await expect(guest.locator(".remote-round-header").getByText("Question 2 of 2")).toBeVisible(AFTER_COUNTDOWN);
 
 	await expect(host.getByPlaceholder("Type your guess…")).toBeVisible(AFTER_COUNTDOWN);
 	await giveUpInRound(host);

@@ -120,6 +120,19 @@ export interface RoundInfo {
 
 export type SessionStatus = "lobby" | "in_progress" | "finished" | "ended";
 
+// One line of the session's activity feed -- see remoteGameSession.ts's
+// FeedEntry. Accumulated client-side by useRemoteSession (the server
+// only sends what's new since the last poll).
+export interface FeedEntry {
+	id: number;
+	at: number;
+	kind: "chat" | "guess" | "give-up" | "system";
+	playerId: string | null;
+	text: string;
+	correct?: boolean;
+	season?: string;
+}
+
 export interface SessionState {
 	status: SessionStatus;
 	gameType: RemoteGameType;
@@ -128,6 +141,8 @@ export interface SessionState {
 	round: RoundInfo | null;
 	// Non-null only for a Roll of Honour session that's started.
 	honour: HonourState | null;
+	// Only the entries newer than the `since` the poll asked with.
+	feed: FeedEntry[];
 }
 
 export interface RemoteIdentity {
@@ -200,8 +215,8 @@ export function apiJoinSession(code: string, name: string) {
 	});
 }
 
-export function apiFetchState(code: string, token: string) {
-	return apiFetch<SessionState | { error: string }>(`/sessions/${code}/state`, {
+export function apiFetchState(code: string, token: string, sinceFeedId = 0) {
+	return apiFetch<SessionState | { error: string }>(`/sessions/${code}/state?since=${sinceFeedId}`, {
 		headers: authHeaders(token),
 	});
 }

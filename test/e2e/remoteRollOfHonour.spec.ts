@@ -66,7 +66,7 @@ test("a Premier League grid: claim, wrong, right, switch, give up, play again ke
 	await guest.getByRole("button", { name: "Give up", exact: true }).click();
 	await guest.getByRole("button", { name: "Yes, give up" }).click();
 	await expect(guest.getByText(/You gave up on this one/)).toBeVisible();
-	await expect(host.getByText("Gave up")).toBeVisible(POLL);
+	await expect(host.locator(".remote-badge--gave-up")).toBeVisible(POLL);
 	await host.getByRole("button", { name: "Give up", exact: true }).click();
 	await host.getByRole("button", { name: "Yes, give up" }).click();
 

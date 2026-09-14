@@ -2,11 +2,13 @@ import { useEffect, useState } from "react";
 import { GuessInput } from "../components/GuessInput";
 import { colorForPlayerIndex } from "../components/playerColors";
 import { HonourTile } from "../rollOfHonour/HonourTile";
-import type { SessionState } from "./remoteApi";
-import { ChatModal, FinalResults, Leaderboard, LeaveControl, ROUND_START_GRACE_MS } from "./RemoteGame";
+import { ChatDock } from "./ChatPane";
+import type { FeedEntry, SessionState } from "./remoteApi";
+import { FinalResults, Leaderboard, LeaveControl, ROUND_START_GRACE_MS } from "./RemoteGame";
 
 interface Props {
 	state: SessionState;
+	feed: FeedEntry[];
 	myPlayerId: string;
 	error: string | null;
 	onSelectTile: (season: string) => Promise<{ lockedForMs: number } | { error: string; retryAfterMs?: number }>;
@@ -33,7 +35,7 @@ function deadline(ms: number): number {
 // class doc for the rules. Everything not about the grid (leaderboard,
 // chat, leave/end, final results with Play again) is the same shared UI
 // the round-based formats use, imported from RemoteGame.tsx.
-export function RollOfHonourGame({ state, myPlayerId, error, onSelectTile, onReleaseTile, onAnswerTile, onGiveUp, onPostMessage, onRestart, onLeave }: Props) {
+export function RollOfHonourGame({ state, feed, myPlayerId, error, onSelectTile, onReleaseTile, onAnswerTile, onGiveUp, onPostMessage, onRestart, onLeave }: Props) {
 	const [now, setNow] = useState(() => Date.now());
 	const inProgress = state.status === "in_progress";
 	useEffect(() => {
@@ -42,8 +44,6 @@ export function RollOfHonourGame({ state, myPlayerId, error, onSelectTile, onRel
 		return () => clearInterval(id);
 	}, [inProgress]);
 
-	const [chatOpen, setChatOpen] = useState(false);
-	const [chatCooldownUntil, setChatCooldownUntil] = useState<number | null>(null);
 	// The season this device currently holds, with the local deadline the
 	// server gave it (lockedForMs from /tile/select).
 	const [held, setHeld] = useState<{ season: string; until: number } | null>(null);
@@ -87,6 +87,8 @@ export function RollOfHonourGame({ state, myPlayerId, error, onSelectTile, onRel
 
 	if (state.status === "finished") {
 		return (
+			<>
+				<ChatDock feed={feed} players={state.players} myPlayerId={myPlayerId} onPost={onPostMessage} now={now} />
 			<FinalResults state={state} myPlayerId={myPlayerId} error={error} onRestart={onRestart} onLeave={onLeave}>
 				{honour && (
 					<>
@@ -99,6 +101,7 @@ export function RollOfHonourGame({ state, myPlayerId, error, onSelectTile, onRel
 					</>
 				)}
 			</FinalResults>
+			</>
 		);
 	}
 
@@ -168,7 +171,7 @@ export function RollOfHonourGame({ state, myPlayerId, error, onSelectTile, onRel
 				</span>
 			</div>
 
-			<Leaderboard players={state.players} myPlayerId={myPlayerId} givenUpPlayerIds={honour.givenUpPlayerIds} compact onOpenChat={() => setChatOpen(true)} />
+			<Leaderboard players={state.players} myPlayerId={myPlayerId} givenUpPlayerIds={honour.givenUpPlayerIds} compact />
 
 			{startCountdown > 0 ? (
 				<div className="remote-countdown" aria-live="polite">
@@ -256,9 +259,7 @@ export function RollOfHonourGame({ state, myPlayerId, error, onSelectTile, onRel
 				</div>
 			)}
 
-			{chatOpen && (
-				<ChatModal onPost={onPostMessage} now={now} cooldownUntil={chatCooldownUntil} onCooldown={setChatCooldownUntil} onClose={() => setChatOpen(false)} />
-			)}
+			<ChatDock feed={feed} players={state.players} myPlayerId={myPlayerId} onPost={onPostMessage} now={now} />
 		</div>
 	);
 }

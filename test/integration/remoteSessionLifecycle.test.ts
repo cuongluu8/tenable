@@ -74,6 +74,7 @@ describe("POST /api/remote/sessions (create)", () => {
 			questionCount: null,
 			round: null,
 			honour: null,
+			feed: [],
 			players: [{ id: created.playerId, name: "Alice", isHost: true, ready: true, away: false, wins: 0, message: null }],
 		});
 	});
