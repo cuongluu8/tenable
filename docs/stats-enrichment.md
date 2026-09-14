@@ -214,7 +214,16 @@ early-career data rather than force a wrong-but-complete-looking number.
 LLM per player at all), which also removes the token cost this kind of
 research was running up.
 
-## Where things stand right now (2026-09-04)
+## Where things stand right now (2026-09-04; re-verified 2026-09-14)
+
+**Status: still in progress.** Career stats are done for 350 players
+(batch 1's 121 + batch 2's 247, less 3 fatal), all 115 managers and all
+206 club candidates are done, but transfers exist for only the first 18
+players -- items 1-3 under "What's left" are real, unstarted work.
+Re-checked 2026-09-14 against the local D1 mirror of production
+(`db/seed.sql` regenerated 2026-09-13): 85 transfers / 18 players, 1,017
+spells / 115 managers, 3,139 `player_career_stats` rows / 350 players,
+club stats as itemised below.
 
 **Production D1** (`tenable-content`, `a87ef250-cc94-4765-a821-785acbcd71a4`)
 currently has, verified directly by query with 0 orphaned foreign keys:
@@ -229,8 +238,10 @@ currently has, verified directly by query with 0 orphaned foreign keys:
   Samuel Eto'o id 547 — the first 18 rows of `candidate_players_batch1.csv`)
   — **unchanged**, still the next priority item below.
 - `entity_stats` (`career-goals` etc.): same 18 players as `transfers`.
-- `entity_stats` (`founded-year`/`stadium-capacity`/`league-titles-count`/
-  `times-relegated`): **all 206 of 206 club candidates** — the 48 remaining
+- `entity_stats` club facts: **all 206 of 206 club candidates have
+  `founded-year`**; `league-titles-count` 203, `stadium-capacity` 202,
+  `times-relegated` 8 (low by design -- see the vocabulary table: never
+  forced where sources don't state it cleanly) — the 48 remaining
   clubs in `clubs_remaining.csv` were researched and applied 2026-09-04
   (`clubs_remaining_stats.sql`), including Cajamarca (id 146), which the
   prior session skipped as ambiguous — resolved this time via
@@ -238,8 +249,8 @@ currently has, verified directly by query with 0 orphaned foreign keys:
   out (sources disagreed sharply, see that file's comment). **Club
   candidate coverage is now fully complete** — nothing left in this tier.
 
-`db/seed.sql` is kept in sync with production as of 2026-09-04 (regenerated
-after the above). To regenerate again after any future production content
+`db/seed.sql` is kept in sync with production (last regenerated 2026-09-13
+-- see `git log -- db/seed.sql`). To regenerate again after any future production content
 change, same command as always:
 
 ```
