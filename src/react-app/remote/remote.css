@@ -236,6 +236,15 @@
 	margin: 0.5rem 0 1rem;
 }
 
+/* BadgeChain's "may not show their full career" footnote: inside the solo
+   round it sits in .cb-play's flex column and its 1rem gap; here it's a
+   direct child of .screen (block layout) with margin 0 and was touching
+   the guess box's top border. Direct-child selector so .cb-play's own
+   spacing is untouched. */
+.screen > .cb-disclaimer {
+	margin: 0.35rem 0 1rem;
+}
+
 .remote-round-result {
 	display: flex;
 	flex-direction: column;
