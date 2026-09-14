@@ -49,14 +49,14 @@ async function allowed(limiter: RateLimit | undefined, key: string): Promise<boo
 }
 
 // Not a player action, so not counted against a player:
-//   - the remote-play poll (the heartbeat; its cadence is the client's,
+//   - the remote-play poll and its WebSocket upgrade (the heartbeat; its cadence is the client's,
 //     and counting it would make the limit a function of connection time)
 //   - badge/flag images (a Club Run round or a revealed Roll of Honour grid
 //     pulls dozens at once -- confirmed the hard way: counting them starved
 //     real actions and stalled the e2e suite; they're cacheable GETs)
 //   - the ticker read.
 function exempt(path: string): boolean {
-	return (path.startsWith("/api/remote/") && path.endsWith("/state")) || path.startsWith("/api/media/") || path === "/api/ticker";
+	return (path.startsWith("/api/remote/") && (path.endsWith("/state") || path.endsWith("/ws"))) || path.startsWith("/api/media/") || path === "/api/ticker";
 }
 
 // Every other /api route.

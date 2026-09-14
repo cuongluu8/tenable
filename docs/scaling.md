@@ -7,44 +7,47 @@ them before spending money, they change.
 
 **Short version.** The architecture is already the right shape for scale
 (one Durable Object per session, server-authoritative, static assets
-free), but the *free tier plus polling* caps it at roughly **an evening
-for a few dozen players**, and the very first thing that fails is a
-self-imposed guardrail, not Cloudflare. Tens of players: fix three cheap
-things and stay free. Hundreds: pay $5/month and move from polling to
-WebSockets. Thousands: WebSockets are non-negotiable, plus take the
-typeahead and images off the per-request database path. Nothing needs a
-different database or a second service at any of these tiers.
+free). As first written, the *free tier plus polling* capped it at
+roughly **an evening for a few dozen players**, and the very first thing
+that failed was a self-imposed guardrail, not Cloudflare. **Status
+2026-09-14: tiers 1 and 2 are done** -- the guardrails are off the hot
+path, the session lives in the object's SQLite tables, and clients hold
+a WebSocket instead of polling (§4b/§4c). What remains is paying the
+$5/month when a free daily limit is first hit, and the tier-3 items
+(§5). Nothing needs a different database or a second service at any of
+these tiers.
 
 ---
 
 ## 1. What one player costs today
 
 Everything a client does is one of four things. Per **active remote
-player**, per hour, **as deployed after the tier-1 work of 2026-09-14**
-(the "before" figures are kept in brackets because they explain the
-ceilings in §2):
+player**, per hour, **as deployed after the tier-1 and tier-2 work of
+2026-09-14** (the "before" figures are kept in brackets because they
+explain the ceilings in §2):
 
 | Activity | Frequency | Worker requests | Durable Object | D1 | Notes |
 |---|---|---|---|---|---|
-| **Poll `/state`** (round formats) | every 4s = 900/h | 900 | 900 requests, 1,800 rows read, ~1,200 rows written¹ | none | reply *measured* **33 bytes** when nothing changed (`?v=` fingerprint), ~1.5 KB when it did |
-| **Poll `/state`** (Roll of Honour in progress) | every 1.5s = 2,400/h | 2,400 | 2,400 requests, 4,800 rows read, ~1,200 rows written¹ | none | reply *measured* **33 bytes** unchanged, ~10 KB on a change (93-tile grid). [Before: the full ~10 KB grid every poll, ~24 MB/h per player.] |
-| **Action** (guess, claim, answer, give up, chat, ready) | maybe 20-60/h | 1 each | 1 request, 2 reads, 1-2 writes | up to 3 indexed reads (grading), **no writes** | [Before: +1 D1 write per action for the daily budget counter.] Rate-limited per player in memory at the edge (`lib/rateLimits.ts`). |
+| **WebSocket** (the live channel) | 1 upgrade per connect; a 25s keep-alive ping | 1 per connect | 1 request per connect; pings are auto-answered by the runtime without waking the object; **pushes out are free**; the object hibernates between events | none | replaces polling entirely while the socket is up. A push is only sent to a socket that hasn't got that exact state (per-socket fingerprint), ~1.5 KB round formats / ~10 KB a Roll of Honour grid change. |
+| **Poll `/state`** (fallback only, socket down) | 4s / 1.5s (Roll of Honour) while disconnected | 1 each | 1 request, no storage reads (in-memory copy), ≤1 heartbeat row per 3s | none | reply *measured* **33 bytes** when nothing changed (`?v=` fingerprint). [Before sockets: 900-2,400 of these an hour per player, every hour connected -- the whole cost.] |
+| **Action** (guess, claim, answer, give up, chat, ready) | maybe 20-60/h | 1 each | 1 request, no storage reads, **1-2 rows written** (the changed player / tile, plus one feed row) | up to 3 indexed reads (grading), **no writes** | [Before: the whole ~60 KB session record rewritten per action; +1 D1 write for the daily budget counter.] Rate-limited per player in memory at the edge (`lib/rateLimits.ts`). |
 | **Typeahead keystroke** (≥3 chars, 200ms debounce) | maybe 60-200/h | Roll of Honour: **0**; Club Run / Teammate Tell: 1 each | none | Roll of Honour: **none** (the ~700-club list is fetched once, ~36 KB raw, edge-cached, filtered in the browser); others: a bounded FTS read | [Before: +2 D1 writes per keystroke for the budget counter and per-IP limiter.] |
-
-¹ The heartbeat (`lastSeenAt`) is written at most once per 3s regardless
-of poll rate (`HEARTBEAT_WRITE_MIN_MS`), i.e. 1,200 row-writes/hour/player.
 
 What stands out now:
 
-- **Polling itself is the whole cost.** With writes gone from actions and
-  keystrokes, and unchanged polls answered in 33 bytes, what a connected
-  player costs is almost entirely the poll *requests* -- one Worker
-  request plus one Durable Object request every 1.5-4s whether or not
-  anything happened. That is what tier 2 (WebSockets) removes.
-- **Server CPU per poll is unchanged.** The fingerprint is computed from
-  the full public state, so the object still builds it each poll; the
-  saving is bytes on the wire and the phone's parse/re-render, not the
-  object's work. Also a tier-2 item.
+- **Cost scales with things happening, not time connected.** A player
+  sitting in a lobby or on a reveal costs nothing until someone acts;
+  the object hibernates with the sockets held by the runtime. Before
+  tier 2, a connected player was 900-2,400 requests an hour whether or
+  not anything happened.
+- **The clock still needs a tick.** Hint tiers, lock expiry, "away" and
+  the reveal hold used to be noticed by whichever poll came next; the
+  object now books an alarm for the earliest of them and pushes from
+  there. That's one alarm write per state change mid-game -- small, and
+  only while a game is in progress or someone is connected.
+- **Storage per action is rows, not records.** save() diffs the in-memory
+  copy against what was last written; a guess touches the guesser's row
+  and a feed row, a lock touches one tile row.
 
 The daily game (Top 10) is different: it doesn't poll, but it **writes to
 KV on every guess** (`guess.ts` -> `saveProgress`) plus 2-3 writes on
@@ -58,13 +61,13 @@ projects on this account (see `agents.md` -> Cloudflare resources).
 | # | Ceiling | Value | What hits it first | Roughly when |
 |---|---|---|---|---|
 | ~~1~~ | ~~**`DAILY_REQUEST_BUDGET`** (ours)~~ **Removed 2026-09-14** | was 20,000 non-poll API requests/day, then 503 until midnight UTC | was: typeahead, ~20 suggest calls per attempted answer | was **~500-1,000 answered questions/day across everyone** -- the first wall. Replaced by the per-player and global Rate Limiting bindings (`lib/rateLimits.ts`), which count nothing in D1. |
-| 2 | **Worker requests** (Cloudflare free) | 100,000/day | Polling | **~110 player-hours/day at 4s** (10 players for 11h, or 100 for 1h). **~40 player-hours at 1.5s** (Roll of Honour). |
-| 3 | **Durable Object requests** (free) | 100,000/day | Polling -- one DO request per poll | same as #2 |
-| 4 | **Durable Object rows written** (free) | 100,000/day | Heartbeats (1,200/h/player) + actions | ~80 player-hours/day |
+| ~~2~~ | ~~**Worker requests** (Cloudflare free)~~ **No longer driven by polling (2026-09-14)** | 100,000/day | was: polling, ~110 player-hours/day at 4s | Now one request per connect plus actions (maybe 20-60/h/player) and images/typeahead misses -- **thousands of player-hours/day**. The fallback poll only runs while a socket is down. |
+| ~~3~~ | ~~**Durable Object requests** (free)~~ **Same** | 100,000/day | was: one DO request per poll | Incoming socket messages bill 20:1; pushes out are free. Same order as #2. |
+| ~~4~~ | ~~**Durable Object rows written** (free)~~ **Off the per-poll path** | 100,000/day | was: heartbeats (1,200/h/player) + whole-record rewrites | Now 1-2 rows per action plus an alarm write per mid-game state change -- **tens of thousands of actions/day**. |
 | ~~5~~ | ~~**D1 rows written** (free)~~ **No longer on the hot path** | 100,000/day | was: the budget counter + rate limiter, 1-2 per action/keystroke | Gameplay now writes nothing to D1 per request; the only D1 writes left are the nightly rebuild and content changes. |
 | ~~6~~ | ~~**Suggest rate limit** (ours, per IP)~~ **Re-keyed 2026-09-14** | now 60 typeahead calls/min **per player** (token, else a device cookie minted on first contact) | was: a whole room on one Wi-Fi sharing one 30/min bucket | A venue no longer shares a bucket. Roll of Honour typeahead makes no requests at all. |
 | 7 | **KV writes** (free) | 1,000/day | The daily game's per-guess write | **~70 completed Top 10 rounds/day**, app-wide |
-| 8 | **Worker CPU** (free) | 10 ms per request | Roll of Honour `/state` (parse ~60 KB, serialise 10 KB) is the heaviest route at ~1-3 ms | not yet; becomes the paid-plan cost driver if polling stays |
+| 8 | **Worker CPU** (free) | 10 ms per request | A Roll of Honour broadcast (serialise ~10 KB per socket) is the heaviest step at ~1-3 ms | not yet |
 | 9 | D1 rows read (free) | 5,000,000/day | Typeahead FTS reads (bounded, tens of rows each) | well beyond hundreds of players |
 | 10 | Per-object throughput | soft 1,000 req/s per Durable Object | An 8-player session at 1.5s is ~5 req/s | never, by design -- sessions are the unit of scale |
 
@@ -181,9 +184,10 @@ scales with *time connected*, not with *things happening*. Hence:
 
 ### 4b. WebSockets with the Hibernation API -- the one structural change
 
-Each session object accepts one WebSocket per player and **pushes** state
-on change instead of answering polls. This is the intended Durable
-Objects pattern and the billing is built for it:
+**Done 2026-09-14.** Each session object accepts one WebSocket per player
+(`GET /api/remote/sessions/:code/ws?token=`) and **pushes** state on
+change instead of answering polls. This is the intended Durable Objects
+pattern and the billing is built for it:
 
 - **Outgoing messages are free.** Every broadcast of a state change to
   every connected player costs nothing.
@@ -198,33 +202,45 @@ from ~48 M billable requests to well **under 1 M** -- inside the paid
 plan's included amounts. Latency for another player's lock/release
 drops from 0-1.5 s to tens of milliseconds, and the 5 s start-countdown
 and reveal-hold windows can shrink (they exist to paper over poll
-skew). Keep `/state` as the fallback for a client whose socket won't
-connect, and keep polling *it* slowly (say 10 s) as a liveness check.
+skew -- kept for now, they're also what lets every device count down
+together). `/state` stays as the fallback for a client whose socket is
+down, at the old cadences, and the client re-polls once on every
+reconnect to cover the gap.
 
-Implementation notes for whoever does this:
-- Use the Hibernation API (`ctx.acceptWebSocket`, `webSocketMessage`
-  handlers, `serializeAttachment` for the player token), not the legacy
-  in-memory `WebSocketPair` handling, or the object never sleeps and
-  duration charges reappear.
-- The heartbeat becomes the socket itself; "away" becomes "socket
-  closed for 15 s". Keep `lastSeenAt` for the HTTP fallback path.
-- Broadcast the same public state the poll returns today -- the client's
-  `useRemoteSession` already merges by version/feed id, so the transport
-  can change under it without touching the screens.
-- Auto-response for pings (`setWebSocketAutoResponse`) so keepalives
-  don't wake the object.
+How it was built (all in `remoteGameSession.ts`, "WebSockets" section):
+- Hibernation API throughout: `ctx.acceptWebSocket` tagged with the
+  player id, `serializeAttachment` holding which player / last feed id
+  sent / last fingerprint sent, `webSocketClose`/`webSocketError`
+  handlers; `setWebSocketAutoResponse("ping" -> "pong")` so the client's
+  25s keep-alive never wakes the object.
+- A push goes out after any request that wrote (save() flags it, a Hono
+  middleware broadcasts), and from the **alarm** for clock-driven changes
+  -- the object books the earliest of: next hint tier, next lock expiry,
+  next player crossing 15s without a socket, the reveal hold closing, and
+  the daily expiry check.
+- Presence: an open socket is presence; a player with none falls back to
+  the 15s-since-last-poll rule. A closing socket grants 15s of grace.
+- The client (`useRemoteSession.ts`) applies a push exactly as it did a
+  poll body; the poll loop stands down while the socket is open;
+  reconnect backs off 1s -> 15s. Close codes 4404/4410 mean what a poll's
+  404/401 did.
+- Tested: `test/integration/remoteSessionSocket.test.ts` (initial push,
+  another player's action, incremental feed, leave closes with 4410, the
+  alarm booked at the first hint tier); the e2e suite runs on the socket
+  through the Vite dev server.
 
 ### 4c. Storage shape inside the object
 
-Today a session is **two KV values** (`session`, `players`), and the
-`session` value carries the grid *and* the 300-entry activity feed --
-~60 KB rewritten in full on every guess. The KV backend's value cap is
-**128 KiB**; a long chat-heavy Roll of Honour game gets uncomfortably
-close. Move to the object's **SQLite tables** (`ctx.storage.sql`): a
-`feed` table appended one row at a time, a `tiles` table updated one row
-at a time, players one row each. Rows written per action drops from
-"the whole record" to 1-2, the cap disappears, and `/state?since=` /
-the socket delta become a `WHERE id > ?` query.
+**Done 2026-09-14.** A session used to be **two KV values** (`session`,
+`players`), the `session` value carrying the grid *and* the 300-entry
+activity feed -- ~60 KB rewritten in full on every guess, against the KV
+backend's **128 KiB** value cap. It is now five **SQLite tables**
+(`session` core, `questions`, `players`, `tiles`, `feed`), one row per
+player / tile / feed entry. The object keeps the records in memory as
+the working copy (loaded once per wake) and `save()` writes only the
+rows whose JSON changed, so a guess is 1-2 row writes and a poll reads
+no storage at all. Sessions persisted the old way are migrated on first
+read. Tested in `test/integration/remoteSessionStorage.test.ts`.
 
 ### 4d. The daily game's KV writes
 
@@ -247,8 +263,9 @@ occasional "which query read 70,000 rows" hunt (see `agents.md`'s
 ## 5. Tier 3 -- thousands of concurrent players
 
 Target: **1,000-10,000 concurrent**. WebSockets (4b) and SQL storage
-(4c) are prerequisites; the remaining work is taking everything else off
-the per-request database path and preparing to be surprised.
+(4c) were the prerequisites and are in; the remaining work is taking
+everything else off the per-request database path and preparing to be
+surprised.
 
 ### 5a. Cost sketch (5,000 concurrent, 3 h/night, 30 nights)
 
@@ -328,8 +345,8 @@ arithmetic; those will be measurements.
 | ~~Club typeahead fetched once, filtered in the browser; other typeahead responses edge-cached (3c)~~ | **Done 2026-09-14** | -- |
 | ~~Session TTL alarm (5d)~~ | **Done 2026-09-14** -- 24h untouched, deleted by the object's own alarm | -- |
 | Workers Paid + Budget Alert (4a, 4e) | When any free daily limit is hit once, or before advertising the game | $5/mo |
-| WebSockets + hibernation (4b) | Before "hundreds" -- when >~30 concurrent is normal, or when lock/release lag is complained about again | the one real project (~days) |
-| SQL storage in the object (4c) | With 4b | medium |
+| ~~WebSockets + hibernation (4b)~~ | **Done 2026-09-14** -- push on change, alarm for clock-driven changes, `/state` poll as fallback | -- |
+| ~~SQL storage in the object (4c)~~ | **Done 2026-09-14** -- five tables, in-memory working copy, diffed writes | -- |
 | Precomputed question/tile blobs; static player index (5b) | When D1 shows up in the bill or in p99s | medium |
 | ~~Edge image cache (5c)~~ | **Done 2026-09-14** -- once per location per day, not per browser | -- |
 | Load test (5f) | Before each of the above tiers is declared done | medium |

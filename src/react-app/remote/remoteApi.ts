@@ -220,6 +220,14 @@ export function apiFetchState(code: string, token: string, sinceFeedId = 0, last
 	);
 }
 
+// The push channel's URL (see remoteGameSession.ts's WebSockets doc and
+// useRemoteSession.ts). Same origin as the page; the token has to ride
+// in the query because a browser's WebSocket can't set headers.
+export function sessionSocketUrl(code: string, token: string, sinceFeedId = 0): string {
+	const scheme = window.location.protocol === "https:" ? "wss" : "ws";
+	return `${scheme}://${window.location.host}/api/remote/sessions/${code}/ws?token=${encodeURIComponent(token)}&since=${sinceFeedId}`;
+}
+
 export function apiSetReady(code: string, token: string, ready: boolean) {
 	return apiFetch<{ ok: true } | { error: string }>(`/sessions/${code}/ready`, {
 		method: "POST",

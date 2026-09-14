@@ -41,17 +41,18 @@ import { buildHonourTiles, DEFAULT_HONOUR_COMPETITION_ID, gradeHonourGuess, HONO
 //     guess wins" a coherent race, unlike a Top-10 list's multiple
 //     answers. Everything below that isn't question assembly or the
 //     per-tier hint gating in publicQuestion() is identical for both.
-//   - Clients POLL a /state endpoint every 4s (1.5s during a Roll of
-//     Honour game, where another player's lock/release changes what you
-//     can tap -- see useRemoteSession.ts) -- no WebSockets. Plain
-//     poll-timing jitter alone was NOT actually harmless in practice,
-//     though -- confirmed live across three real devices (2026-09-13):
-//     the host's own client re-fetches /state right after /start
-//     succeeds, so the host saw a new question up to several seconds
-//     before other players' independent, unsynchronized poll timers
-//     happened to catch up, a real head start in a "first correct guess
-//     wins" race. See ROUND_START_GRACE_MS below for the fix -- guessing
-//     itself is still fully server-adjudicated regardless.
+//   - Clients hold a WebSocket (GET /ws) and get the public state PUSHED
+//     on every change (2026-09-14 -- see the WebSockets section in the
+//     constructor); /state polling (4s, 1.5s during a Roll of Honour
+//     game) is the fallback while a socket is down. Before sockets, plain
+//     poll-timing jitter was NOT actually harmless in practice --
+//     confirmed live across three real devices (2026-09-13): the host's
+//     own client re-fetched /state right after /start succeeded, so the
+//     host saw a new question up to several seconds before other
+//     players' independent, unsynchronized poll timers happened to catch
+//     up, a real head start in a "first correct guess wins" race. See
+//     ROUND_START_GRACE_MS below for the fix, which stays -- guessing
+//     itself is fully server-adjudicated regardless.
 //   - Joining is open for the whole game, not just the lobby (2026-09-13
 //     -- originally lobby-only, a plain status check nothing else relied
 //     on). A mid-game joiner starts on zero wins, an accepted
@@ -60,7 +61,7 @@ import { buildHonourTiles, DEFAULT_HONOUR_COMPETITION_ID, gradeHonourGuess, HONO
 //     changes. "Rejoining" after /leave is just this -- the old record is
 //     gone, they come back as a fresh seat. See /join for the one
 //     wrinkle (readiness when joining during a reveal).
-//   - A player is "away" after 15s of silence (~3 missed polls); both
+//   - A player is "away" after 15s with no open socket and no poll; both
 //     "everyone ready" and "everyone next-question" gates only wait on
 //     non-away players. The host can also remove a player outright.
 //   - Wrong guesses cost nothing -- unlimited attempts, a pure race on
@@ -120,7 +121,7 @@ import { buildHonourTiles, DEFAULT_HONOUR_COMPETITION_ID, gradeHonourGuess, HONO
 // round-based modes; everything round-specific (ready gate, hint tiers,
 // minimum reveal) simply never engages since no round ever starts.
 
-const PLAYER_AWAY_MS = 15_000; // ~3 missed 4s polls -- see class doc.
+const PLAYER_AWAY_MS = 15_000; // No socket and ~3 missed 4s polls -- see class doc and isAway.
 // A session nobody has touched for this long is deleted outright (storage
 // and all) by the object's alarm -- see alarm() below. Before this
 // (2026-09-14) abandoned sessions lived forever; every code ever created
@@ -368,17 +369,13 @@ function isRoundDecided(session: SessionRecord): boolean {
 	return session.roundAnswerName !== null;
 }
 
-function isAway(player: PlayerRecord, now: number): boolean {
-	return now - player.lastSeenAt > PLAYER_AWAY_MS;
-}
-
-function toPublicPlayer(player: PlayerRecord, now: number): PublicPlayer {
+function toPublicPlayer(player: PlayerRecord, away: boolean): PublicPlayer {
 	return {
 		id: player.id,
 		name: player.name,
 		isHost: player.isHost,
 		ready: player.ready,
-		away: isAway(player, now),
+		away,
 		wins: player.wins,
 	};
 }
@@ -390,14 +387,6 @@ function countWords(text: string): number {
 	return text.split(/\s+/).filter(Boolean).length;
 }
 
-// Non-host, non-away players who haven't marked ready -- shared by /start
-// (gating lobby -> in_progress) and the round-advance check (gating
-// current round -> next round), since both are literally the same rule:
-// don't wait on the host (they drive the gate, not block on it) or on
-// someone who's gone quiet (see class doc on "away").
-function playersNotReady(players: PlayerRecord[], now: number): PlayerRecord[] {
-	return players.filter((p) => !p.isHost && !p.ready && !isAway(p, now));
-}
 
 // Reveals hint-gated fields only once the corresponding tier's 30s window
 // has elapsed (or immediately, once the round's already been won -- no
@@ -501,8 +490,11 @@ function publicRound(session: SessionRecord, now: number): PublicRound | null {
 
 export class RemoteGameSession extends DurableObject<Env> {
 	private readonly app: Hono;
-	// Set in the constructor (the storage helpers are closure-local there).
+	// Set in the constructor (the storage and socket helpers are
+	// closure-local there).
 	private wipe!: () => Promise<void>;
+	private tick!: (now: number) => Promise<void>;
+	private onSocketGone!: (ws: WebSocket) => Promise<void>;
 
 	constructor(ctx: DurableObjectState, env: Env) {
 		super(ctx, env);
@@ -543,6 +535,9 @@ export class RemoteGameSession extends DurableObject<Env> {
 		}
 		let loaded: Loaded | null = null;
 		let loading: Promise<Loaded> | null = null;
+		// Set by save() when it wrote something -- the WebSocket layer below
+		// broadcasts after the request when it's set.
+		let dirty = false;
 		// Last-written JSON per row (session core, questions, player:<id>,
 		// tile:<season>) -- save() only writes a row whose JSON differs.
 		const written = new Map<string, string>();
@@ -718,6 +713,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 					changed = true;
 				}
 			}
+			if (changed) dirty = true;
 			return changed;
 		};
 
@@ -726,6 +722,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 		// drops the tables too (this object stays alive afterwards, so its
 		// constructor won't recreate them) -- hence ensureTables() again.
 		this.wipe = async () => {
+			for (const ws of ctx.getWebSockets()) ws.close(4404, "Session expired");
 			await storage.deleteAll();
 			ensureTables();
 			loaded = null;
@@ -737,8 +734,191 @@ export class RemoteGameSession extends DurableObject<Env> {
 
 		const getSession = async (): Promise<SessionRecord | undefined> => (await load()).session;
 		const getPlayers = async (): Promise<PlayerRecord[]> => (await load()).players;
+		// ---- Presence ----
+		//
+		// "Away" (see class doc) was purely poll-based: no /state for
+		// PLAYER_AWAY_MS. With WebSockets (below) an open socket IS presence
+		// -- the object doesn't hear the client's keep-alive pings (auto-
+		// answered by the runtime, see setWebSocketAutoResponse), so a
+		// connected player's lastSeenAt goes stale by design. The poll rule
+		// still applies to a player without a socket.
+		const hasSocket = (playerId: string): boolean => ctx.getWebSockets(playerId).length > 0;
+		const isAway = (player: PlayerRecord, now: number): boolean => !hasSocket(player.id) && now - player.lastSeenAt > PLAYER_AWAY_MS;
+		// Non-host, non-away players who haven't marked ready -- shared by
+		// /start (gating lobby -> in_progress) and the round-advance check
+		// (gating current round -> next round), since both are literally
+		// the same rule: don't wait on the host (they drive the gate, not
+		// block on it) or on someone who's gone quiet.
+		const playersNotReady = (players: PlayerRecord[], now: number): PlayerRecord[] => players.filter((p) => !p.isHost && !p.ready && !isAway(p, now));
+
 		const findByToken = (players: PlayerRecord[], token: string | undefined) =>
 			token ? players.find((p) => p.token === token) : undefined;
+
+		// ---- WebSockets (2026-09-14, Hibernation API) ----
+		//
+		// Each client holds one socket (GET /ws, token in the query since a
+		// browser's WebSocket can't set headers) and gets the public state
+		// PUSHED whenever it changes, instead of polling /state every 1.5-4s
+		// (docs/scaling.md §4b). The object hibernates between events with
+		// the sockets held by the runtime, so an idle lobby costs nothing.
+		// Polling still works unchanged and is the client's fallback while
+		// its socket is down.
+		//
+		// What triggers a push: (1) any request that ended up writing --
+		// save() sets `dirty`, the middleware below broadcasts after the
+		// handler; (2) the alarm, for changes that come from the CLOCK with
+		// no request behind them -- a hint tier at 30s, a lock running out,
+		// a player crossing PLAYER_AWAY_MS, the minimum-reveal window
+		// closing. Before sockets those were noticed by whichever poll came
+		// next; scheduleAlarm() now books the earliest of them (folding in
+		// the daily session-expiry check, previously the alarm's only job).
+		//
+		// Per socket the runtime keeps a small attachment -- which player,
+		// the last feed id sent, the last fingerprint sent -- so a push is
+		// skipped when that socket already has this exact state, and the
+		// feed goes out incrementally exactly as /state?since= does.
+		interface SocketAttachment {
+			playerId: string;
+			feedId: number;
+			v: string;
+		}
+		ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"));
+
+		const minRevealMs = (): number => {
+			const raw = Number(env.MIN_REVEAL_MS);
+			return Number.isFinite(raw) ? raw : DEFAULT_MIN_REVEAL_MS;
+		};
+
+		const publicState = (session: SessionRecord, players: PlayerRecord[], now: number) => ({
+			status: session.status,
+			gameType: session.gameType,
+			questionCount: session.questionCount,
+			players: players.map((p) => toPublicPlayer(p, isAway(p, now))),
+			round: publicRound(session, now),
+			honour: publicHonour(session, now),
+		});
+
+		const broadcast = async (now: number): Promise<void> => {
+			dirty = false;
+			const sockets = ctx.getWebSockets();
+			if (sockets.length === 0) return;
+			const { session, players } = await load();
+			if (!session) {
+				for (const ws of sockets) ws.close(4404, "Session not found");
+				return;
+			}
+			const body = publicState(session, players, now);
+			const v = fingerprint(JSON.stringify(body));
+			for (const ws of sockets) {
+				const att = (ws.deserializeAttachment() ?? { playerId: "", feedId: 0, v: "" }) as SocketAttachment;
+				if (!players.some((p) => p.id === att.playerId)) {
+					ws.close(4410, "No longer in this session");
+					continue;
+				}
+				const feed = session.feed.filter((e) => e.id > att.feedId);
+				if (feed.length === 0 && att.v === v) continue;
+				try {
+					ws.send(JSON.stringify({ ...body, feed, v }));
+				} catch {
+					continue; // A socket mid-close -- the runtime's close event tidies up.
+				}
+				ws.serializeAttachment({ ...att, feedId: feed.length ? feed[feed.length - 1].id : att.feedId, v } satisfies SocketAttachment);
+			}
+		};
+
+		// Books the alarm for the earliest thing the clock alone will
+		// change -- see the WebSockets doc above. Only matters mid-game or
+		// while someone is connected to be told; a polled lobby books just
+		// the expiry. Never books a time already past (the tick that fires
+		// handles it and the next call finds it gone), so it can't spin.
+		const scheduleAlarm = async (now: number): Promise<void> => {
+			const { session, players } = await load();
+			if (!session) return;
+			const anySocket = ctx.getWebSockets().length > 0;
+			const lastSeen = Math.max(anySocket ? now : 0, session.createdAt, ...players.map((p) => p.lastSeenAt));
+			let next = lastSeen + SESSION_TTL_MS;
+			const consider = (at: number) => {
+				if (at > now && at < next) next = at;
+			};
+			if (session.status === "in_progress" || anySocket) {
+				for (const p of players) if (!hasSocket(p.id)) consider(p.lastSeenAt + PLAYER_AWAY_MS + 1);
+			}
+			if (session.status === "in_progress") {
+				for (const t of session.honour?.tiles ?? []) if (t.lockedBy !== null && t.lockedUntil !== null) consider(t.lockedUntil);
+				if (session.gameType !== "roll-of-honour") {
+					if (!isRoundDecided(session)) {
+						if (session.roundStartedAt !== null) {
+							const tier = Math.floor((now - session.roundStartedAt) / HINT_REVEAL_INTERVAL_MS) + 1;
+							if (tier <= HINT_TIER_COUNT) consider(session.roundStartedAt + tier * HINT_REVEAL_INTERVAL_MS + 1);
+						}
+					} else if (session.roundDecidedAt !== null) {
+						consider(session.roundDecidedAt + minRevealMs() + 1);
+					}
+				}
+			}
+			if ((await storage.getAlarm()) !== next) await storage.setAlarm(next);
+		};
+
+		// Everything that changes with the clock and no request -- run by
+		// every /state (a poll is a fine clock too) and by the alarm.
+		const settleTimedEvents = async (session: SessionRecord, players: PlayerRecord[], now: number): Promise<void> => {
+			const locksExpired = expireHonourLocks(session, now);
+			const honourFinished = finishHonourIfDone(session, players, now);
+			if ((await resolveRoundByGiveUp(session, players, now)) || locksExpired || honourFinished) await save();
+			await maybeAdvanceRound(session, players, now);
+		};
+
+		this.tick = async (now) => {
+			const { session, players } = await load();
+			if (!session) return;
+			await settleTimedEvents(session, players, now);
+			await broadcast(now);
+			await scheduleAlarm(now);
+		};
+
+		// A socket closing (tab gone, network drop) -- the player keeps
+		// PLAYER_AWAY_MS of grace from now, as if this were their last poll,
+		// rather than being marked away on the spot: a refresh reconnects
+		// well inside that.
+		this.onSocketGone = async (ws) => {
+			const att = ws.deserializeAttachment() as SocketAttachment | null;
+			const { players } = await load();
+			const player = att ? players.find((p) => p.id === att.playerId) : undefined;
+			const now = Date.now();
+			if (player) {
+				player.lastSeenAt = now;
+				await save();
+			}
+			await scheduleAlarm(now);
+		};
+
+		this.app.use("*", async (_c, next) => {
+			await next();
+			if (dirty) {
+				const now = Date.now();
+				await broadcast(now);
+				await scheduleAlarm(now);
+			}
+		});
+
+		this.app.get("/ws", async (c) => {
+			if (c.req.header("Upgrade")?.toLowerCase() !== "websocket") return c.json({ error: "Expected a WebSocket upgrade" }, 426);
+			const session = await getSession();
+			if (!session) return c.json({ error: "Session not found" }, 404);
+			const players = await getPlayers();
+			const self = findByToken(players, c.req.query("token"));
+			if (!self) return c.json({ error: "Invalid session token" }, 401);
+
+			const since = Number(c.req.query("since") ?? 0);
+			const pair = new WebSocketPair();
+			const [client, server] = [pair[0], pair[1]];
+			ctx.acceptWebSocket(server, [self.id]);
+			server.serializeAttachment({ playerId: self.id, feedId: Number.isFinite(since) && since > 0 ? since : 0, v: "" } satisfies SocketAttachment);
+			self.lastSeenAt = Date.now();
+			await save();
+			dirty = true; // Even if nothing changed: the new socket needs its first state.
+			return new Response(null, { status: 101, webSocket: client });
+		});
 
 		// Resets a session into a fresh round at `index` -- shared by /start
 		// (index 0) and the auto-advance check below (index roundIndex + 1).
@@ -842,8 +1022,10 @@ export class RemoteGameSession extends DurableObject<Env> {
 			return changed;
 		}
 
-		// Locks are time-limited (HONOUR_LOCK_MS) and expire lazily -- on
-		// whichever request next looks at the grid -- rather than by alarm.
+		// Locks are time-limited (HONOUR_LOCK_MS) and expire on whichever
+		// request next looks at the grid, or on the alarm scheduleAlarm()
+		// books for the earliest lockedUntil (so connected players see the
+		// tile open the moment it does).
 		function expireHonourLocks(session: SessionRecord, now: number): boolean {
 			let changed = false;
 			for (const t of session.honour?.tiles ?? []) {
@@ -928,10 +1110,8 @@ export class RemoteGameSession extends DurableObject<Env> {
 				lastMessageAt: null,
 			};
 			await save({ session, players: [host] });
-			// The expiry alarm is armed once here and then re-arms itself off
-			// the players' lastSeenAt each time it fires (see alarm()) -- no
-			// per-request alarm writes.
-			await storage.setAlarm(now + SESSION_TTL_MS);
+			// The alarm (expiry, and mid-game timed events -- see
+			// scheduleAlarm) is booked by the broadcast middleware after this.
 
 			return c.json({ sessionCode: code, playerId: host.id, playerToken: host.token });
 		});
@@ -1003,17 +1183,11 @@ export class RemoteGameSession extends DurableObject<Env> {
 			// Roll of Honour: a lock running out, or the last active player
 			// going away/bowing out, can only be noticed by someone's poll --
 			// this one.
-			const honourChanged = expireHonourLocks(session, now) || finishHonourIfDone(session, players, now);
-			if ((await resolveRoundByGiveUp(session, players, now)) || honourChanged) {
-				await save();
-			} else if (heartbeatDue) {
-				await save();
-			}
-			// Unconditional -- see maybeAdvanceRound's own doc on why a poll
-			// has to be able to complete an advance the ready gate already
-			// approved (the minimum-reveal window). A read-only no-op when
-			// there's nothing to advance.
-			await maybeAdvanceRound(session, players, now);
+			if (heartbeatDue) await save();
+			// Includes maybeAdvanceRound -- see its own doc on why a poll has
+			// to be able to complete an advance the ready gate already
+			// approved (the minimum-reveal window).
+			await settleTimedEvents(session, players, now);
 
 			// Incremental feed: `since` is the last entry id the client has,
 			// so a steady-state poll carries only what's new (usually nothing);
@@ -1032,14 +1206,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 			// would miss the moment a hint reveals. The server still builds
 			// the state each poll; what's saved is bytes on the wire and the
 			// client's parse/re-render, which is where a phone feels it.
-			const body = {
-				status: session.status,
-				gameType: session.gameType,
-				questionCount: session.questionCount,
-				players: players.map((p) => toPublicPlayer(p, now)),
-				round: publicRound(session, now),
-				honour: publicHonour(session, now),
-			};
+			const body = publicState(session, players, now);
 			const v = fingerprint(JSON.stringify(body));
 			if (feed.length === 0 && c.req.query("v") === v) return c.json({ unchanged: true as const, v });
 
@@ -1565,30 +1732,43 @@ export class RemoteGameSession extends DurableObject<Env> {
 		return this.app.fetch(request);
 	}
 
-	// Session expiry (see SESSION_TTL_MS). Fires once a day per live
-	// session: if nobody has polled within the TTL the whole object's
-	// storage is deleted (which also drops this alarm -- a fresh /create on
-	// the same code, astronomically unlikely, starts clean); otherwise it
-	// re-arms for one TTL past the most recent poll. Read straight off
-	// storage rather than through the constructor's helpers, which are
-	// closure-local to the router.
+	// Two jobs (see the constructor's WebSockets doc): session expiry --
+	// nobody connected and nobody polled within SESSION_TTL_MS deletes the
+	// whole object's storage (a fresh /create on the same code,
+	// astronomically unlikely, starts clean) -- and otherwise a tick of the
+	// clock-driven events, a push to every socket, and booking the next.
 	async alarm(): Promise<void> {
-		// Reads presence from SQL rather than the in-memory copy, so a test
-		// (or an operator) can age rows underneath it -- see the storage doc
-		// in the constructor.
+		// Expiry reads presence from SQL rather than the in-memory copy so a
+		// test (or an operator) can age rows underneath it -- see the storage
+		// doc in the constructor. An open socket is presence regardless.
 		const sql = this.ctx.storage.sql;
 		const sessionRow = sql.exec<{ data: string }>("SELECT data FROM session WHERE id = 1").toArray()[0];
 		if (!sessionRow) {
 			await this.wipe();
 			return;
 		}
-		const lastSeenRow = sql.exec<{ last: number | null }>("SELECT MAX(json_extract(data, '$.lastSeenAt')) AS last FROM players").toArray()[0];
-		const lastSeen = lastSeenRow?.last ?? (JSON.parse(sessionRow.data) as SessionRecord).createdAt;
 		const now = Date.now();
-		if (now - lastSeen >= SESSION_TTL_MS) {
-			await this.wipe();
-			return;
+		if (this.ctx.getWebSockets().length === 0) {
+			const lastSeenRow = sql.exec<{ last: number | null }>("SELECT MAX(json_extract(data, '$.lastSeenAt')) AS last FROM players").toArray()[0];
+			const lastSeen = lastSeenRow?.last ?? (JSON.parse(sessionRow.data) as SessionRecord).createdAt;
+			if (now - lastSeen >= SESSION_TTL_MS) {
+				await this.wipe();
+				return;
+			}
 		}
-		await this.ctx.storage.setAlarm(lastSeen + SESSION_TTL_MS);
+		await this.tick(now);
+	}
+
+	// Clients only ever send "ping" (answered by the runtime without waking
+	// this object -- setWebSocketAutoResponse); anything else is ignored.
+	webSocketMessage(): void {}
+
+	async webSocketClose(ws: WebSocket, code: number, reason: string): Promise<void> {
+		ws.close(code, reason);
+		await this.onSocketGone(ws);
+	}
+
+	async webSocketError(ws: WebSocket): Promise<void> {
+		await this.onSocketGone(ws);
 	}
 }

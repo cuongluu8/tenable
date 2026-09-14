@@ -75,6 +75,17 @@ remoteSession.post("/sessions/:code/join", async (c) => forward(c, "/join", { me
 // remoteGameSession.ts's /state).
 remoteSession.get("/sessions/:code/state", async (c) => forward(c, `/state${new URL(c.req.url).search}`));
 
+// The push channel (see remoteGameSession.ts's WebSockets doc). The
+// token rides in the query here, not a header, because a browser's
+// WebSocket API can't set headers; the upgrade is forwarded to the object
+// as-is and its 101 response returned untouched.
+remoteSession.get("/sessions/:code/ws", (c) => {
+	const code = normalizeSessionCode(c.req.param("code"));
+	if (!isValidSessionCode(code)) return c.json({ error: "Invalid session code" }, 400);
+	if (c.req.header("Upgrade")?.toLowerCase() !== "websocket") return c.json({ error: "Expected a WebSocket upgrade" }, 426);
+	return sessionStub(c.env, code).fetch(`https://do/ws${new URL(c.req.url).search}`, { headers: { Upgrade: "websocket" } });
+});
+
 remoteSession.post("/sessions/:code/ready", async (c) => forward(c, "/ready", { method: "POST", body: await c.req.text() }));
 
 remoteSession.post("/sessions/:code/guess", async (c) => forward(c, "/guess", { method: "POST", body: await c.req.text() }));

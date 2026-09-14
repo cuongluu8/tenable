@@ -17,23 +17,28 @@ import {
 	clearIdentity,
 	loadIdentity,
 	saveIdentity,
+	sessionSocketUrl,
 	type FeedEntry,
 	type RemoteGameType,
 	type RemoteIdentity,
 	type SessionState,
 } from "./remoteApi";
 
-// 4s, matching the locked design decision (see remoteGameSession.ts's own
-// doc): no WebSockets, a few seconds of UI lag doesn't affect fairness
-// since the server decides who won each question, not the client.
+// Live updates arrive over a WebSocket (2026-09-14 -- see
+// remoteGameSession.ts's WebSockets doc): the server pushes the same
+// body /state returns whenever it changes. Polling is the FALLBACK, used
+// only while the socket is down (connecting, reconnecting, or blocked by
+// something in between), at the cadences remote play ran on before:
+// 4s, and 1.5s during a Roll of Honour game, where a season someone else
+// released reads as a dead tile until the next update shows it open.
 const POLL_INTERVAL_MS = 4_000;
-// Roll of Honour is the one format where other players' actions change
-// what YOU can tap: a season held by someone else is disabled until your
-// next poll shows it released, and at 4s that read as a 1-2s dead tile
-// (reported 2026-09-14). Faster while such a game is in progress; the
-// server skips its per-poll heartbeat write when nothing else changed
-// (see /state), so the extra polls cost requests but not writes.
 const HONOUR_POLL_INTERVAL_MS = 1_500;
+// Keep-alive over the socket -- answered by the runtime without waking
+// the session object, so it's free; it keeps idle connections open
+// through proxies that drop quiet ones.
+const SOCKET_PING_MS = 25_000;
+// Reconnect backoff: 1s, 2s, 4s, 8s, then every 15s.
+const SOCKET_RETRY_MAX_MS = 15_000;
 
 interface UseRemoteSessionResult {
 	identity: RemoteIdentity | null;
@@ -84,8 +89,8 @@ interface UseRemoteSessionResult {
 
 // Owns the one piece of client-side state every remote-multiplayer screen
 // needs: the current session's identity (persisted to localStorage so a
-// refresh mid-game doesn't lose a seat) and its live server state (polled
-// every 4s). Split out of any one screen component since Home/Lobby/Game
+// refresh mid-game doesn't lose a seat) and its live server state (pushed
+// over a WebSocket, polled while that's down). Split out of any one screen component since Home/Lobby/Game
 // are really one continuous session, just rendered differently depending
 // on `state.status` -- see RemoteMultiplayer.tsx.
 export function useRemoteSession(): UseRemoteSessionResult {
@@ -106,30 +111,25 @@ export function useRemoteSession(): UseRemoteSessionResult {
 	// cleared) after switching to IDENTITY B.
 	const identityRef = useRef(identity);
 	identityRef.current = identity;
+	// Whether the push channel is up -- the poll loop stands down while it is.
+	const socketOpenRef = useRef(false);
 
-	const refresh = useCallback(async (id: RemoteIdentity) => {
-		const res = await apiFetchState(id.sessionCode, id.playerToken, lastFeedIdRef.current, lastVersionRef.current);
-		if (identityRef.current !== id) return; // superseded while this was in flight
-		if (res.status === 401 || res.status === 404) {
-			// The session this identity pointed at is gone or never existed --
-			// a stale localStorage entry from a previous game, most likely.
-			// Nothing to recover: forget it and let the player start fresh.
-			clearIdentity();
-			setIdentity(null);
-			setState(null);
-			resetFeed();
-			return;
-		}
-		if (res.status !== 200) {
-			setError("error" in res.body ? res.body.error : "Something went wrong.");
-			return;
-		}
-		setError(null);
-		if ("unchanged" in res.body) return; // Nothing new -- no re-render either.
-		const body = res.body as SessionState;
+	// The session this identity pointed at is gone or never existed -- a
+	// stale localStorage entry from a previous game, most likely, or a
+	// player the host removed. Nothing to recover: forget it and let the
+	// player start fresh.
+	const dropIdentity = useCallback(() => {
+		clearIdentity();
+		setIdentity(null);
+		setState(null);
+		resetFeed();
+	}, []);
+
+	// One state body, from a poll or a push -- identical shapes.
+	const applyState = useCallback((body: SessionState) => {
 		lastVersionRef.current = body.v;
 		if (body.feed.length > 0) {
-			// Two polls can overlap (a poll and an action's own refresh), so
+			// Updates can overlap (a push and an action's own refresh), so
 			// merge by id rather than blindly appending.
 			setFeed((prev) => {
 				const known = new Set(prev.map((e) => e.id));
@@ -140,6 +140,25 @@ export function useRemoteSession(): UseRemoteSessionResult {
 		}
 		setState(body);
 	}, []);
+
+	const refresh = useCallback(
+		async (id: RemoteIdentity) => {
+			const res = await apiFetchState(id.sessionCode, id.playerToken, lastFeedIdRef.current, lastVersionRef.current);
+			if (identityRef.current !== id) return; // superseded while this was in flight
+			if (res.status === 401 || res.status === 404) {
+				dropIdentity();
+				return;
+			}
+			if (res.status !== 200) {
+				setError("error" in res.body ? res.body.error : "Something went wrong.");
+				return;
+			}
+			setError(null);
+			if ("unchanged" in res.body) return; // Nothing new -- no re-render either.
+			applyState(res.body as SessionState);
+		},
+		[applyState, dropIdentity],
+	);
 
 	// A new identity is a new session: start its history from scratch.
 	function resetFeed() {
@@ -161,8 +180,9 @@ export function useRemoteSession(): UseRemoteSessionResult {
 			// Nothing left to learn once a session has ended -- the one
 			// terminal status (see remoteGameSession.ts). "finished" is NOT
 			// terminal since /restart exists: every device at the results has
-			// to keep polling to notice the host starting another game.
+			// to keep listening to notice the host starting another game.
 			if (state?.status === "ended") return;
+			if (socketOpenRef.current) return; // The socket is delivering -- see its effect below.
 			if (!cancelled) refresh(identity);
 		}, pollMs);
 		return () => {
@@ -175,6 +195,68 @@ export function useRemoteSession(): UseRemoteSessionResult {
 		// cadence. pollMs IS depended on: see its own comment.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [identity, refresh, pollMs]);
+
+	// The push channel: one socket per identity, reconnected with backoff
+	// for as long as the identity stands, with a poll on every reconnect to
+	// cover whatever was missed while it was down. The server's close codes
+	// 4404 (session gone) and 4410 (no longer a player) mean the same as a
+	// poll's 401/404.
+	useEffect(() => {
+		if (!identity || typeof WebSocket === "undefined") return;
+		let ws: WebSocket | null = null;
+		let disposed = false;
+		let attempt = 0;
+		let retryTimer: ReturnType<typeof setTimeout> | undefined;
+		let pingTimer: ReturnType<typeof setInterval> | undefined;
+
+		const connect = () => {
+			if (disposed) return;
+			const socket = new WebSocket(sessionSocketUrl(identity.sessionCode, identity.playerToken, lastFeedIdRef.current));
+			ws = socket;
+			socket.onopen = () => {
+				attempt = 0;
+				socketOpenRef.current = true;
+				pingTimer = setInterval(() => {
+					if (socket.readyState === WebSocket.OPEN) socket.send("ping");
+				}, SOCKET_PING_MS);
+			};
+			socket.onmessage = (event) => {
+				if (typeof event.data !== "string" || event.data === "pong") return;
+				if (identityRef.current !== identity) return;
+				let body: SessionState;
+				try {
+					body = JSON.parse(event.data) as SessionState;
+				} catch {
+					return;
+				}
+				setError(null);
+				applyState(body);
+			};
+			socket.onerror = () => socket.close();
+			socket.onclose = (event) => {
+				socketOpenRef.current = false;
+				clearInterval(pingTimer);
+				if (disposed) return;
+				if (event.code === 4404 || event.code === 4410) {
+					dropIdentity();
+					return;
+				}
+				attempt += 1;
+				retryTimer = setTimeout(connect, Math.min(SOCKET_RETRY_MAX_MS, 1_000 * 2 ** Math.min(attempt - 1, 3)));
+				// Fill any gap straight away rather than waiting for the poll loop.
+				void refresh(identity);
+			};
+		};
+		connect();
+
+		return () => {
+			disposed = true;
+			socketOpenRef.current = false;
+			clearTimeout(retryTimer);
+			clearInterval(pingTimer);
+			ws?.close(1000, "leaving");
+		};
+	}, [identity, applyState, dropIdentity, refresh]);
 
 	const create = useCallback(
 		async (hostName: string, gameType: RemoteGameType) => {

@@ -187,7 +187,7 @@ src/react-app/
   rollOfHonour/               # HonourTile (shared grid tile), solo and pass-and-play screens,
                               # passPlayState (turn rules, unit-tested)
   multiplayer/                # pass-and-play wizard: roster -> game type -> pick -> play -> results
-  remote/                     # remote play: useRemoteSession (identity + 4s polling + activity feed),
+  remote/                     # remote play: useRemoteSession (identity + WebSocket push, poll fallback + activity feed),
                               # Home/Lobby, RemoteGame (round formats), RollOfHonourGame, ChatPane
   hooks/, lib/                # useKeepInSafeZone, safeViewport (mobile keyboard handling), formatAsOfDate
 
@@ -239,22 +239,26 @@ simpler content model.
   `RemoteGameSession`, a SQLite-backed Durable Object per 6-character
   session code (`lib/remoteSession.ts`), reached only through
   `routes/remoteSession.ts`, which does no business logic itself. Clients
-  **poll `/state` every 4s** (1.5s while a Roll of Honour game is in
-  progress, since another player's lock/release changes what you can
-  tap; the server throttles the per-poll heartbeat write to once per 3s
-  so the faster cadence costs requests, not row writes) -- no WebSockets
-  -- and prove identity with a per-player token header. Rules worth knowing before touching it (each
+  hold a **WebSocket** (`/ws`, Hibernation API) and get the public state
+  **pushed** on every change -- after any request that wrote, and from
+  the object's alarm for clock-driven changes (hint tiers, lock expiry,
+  away, the reveal hold); **polling `/state`** (4s, 1.5s during a Roll of
+  Honour game) is the fallback while a socket is down. Identity is a
+  per-player token (header on HTTP, query on the socket upgrade). The
+  session record lives in the object's **SQLite tables** (one row per
+  player / tile / feed entry), kept in memory as the working copy and
+  written back as a diff. Rules worth knowing before touching it (each
   has a doc comment at the code):
   - **first correct guess wins** a question; wrong guesses are free. A
-    server-enforced start countdown (`ROUND_START_GRACE_MS`, 5s) closes the
-    poll-timing head start, and the question itself is hidden client-side
+    server-enforced start countdown (`ROUND_START_GRACE_MS`, 5s) puts every
+    device on the same clock, and the question itself is hidden client-side
     until it ends; hints reveal on a shared 30s timer, withheld
     server-side. A decided round is held for `MIN_REVEAL_MS` (5s) so every
     device sees the answer before the "everyone ready" gate advances.
   - **Give up** bows a player out of the round (Roll of Honour: the whole
     game); once every non-away player has, the round resolves with no
-    winner. A player is **away** after 15s without polling and is skipped
-    by every gate.
+    winner. A player is **away** after 15s with no open socket and no
+    poll, and is skipped by every gate.
   - **Roll of Honour** is a different engine inside the same object: tap
     to hold a season for 20s, answer it; wrong frees it and blocks that
     player from it for 5s; scores are correct tiles.
@@ -269,9 +273,9 @@ simpler content model.
   - Sessions untouched for 24h are deleted by the object's own alarm
     (`SESSION_TTL_MS`); badge/flag images and typeahead responses are
     edge-cached (once per location, not per browser).
-  - Polls carry the last state fingerprint (`?v=`); an unchanged state
-    comes back as a few bytes (`{ unchanged: true }`), so a 1.5s Roll of
-    Honour poll normally costs ~40 bytes, not the ~10KB grid. Roll of
+  - Pushes and polls carry a state fingerprint (`v`); a socket is only
+    sent a state it hasn't got, and an unchanged fallback poll comes back
+    as a few bytes (`{ unchanged: true }`), not the ~10KB grid. Roll of
     Honour's club typeahead is fetched once (`/api/roll-of-honour/clubs`,
     edge-cached) and filtered in the browser -- a keystroke there makes
     no request.
@@ -295,10 +299,10 @@ Rate limits are the `ratelimits` bindings there (a change is a deploy) --
 see "App-level cost guardrails" below.
 
 **Scaling remote play** -- what each player costs, which limit fails
-first (spoiler: our own `DAILY_REQUEST_BUDGET`, then polling against the
-100k/day request quotas), and the tiered plan to tens/hundreds/thousands
-of concurrent players (rate-limit binding, delta polling, then WebSockets
-with hibernation) -- is in `docs/scaling.md`.
+first, and the tiered plan to tens/hundreds/thousands of concurrent
+players (tiers 1 and 2 -- rate-limit binding, delta polling, SQLite
+storage in the object, WebSockets with hibernation -- are done as of
+2026-09-14) -- is in `docs/scaling.md`.
 
 ## Data model
 
@@ -947,7 +951,7 @@ tests are split across many small files. The e2e suite runs against the
 real seed (CI seeds local D1 first), drives every game and mode through
 the UI only, and for remote play opens two or three independent browser
 contexts per test; its remote specs carry real waits (5s countdown, 5s
-reveal, 4s polls), which is why the CI job timeout is 25 minutes.
+reveal), which is why the CI job timeout is 25 minutes.
 A correct guess in remote Club Run / Teammate Tell is deliberately NOT
 covered end to end -- the answer never reaches the client by design --
 so the winning path is exercised through Roll of Honour, whose answers
@@ -1082,10 +1086,12 @@ the table above. **Durable Objects are in use (remote play, since
 available on Workers Free, with limits comparable to D1's (100,000
 requests/day, 13,000 GB-s duration/day, 5M rows read/day, 100,000 rows
 written/day, 5 GB storage; confirmed against Cloudflare's docs when the
-feature was built). Every poll of `/api/remote/.../state` is one DO request
-and one storage write (the heartbeat), so a busy game night is the one
-thing on this account that could plausibly approach a daily ceiling;
-`REMOTE_MULTIPLAYER_ENABLED=false` is the off switch if it ever does.
+feature was built). Since 2026-09-14 clients hold a WebSocket instead of
+polling, so a connected player costs requests only when something
+happens (incoming socket messages bill 20:1, outgoing pushes are free,
+hibernation means an idle lobby costs no duration); the `/state` fallback
+poll is one DO request each. `REMOTE_MULTIPLAYER_ENABLED=false` is the
+off switch if a game night ever approaches a daily ceiling.
 
 **Known non-cost risk to watch:** KV writes are capped at 1,000/day free, and
 every completed guess round writes at least a progress record (plus
