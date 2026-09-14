@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { normalize, toFtsPrefixQuery } from "../lib/normalize";
 import { suggestNames } from "../lib/categories";
 import { enforceSuggestRateLimit } from "../lib/rateLimits";
+import { cachedContentQuery } from "../lib/responseCache";
 import { CLUB_BADGE_SETS, CLUB_BADGE_SET_NAMES } from "../lib/clubBadgeSets";
 import { buildSetsIndex, resolveSetQuestions } from "../lib/setsIndex";
 import { checkPlayerGuess } from "../lib/checkPlayerGuess";
@@ -170,8 +171,11 @@ clubBadges.get("/suggest", enforceSuggestRateLimit, async (c) => {
 		return c.json({ suggestions: [], truncated: false });
 	}
 
-	const { names, truncated } = await suggestNames(c.env.DB, prefix, "player", 20, null);
-	return c.json({ suggestions: names, truncated });
+	// Edge-cached per prefix, keyed by content_version -- see suggest.ts.
+	const { names, truncated } = await cachedContentQuery(c.env.DB, c.executionCtx, `suggest:players:${encodeURIComponent(prefix)}`, () =>
+		suggestNames(c.env.DB, prefix, "player", 20, null),
+	);
+	return c.json({ suggestions: names, truncated }, 200, { "cache-control": "public, max-age=300" });
 });
 
 export default clubBadges;

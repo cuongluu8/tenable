@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { normalize } from "../lib/normalize";
 import { suggestNames, getCategoryBySlug } from "../lib/categories";
 import { enforceSuggestRateLimit } from "../lib/rateLimits";
+import { cachedContentQuery } from "../lib/responseCache";
 
 const suggest = new Hono<{ Bindings: Env }>();
 
@@ -48,14 +49,15 @@ suggest.get("/", enforceSuggestRateLimit, async (c) => {
 		return c.json({ suggestions: [], truncated: false });
 	}
 
-	const { names, truncated } = await suggestNames(
-		c.env.DB,
-		prefix,
-		category.entity_type,
-		MAX_RESULTS,
-		category.reference_scope,
+	// Public and identical for every player for a given (category, prefix)
+	// -- so it lives behind the edge cache keyed by content_version (same as
+	// the category list), and a room typing the same names hits the edge,
+	// not D1 (2026-09-14; docs/scaling.md §3c). The rate limiter above
+	// still runs first.
+	const { names, truncated } = await cachedContentQuery(c.env.DB, c.executionCtx, `suggest:${categorySlug}:${encodeURIComponent(prefix)}`, () =>
+		suggestNames(c.env.DB, prefix, category.entity_type, MAX_RESULTS, category.reference_scope),
 	);
-	return c.json({ suggestions: names, truncated });
+	return c.json({ suggestions: names, truncated }, 200, { "cache-control": "public, max-age=300" });
 });
 
 export default suggest;

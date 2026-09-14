@@ -266,6 +266,9 @@ simpler content model.
     fetched incrementally via `/state?since=`) is shown in a side pane.
   - `REMOTE_MULTIPLAYER_ENABLED` (wrangler var) is the kill switch: `false`
     makes every `/api/remote/*` route return 503 without a deploy.
+  - Sessions untouched for 24h are deleted by the object's own alarm
+    (`SESSION_TTL_MS`); badge/flag images and typeahead responses are
+    edge-cached (once per location, not per browser).
   - Polls carry the last state fingerprint (`?v=`); an unchanged state
     comes back as a few bytes (`{ unchanged: true }`), so a 1.5s Roll of
     Honour poll normally costs ~40 bytes, not the ~10KB grid. Roll of

@@ -121,6 +121,13 @@ import { buildHonourTiles, DEFAULT_HONOUR_COMPETITION_ID, gradeHonourGuess, HONO
 // minimum reveal) simply never engages since no round ever starts.
 
 const PLAYER_AWAY_MS = 15_000; // ~3 missed 4s polls -- see class doc.
+// A session nobody has touched for this long is deleted outright (storage
+// and all) by the object's alarm -- see alarm() below. Before this
+// (2026-09-14) abandoned sessions lived forever; every code ever created
+// was a permanent row set. A day covers "we'll finish tomorrow" and the
+// lobby link someone opens late; the only things that resume a session
+// are its players' own polls, which refresh lastSeenAt.
+const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 // /state's heartbeat write (lastSeenAt) is skipped when the previous one is
 // younger than this -- see that handler. Comfortably inside PLAYER_AWAY_MS.
 const HEARTBEAT_WRITE_MIN_MS = 3_000;
@@ -716,6 +723,10 @@ export class RemoteGameSession extends DurableObject<Env> {
 				lastMessageAt: null,
 			};
 			await storage.put({ session, players: [host] });
+			// The expiry alarm is armed once here and then re-arms itself off
+			// the players' lastSeenAt each time it fires (see alarm()) -- no
+			// per-request alarm writes.
+			await storage.setAlarm(now + SESSION_TTL_MS);
 
 			return c.json({ sessionCode: code, playerId: host.id, playerToken: host.token });
 		});
@@ -1347,5 +1358,29 @@ export class RemoteGameSession extends DurableObject<Env> {
 
 	fetch(request: Request): Response | Promise<Response> {
 		return this.app.fetch(request);
+	}
+
+	// Session expiry (see SESSION_TTL_MS). Fires once a day per live
+	// session: if nobody has polled within the TTL the whole object's
+	// storage is deleted (which also drops this alarm -- a fresh /create on
+	// the same code, astronomically unlikely, starts clean); otherwise it
+	// re-arms for one TTL past the most recent poll. Read straight off
+	// storage rather than through the constructor's helpers, which are
+	// closure-local to the router.
+	async alarm(): Promise<void> {
+		const storage = this.ctx.storage;
+		const session = await storage.get<SessionRecord>("session");
+		if (!session) {
+			await storage.deleteAll();
+			return;
+		}
+		const players = (await storage.get<PlayerRecord[]>("players")) ?? [];
+		const lastSeen = players.length ? Math.max(...players.map((p) => p.lastSeenAt)) : session.createdAt;
+		const now = Date.now();
+		if (now - lastSeen >= SESSION_TTL_MS) {
+			await storage.deleteAll();
+			return;
+		}
+		await storage.setAlarm(lastSeen + SESSION_TTL_MS);
 	}
 }

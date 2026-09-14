@@ -12,23 +12,31 @@ const media = new Hono<{ Bindings: Env }>();
 // (e.g. "clubs/217.png") is captured whole rather than just its last
 // segment — Hono's param matching stops at the next "/" otherwise.
 media.get("/:key{.+}", async (c) => {
-	const key = c.req.param("key");
+	// Edge cache in front of R2 (2026-09-14; docs/scaling.md §5c): the
+	// browser already keeps an image for a day (Cache-Control below), but
+	// every first-time visitor was still an R2 read. Keyed on the request
+	// URL, so each image is read from R2 once per Cloudflare location per
+	// day rather than once per browser. Same one-day TTL as the browser --
+	// deliberately NOT `immutable`/a year: an image_key is the entity's id,
+	// not a content hash, so a re-uploaded badge keeps its key and has to
+	// age out.
+	const cache = caches.default;
+	const cacheKey = new Request(c.req.url, { method: "GET" });
+	const hit = await cache.match(cacheKey);
+	if (hit) return hit;
 
+	const key = c.req.param("key");
 	const object = await c.env.MEDIA.get(key);
 	if (!object) {
 		return c.json({ error: "Not found" }, 404);
 	}
-
 	const headers = new Headers();
 	object.writeHttpMetadata(headers);
 	headers.set("etag", object.httpEtag);
-	// Content-addressed by entity id, but a badge can still get re-sourced
-	// under the same key (e.g. a club rebrand) -- a day is long enough to
-	// meaningfully cut R2 reads, short enough that a correction doesn't
-	// linger stale for weeks.
 	headers.set("cache-control", "public, max-age=86400");
-
-	return new Response(object.body, { headers });
+	const response = new Response(object.body, { headers });
+	c.executionCtx.waitUntil(cache.put(cacheKey, response.clone()));
+	return response;
 });
 
 export default media;

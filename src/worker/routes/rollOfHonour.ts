@@ -53,10 +53,15 @@ rollOfHonour.get("/suggest", enforceSuggestRateLimit, async (c) => {
 	const prefix = normalize(raw.slice(0, 60));
 	if (prefix.length < MIN_QUERY_LENGTH) return c.json({ suggestions: [], truncated: false });
 
-	const { names, truncated } = await suggestNames(c.env.DB, prefix, "club", MAX_RESULTS, null);
+	// Edge-cached per prefix, keyed by content_version -- see suggest.ts.
+	// (Clients normally never get here: /clubs below is fetched once and
+	// filtered in the browser; this is the fallback until it's loaded.)
+	const { names, truncated } = await cachedContentQuery(c.env.DB, c.executionCtx, `suggest:clubs:${encodeURIComponent(prefix)}`, () =>
+		suggestNames(c.env.DB, prefix, "club", MAX_RESULTS, null),
+	);
 	const have = new Set(names.map((n) => normalize(n)));
 	const curated = allHonourWinnerNames().filter((n) => normalize(n).startsWith(prefix) && !have.has(normalize(n)));
-	return c.json({ suggestions: [...names, ...curated], truncated });
+	return c.json({ suggestions: [...names, ...curated], truncated }, 200, { "cache-control": "public, max-age=300" });
 });
 
 // ---- Single player (2026-09-13) ----

@@ -325,12 +325,13 @@ arithmetic; those will be measurements.
 |---|---|---|
 | ~~Rate Limiting binding; per-player keys; remove `DAILY_REQUEST_BUDGET` (3a)~~ | **Done 2026-09-14** | -- |
 | ~~`?v=` unchanged-poll replies (3b)~~ | **Done 2026-09-14** | -- |
-| ~~Club typeahead fetched once, filtered in the browser (3c)~~ | **Done 2026-09-14** -- Club Run / Teammate Tell still use the server typeahead; edge-caching those responses is the remaining half | small |
-| Session TTL alarm (5d) | With 3a -- storage currently grows forever | tiny |
+| ~~Club typeahead fetched once, filtered in the browser; other typeahead responses edge-cached (3c)~~ | **Done 2026-09-14** | -- |
+| ~~Session TTL alarm (5d)~~ | **Done 2026-09-14** -- 24h untouched, deleted by the object's own alarm | -- |
 | Workers Paid + Budget Alert (4a, 4e) | When any free daily limit is hit once, or before advertising the game | $5/mo |
 | WebSockets + hibernation (4b) | Before "hundreds" -- when >~30 concurrent is normal, or when lock/release lag is complained about again | the one real project (~days) |
 | SQL storage in the object (4c) | With 4b | medium |
-| Precomputed question/tile blobs; static player index; edge image cache (5b, 5c) | When D1/R2 show up in the bill or in p99s | medium |
+| Precomputed question/tile blobs; static player index (5b) | When D1 shows up in the bill or in p99s | medium |
+| ~~Edge image cache (5c)~~ | **Done 2026-09-14** -- once per location per day, not per browser | -- |
 | Load test (5f) | Before each of the above tiers is declared done | medium |
 
 ## 7. What to leave alone
