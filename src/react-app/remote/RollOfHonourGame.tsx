@@ -53,22 +53,33 @@ export function RollOfHonourGame({ state, feed, myPlayerId, error, onSelectTile,
 	const [guess, setGuess] = useState("");
 	const [busy, setBusy] = useState(false);
 	const [feedback, setFeedback] = useState<{ kind: "correct" | "wrong" | "info"; text: string } | null>(null);
+	// A refused tile claim ("Someone else has that season right now", the
+	// retry block, the start countdown) -- shown as a modal that has to be
+	// dismissed (2026-09-14), not an inline line: it only ever happens when
+	// this device's view of the grid is a poll behind the server, and an
+	// inline note under the grid was easy to miss while looking at the tile.
+	const [notice, setNotice] = useState<string | null>(null);
 	const [confirmingGiveUp, setConfirmingGiveUp] = useState(false);
 
-	// Escape puts a held tile back, same as the answer modal's backdrop/×.
+	// Escape dismisses a notice, or puts a held tile back (same as the
+	// answer modal's backdrop/×).
 	const holding = held !== null;
+	const noticing = notice !== null;
 	useEffect(() => {
-		if (!holding) return;
+		if (!holding && !noticing) return;
 		function onKey(e: KeyboardEvent) {
-			if (e.key === "Escape") {
-				setHeld(null);
-				setGuess("");
-				void onReleaseTile();
+			if (e.key !== "Escape") return;
+			if (noticing) {
+				setNotice(null);
+				return;
 			}
+			setHeld(null);
+			setGuess("");
+			void onReleaseTile();
 		}
 		window.addEventListener("keydown", onKey);
 		return () => window.removeEventListener("keydown", onKey);
-	}, [holding, onReleaseTile]);
+	}, [holding, noticing, onReleaseTile]);
 
 	const honour = state.honour;
 	const me = state.players.find((p) => p.id === myPlayerId);
@@ -122,7 +133,7 @@ export function RollOfHonourGame({ state, feed, myPlayerId, error, onSelectTile,
 		setBusy(false);
 		if ("error" in res) {
 			if (res.retryAfterMs) setBlocked((b) => ({ ...b, [season]: deadline(res.retryAfterMs!) }));
-			setFeedback({ kind: "info", text: res.error });
+			setNotice(res.error);
 			return;
 		}
 		setHeld({ season, until: deadline(res.lockedForMs) });
@@ -232,6 +243,17 @@ export function RollOfHonourGame({ state, feed, myPlayerId, error, onSelectTile,
 			{error && <p className="remote-error">{error}</p>}
 
 			<LeaveControl isHost={me?.isHost ?? false} onLeave={onLeave} />
+
+			{notice && (
+				<div className="remote-modal-backdrop remote-modal-backdrop--upper" onClick={() => setNotice(null)}>
+					<div className="remote-modal roh-notice" role="alertdialog" aria-modal="true" aria-label={notice} onClick={(e) => e.stopPropagation()}>
+						<p className="roh-notice__text">{notice}</p>
+						<button type="button" className="remote-primary-button" onClick={() => setNotice(null)} autoFocus>
+							OK
+						</button>
+					</div>
+				</div>
+			)}
 
 			{/* The answer box is a modal (2026-09-13): the grid is 70 tiles tall,
 			    so an inline box above it was off-screen by the time a phone had

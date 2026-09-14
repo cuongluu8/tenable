@@ -226,3 +226,12 @@
 	gap: 0.5rem;
 	margin-top: 0.25rem;
 }
+
+/* A refused tile claim, as a must-dismiss modal (RollOfHonourGame.tsx). */
+.roh-notice {
+	text-align: center;
+}
+.roh-notice__text {
+	margin: 0 0 1rem;
+	font-size: 1.05rem;
+}
