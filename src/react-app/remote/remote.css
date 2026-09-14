@@ -401,9 +401,10 @@ body.remote-in-game:not(.remote-pane-open) .screen {
 	padding: 0.25rem 0.75rem 0;
 	overscroll-behavior: contain;
 }
-.remote-pane__entry--line {
+.remote-chat-bar .remote-pane__entry--line {
 	/* Overrides the column layout .remote-pane__entry--chat/--mine give the
-	   desktop bubbles -- here every entry is exactly one line. */
+	   desktop bubbles (declared later, so this needs the extra specificity)
+	   -- here every entry is exactly one line. */
 	display: block;
 	line-height: 1.45em;
 	white-space: nowrap;
