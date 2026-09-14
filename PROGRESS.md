@@ -1,5 +1,21 @@
 # Progress / handoff notes
 
+> **Update 2026-09-14.** Everything below the line was written 2026-08-31
+> and describes the Top 10 game's content rewrite; it's still accurate as
+> history, and its "next steps" have long since been done (the cron fires
+> nightly; the old tables were dropped 2026-09-04). Since then the app
+> gained three more games and two more ways to play -- Club Run, Teammate
+> Tell and Roll of Honour; pass-and-play multiplayer; and remote play on a
+> Durable Object with a lobby, timed hints, give up, chat/activity feed,
+> mid-game joining and Play again -- plus unit/integration/e2e test suites
+> that run in CI. `agents.md`'s "Game modes", "Repo map" and "Local
+> development" sections are the current map; there is no separate handoff
+> for that work because it's all in `main` with descriptive commit
+> messages and heavily commented code. Nothing is half-finished as of this
+> note.
+
+---
+
 Written 2026-08-31 so work on Tenable can continue in a fresh session —
 possibly under a different Claude account with no memory of this one. This
 file is a snapshot, not a living doc: trust `git log` and the live app over

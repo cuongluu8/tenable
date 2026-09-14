@@ -8,12 +8,15 @@ no docs.
 
 ## What this is
 
-Top-10 Tension is a daily-playable "Top 10" football trivia game (inspired by
-[Football Tenable](https://playfootball.games/football-tenable/) / the ITV
-show *Tenable*) -- renamed from "Tenable" on 2026-09-08 to avoid colliding
-with that show's/site's own name. Players browse a library of categories
-(e.g. "Top 10 Champions League winners by club") and guess entries in
-Classic (unlimited guesses) or Tension (5 lives) mode.
+Top-10 Tension is a football trivia app -- renamed from "Tenable" on
+2026-09-08 to avoid colliding with the ITV show / Football Tenable site it
+was inspired by. It started as the daily-playable "Top 10" game (browse a
+library of categories, e.g. "Top 10 Champions League winners by club", and
+guess entries in Classic (unlimited guesses) or Tension (5 lives) mode) and
+now has four games playable three ways -- see "Game modes" below for the
+full map. Most of this file is about the Top 10 game's content pipeline,
+which is where the data-correctness risk lives; the other games' content
+is curated question tables and a fixed winners list.
 
 - **Live**: https://top-10-tension.cuong-luu.workers.dev
 - **Repo**: cuongluu8/tenable, default branch `main` -- the GitHub repo slug
@@ -131,46 +134,151 @@ fix as done:
 
 - **Frontend**: React 19 + Vite, in `src/react-app/`
 - **Backend**: Hono on Cloudflare Workers, in `src/worker/`
-- **Data**: Cloudflare D1 (quiz content) + Cloudflare KV (per-device progress/streaks)
+- **Data**: Cloudflare D1 (quiz content, Club Run / Teammate Tell question
+  tables, the two cost-guardrail counters) + Cloudflare KV (per-device
+  progress/streaks, the live-scores ticker) + Cloudflare R2 (`tenable-media`:
+  club badges and country flags, served through `GET /api/media/*`)
+- **Remote play**: one SQLite-backed Cloudflare Durable Object per session
+  (`src/worker/durableObjects/remoteGameSession.ts`), reached through
+  `/api/remote/*` -- see "Game modes" below
 - **Deploy**: Cloudflare Workers Builds (native Git integration, configured in the
   Cloudflare dashboard) — auto-builds and deploys on every push to `main`. There
-  is **no GitHub Actions workflow** for this; see Deployment below.
+  is **no GitHub Actions workflow for deploying**; `.github/workflows/ci.yml` is
+  verification only (lint, unit/integration/e2e tests, build, content
+  checks) -- see Deployment and Local development below.
 
 ## Repo map
 
 ```
 src/worker/
-  index.ts            # route mounting + scheduled() cron handler (nightly rebuild)
+  index.ts                  # route mounting, the /api/* circuit breaker, scheduled() for both crons
   routes/
-    categories.ts      # GET /api/categories — full library + this device's status per category
-    category.ts         # GET /api/categories/:slug — one category + progress
-    guess.ts             # POST /api/guess — server-authoritative answer checking
-    reveal.ts             # GET /api/reveal/:slug — full answers, gated on completion
-    stats.ts               # GET /api/stats — streak + lifetime totals
+    categories.ts, category.ts, guess.ts, giveUp.ts, reveal.ts, reset.ts, stats.ts
+                              # the Top 10 daily game (library, one category, grading, give up,
+                              # reveal, reset, streaks)
+    multiplayer.ts            # pass-and-play Top 10: stateless check-guess + reveal
+    clubBadges.ts             # Club Run: /round (random or a Set), /sets, /check-guess, /suggest
+    teammates.ts              # Teammate Tell: same shape as clubBadges.ts
+    rollOfHonour.ts           # Roll of Honour: competitions, club typeahead, solo board/check/hint/reveal
+    remoteSession.ts          # /api/remote/*: resolves a session code to its Durable Object and forwards
+    suggest.ts                # /api/suggest typeahead for the Top 10 game (rate-limited)
+    media.ts, mediaAudit.ts   # R2 image serving; admin audit of image_key coverage
+    ticker.ts, adminRefreshTicker.ts  # Premier League live-scores ticker (KV-cached)
+  durableObjects/
+    remoteGameSession.ts      # the whole remote-play engine, one instance per session code
   lib/
-    categories.ts    # D1 queries (entities/category_answers, not answers/reference_entities)
-    rebuild.ts          # category_defs + entity_stats -> category_answers (see Data model)
-    responseCache.ts # Cache API wrapper for the two public read routes
-    progressStore.ts # KV reads/writes (progress, streak, lifetime)
-    normalize.ts       # guess/alias normalization (lowercase, strip accents/punctuation)
-    device.ts            # anonymous device-id cookie
-    dailyKey.ts            # UTC "today" helper (used for streak day-boundary only)
-    types.ts
+    categories.ts, rebuild.ts, responseCache.ts, suggestNamesSql.ts   # Top 10 content pipeline
+    progressStore.ts, device.ts, dailyKey.ts                          # KV + device identity
+    normalize.ts, checkPlayerGuess.ts                                 # guess normalization/grading
+    clubBadgeRound.ts, teammateRound.ts, rollOfHonour.ts              # question/tile assembly per game
+    clubBadgeSets.ts, teammateSets.ts, setsIndex.ts                   # the curated Sets
+    remoteSession.ts                                                  # session codes/tokens
+    circuitBreaker.ts, suggestRateLimit.ts                            # cost guardrails
+    eplTicker.ts                                                      # ticker data refresh
+    *.test.ts                                                         # unit tests, next to the code
 
 src/react-app/
-  App.tsx                       # category list screen
-  components/
-    CategoryList.tsx
-    PlayScreen.tsx     # mode picker → guess UI → result panel, per category
-    AnswerGrid.tsx
-    LivesIndicator.tsx
-  lib/
-    formatAsOfDate.ts  # renders a category's asOfDate as the "Data as of ..." label
+  App.tsx                     # home + single-player pickers, pathname-based routing
+  components/                 # shared: GuessInput (typeahead), RoundPlay (the Club Run /
+                              # Teammate Tell round engine), BadgeChain, LivesIndicator,
+                              # SetsModeRoute/SetsPicker/useSetRound (Sets mode), clubBadgesState
+  clubBadges/, teammates/     # each game's Sets picker + set play, and GuessThePlayer (Club Run's
+                              # random round, used by pass-and-play)
+  rollOfHonour/               # HonourTile (shared grid tile), solo and pass-and-play screens,
+                              # passPlayState (turn rules, unit-tested)
+  multiplayer/                # pass-and-play wizard: roster -> game type -> pick -> play -> results
+  remote/                     # remote play: useRemoteSession (identity + 4s polling + activity feed),
+                              # Home/Lobby, RemoteGame (round formats), RollOfHonourGame, ChatPane
+  hooks/, lib/                # useKeepInSafeZone, safeViewport (mobile keyboard handling), formatAsOfDate
 
 db/
-  schema.sql   # categories / entities / entity_aliases / entity_stats / category_defs / category_answers
+  schema.sql   # every table (see Data model); club_badge_questions / teammate_questions too
   seed.sql       # GENERATED export of production D1's content tables — never edit by hand, see below
+
+test/
+  integration/   # vitest + @cloudflare/vitest-pool-workers: real routes and the Durable Object
+                 # against fixtures/core.sql; one file per area, kept under a per-file request budget
+  e2e/           # Playwright against `npm run dev`: every game in every mode, driven as a player would
+
+scripts/         # verify:*, playtest, seed regeneration, test-config generation (see Local development)
 ```
+
+## Game modes
+
+Four games, three ways to play. The Top 10 game's content pipeline is the
+subject of most of this file; the other three share one engine and a much
+simpler content model.
+
+| | Single player | Pass and play (one device) | Remote play (own devices) |
+|---|---|---|---|
+| **Daily categories** (Top 10) | `PlayScreen` -- Classic / Tension | `multiplayer/` -- turns, lives | -- |
+| **Club Run** | curated Sets (`clubBadges/`) | `GuessThePlayer` random round or a Set | yes |
+| **Teammate Tell** | curated Sets (`teammates/`) | -- | yes |
+| **Roll of Honour** | 5 lives, country hint, saved per competition | turns, one attempt each | yes |
+
+- **Club Run / Teammate Tell** are "name the player" games: a badge trail
+  or a list of former teammates, graded server-side against
+  `club_badge_questions` / `teammate_questions` (canonical name or any
+  `entity_aliases` row -- `lib/checkPlayerGuess.ts`). Hints (country,
+  nationality, transfer dates / clubs and overlap years) cost points in
+  solo. Question assembly lives in `lib/clubBadgeRound.ts` /
+  `lib/teammateRound.ts`, shared by the solo routes and the Durable Object
+  so the two can't drift. The question tables are built offline by
+  `data/research/build_club_badge_questions.py` /
+  `build_teammate_questions.py`.
+- **Roll of Honour** (2026-09-13) is a grid of seasons for one competition;
+  the winners are a curated list in code (`lib/rollOfHonour.ts` -- add a
+  competition by adding a list; club badges/aliases resolve against
+  `entities` by (name, country) at game start). Four competitions so far:
+  European Cup 1955-92, Champions League 1992-2026, English First Division
+  1888-1992, Premier League 1992-2026. Solo grading/hint/reveal are the
+  `/api/roll-of-honour/*` routes; the grid tile and answer modal are shared
+  across all three modes.
+- **Remote play** (2026-09-13) is the one server-stateful thing in the app:
+  `RemoteGameSession`, a SQLite-backed Durable Object per 6-character
+  session code (`lib/remoteSession.ts`), reached only through
+  `routes/remoteSession.ts`, which does no business logic itself. Clients
+  **poll `/state` every 4s** (no WebSockets) and prove identity with a
+  per-player token header. Rules worth knowing before touching it (each
+  has a doc comment at the code):
+  - **first correct guess wins** a question; wrong guesses are free. A
+    server-enforced start countdown (`ROUND_START_GRACE_MS`, 5s) closes the
+    poll-timing head start, and the question itself is hidden client-side
+    until it ends; hints reveal on a shared 30s timer, withheld
+    server-side. A decided round is held for `MIN_REVEAL_MS` (5s) so every
+    device sees the answer before the "everyone ready" gate advances.
+  - **Give up** bows a player out of the round (Roll of Honour: the whole
+    game); once every non-away player has, the round resolves with no
+    winner. A player is **away** after 15s without polling and is skipped
+    by every gate.
+  - **Roll of Honour** is a different engine inside the same object: tap
+    to hold a season for 20s, answer it; wrong frees it and blocks that
+    player from it for 5s; scores are correct tiles.
+  - Joining is allowed **mid-game**; a guest leaving vacates their seat; the
+    host leaving/ending ends the session for everyone. **Play again**
+    returns a finished session to the lobby with scores kept or reset. A
+    **chat & activity feed** (every message, guess, give-up and round
+    event; 20 words, one post per 30s per player; capped at 300 entries,
+    fetched incrementally via `/state?since=`) is shown in a side pane.
+  - `REMOTE_MULTIPLAYER_ENABLED` (wrangler var) is the kill switch: `false`
+    makes every `/api/remote/*` route return 503 without a deploy.
+  - Tested three ways: `lib/remoteSession.test.ts` (codes/tokens),
+    `test/integration/remoteSession*.test.ts` (every route against the real
+    object, with `ROUND_START_GRACE_MS`/`MIN_REVEAL_MS` overridden to 0 in
+    `vitest.integration.config.ts`), and `test/e2e/remote*.spec.ts` (two or
+    three real browsers per test).
+- **Mobile**: the guess typeahead and the chat pane are laid out against
+  the *visual* viewport (`lib/safeViewport.ts`, `hooks/useKeepInSafeZone.ts`)
+  so the on-screen keyboard can't cover them; 390px is the narrowest
+  supported width. The Roll of Honour answer box is a modal a quarter of
+  the way down the screen with the typeahead opening *below* the input
+  (`GuessInput`'s `placement="below"`), after inline/top/bottom placements
+  all failed on real phones.
+
+Behaviour knobs, all `wrangler.json` `vars` (read per request, so a
+dashboard change needs no deploy): `DAILY_REQUEST_BUDGET`,
+`SUGGEST_RATE_LIMIT_PER_MINUTE`, `TICKER_MESSAGE`,
+`REMOTE_MULTIPLAYER_ENABLED`, `ROUND_START_GRACE_MS`, `MIN_REVEAL_MS`.
 
 ## Data model
 
@@ -357,7 +465,10 @@ against.
   a `scheduled()` handler in the same Worker (`index.ts`), no external
   scheduler or new billable resource (Cron Triggers run on the Workers Free
   plan). Re-run it by hand (or on a shorter cadence) if you need a content
-  fix to take effect before the next 03:00 UTC firing.
+  fix to take effect before the next 03:00 UTC firing. A second cron
+  (`*/15 * * * *`) refreshes the Premier League live-scores ticker
+  (`lib/eplTicker.ts`, into KV) -- unrelated to content; the handler
+  dispatches on `event.cron`.
 - **`cachedContentQuery()`** (`src/worker/lib/responseCache.ts`) wraps the
   D1 query behind `GET /api/categories` and `GET /api/categories/:slug` —
   the category metadata portion only, never the per-device progress/streak
@@ -727,6 +838,10 @@ npx wrangler dev --port 8787   # full worker + bindings, http://localhost:8787
 
 npm run lint
 npm run build             # tsc -b && vite build
+npm run test:unit         # vitest, pure logic/reducers next to the code (coverage-gated in CI)
+npm run test:integration  # vitest-pool-workers: real routes + the Durable Object vs test/integration/fixtures
+npm run test:e2e          # Playwright vs a real `npm run dev` (reuses one already running locally)
+npm run verify:all        # coverage + integration + e2e + build, in that order
 npm run verify:matching        # re-seed local D1 first — see scripts/verify-guess-matching.ts
 npm run verify:category-defs   # re-seed local D1 first — see scripts/verify-category-defs.ts
 npm run verify:query-plans     # re-seed local D1 first — see scripts/verify-query-plans.ts
@@ -800,6 +915,24 @@ round is already finished). Non-zero exit on any failure. **This also runs autom
 (`.github/workflows/ci.yml`, on every push/PR to `main`) — that's the actual gate; running it
 locally first is what keeps that gate from turning red after you've already pushed.
 
+**The three test suites (added 2026-09-12, remote/Roll of Honour coverage
+2026-09-13/14) all run in `ci.yml` on every push/PR too.** Integration
+tests run each file against a fresh local D1 seeded from
+`test/integration/fixtures/core.sql` (a small hand-authored set: a
+handful of players/clubs, a few Club Run / Teammate Tell questions, one
+tiny category -- NOT `db/seed.sql`, which is too large for the test
+worker to apply; see the fixture's own header), with
+`DAILY_REQUEST_BUDGET` dropped to 50 per file, which is why the remote
+tests are split across many small files. The e2e suite runs against the
+real seed (CI seeds local D1 first), drives every game and mode through
+the UI only, and for remote play opens two or three independent browser
+contexts per test; its remote specs carry real waits (5s countdown, 5s
+reveal, 4s polls), which is why the CI job timeout is 25 minutes.
+A correct guess in remote Club Run / Teammate Tell is deliberately NOT
+covered end to end -- the answer never reaches the client by design --
+so the winning path is exercised through Roll of Honour, whose answers
+are fixed facts.
+
 `wrangler dev` in this sandboxed environment logs harmless
 `Request.cf` / "Request was cancelled" warnings on startup — ignore them, the
 server still comes up.
@@ -854,11 +987,13 @@ cuong-luu.workers.dev` is the one and only live URL, and push-to-deploy on
 
 ## Cloudflare resources
 
-| Resource | Name | ID |
+| Resource | Name | ID / binding |
 |---|---|---|
 | Worker | `top-10-tension` | — |
-| D1 database | `tenable-content` | `a87ef250-cc94-4765-a821-785acbcd71a4` |
-| KV namespace | `tenable-progress` | `f04cfb81bc8e4ba783cd3157d59e2734` |
+| D1 database | `tenable-content` | `a87ef250-cc94-4765-a821-785acbcd71a4` (`DB`) |
+| KV namespace | `tenable-progress` | `f04cfb81bc8e4ba783cd3157d59e2734` (`PROGRESS`) |
+| R2 bucket | `tenable-media` | `MEDIA` (`remote: true` in local dev so badges render; `E2E_LOCAL_ONLY` forces it local for CI) |
+| Durable Object | `RemoteGameSession` | `REMOTE_GAME_SESSION`, SQLite-backed (`new_sqlite_classes`, migration tag `v1`) |
 
 The D1 database and KV namespace keep their pre-rename names deliberately —
 they're internal Cloudflare-dashboard labels, referenced everywhere in code
@@ -919,10 +1054,18 @@ payment methods, or spend.
 
 **Rule for agents working on this repo:** never enable a paid plan, attach a
 payment method, or add a Cloudflare feature that requires one (R2 beyond the
-free allocation, Durable Objects with billed SQLite storage, Workers Paid–only
-models/features, etc.) without the user explicitly confirming it in the
-conversation first. If you add a new Cloudflare binding or resource, check
-whether it's free-tier-only and update the table above.
+free allocation, Workers Paid–only models/features, etc.) without the user
+explicitly confirming it in the conversation first. If you add a new
+Cloudflare binding or resource, check whether it's free-tier-only and update
+the table above. **Durable Objects are in use (remote play, since
+2026-09-13) and are free-tier compatible** -- the SQLite backend is the one
+available on Workers Free, with limits comparable to D1's (100,000
+requests/day, 13,000 GB-s duration/day, 5M rows read/day, 100,000 rows
+written/day, 5 GB storage; confirmed against Cloudflare's docs when the
+feature was built). Every poll of `/api/remote/.../state` is one DO request
+and one storage write (the heartbeat), so a busy game night is the one
+thing on this account that could plausibly approach a daily ceiling;
+`REMOTE_MULTIPLAYER_ENABLED=false` is the off switch if it ever does.
 
 **Known non-cost risk to watch:** KV writes are capped at 1,000/day free, and
 every completed guess round writes at least a progress record (plus
