@@ -20,29 +20,31 @@ different database or a second service at any of these tiers.
 ## 1. What one player costs today
 
 Everything a client does is one of four things. Per **active remote
-player**, per hour:
+player**, per hour, **as deployed after the tier-1 work of 2026-09-14**
+(the "before" figures are kept in brackets because they explain the
+ceilings in §2):
 
 | Activity | Frequency | Worker requests | Durable Object | D1 | Notes |
 |---|---|---|---|---|---|
-| **Poll `/state`** (round formats) | every 4s = 900/h | 900 | 900 requests, 1,800 rows read, ~1,200 rows written¹ | none | payload *measured* ~1.5 KB (4 players, Club Run) |
-| **Poll `/state`** (Roll of Honour in progress) | every 1.5s = 2,400/h | 2,400 | 2,400 requests, 4,800 rows read, ~1,200 rows written¹ | none | payload *measured* **~10 KB every poll** (93-tile grid, 4 players) -- the whole grid, not a diff |
-| **Action** (guess, claim, answer, give up, chat, ready) | maybe 20-60/h | 1 each | 1 request, 2 reads, 1-2 writes | **1 write** (daily budget counter) + up to 3 indexed reads (grading) | |
-| **Typeahead keystroke** (≥3 chars, 200ms debounce) | maybe 60-200/h | 1 each | none | **2 writes** (budget counter + per-IP rate limiter) + a bounded FTS read (tens of rows) | |
+| **Poll `/state`** (round formats) | every 4s = 900/h | 900 | 900 requests, 1,800 rows read, ~1,200 rows written¹ | none | reply *measured* **33 bytes** when nothing changed (`?v=` fingerprint), ~1.5 KB when it did |
+| **Poll `/state`** (Roll of Honour in progress) | every 1.5s = 2,400/h | 2,400 | 2,400 requests, 4,800 rows read, ~1,200 rows written¹ | none | reply *measured* **33 bytes** unchanged, ~10 KB on a change (93-tile grid). [Before: the full ~10 KB grid every poll, ~24 MB/h per player.] |
+| **Action** (guess, claim, answer, give up, chat, ready) | maybe 20-60/h | 1 each | 1 request, 2 reads, 1-2 writes | up to 3 indexed reads (grading), **no writes** | [Before: +1 D1 write per action for the daily budget counter.] Rate-limited per player in memory at the edge (`lib/rateLimits.ts`). |
+| **Typeahead keystroke** (≥3 chars, 200ms debounce) | maybe 60-200/h | Roll of Honour: **0**; Club Run / Teammate Tell: 1 each | none | Roll of Honour: **none** (the ~700-club list is fetched once, ~36 KB raw, edge-cached, filtered in the browser); others: a bounded FTS read | [Before: +2 D1 writes per keystroke for the budget counter and per-IP limiter.] |
 
 ¹ The heartbeat (`lastSeenAt`) is written at most once per 3s regardless
 of poll rate (`HEARTBEAT_WRITE_MIN_MS`), i.e. 1,200 row-writes/hour/player.
 
-Two things stand out before any limit is even considered:
+What stands out now:
 
-- **Every non-poll API request does a D1 write** just to count itself
-  (`circuitBreaker.ts`: an upsert on one `request_budget` row), and every
-  typeahead call does a second one (`suggestRateLimit.ts`). D1 is a
-  single-writer database; those two rows are contended by every player
-  on the app simultaneously, on the hot path, before the real work.
-- **A Roll of Honour poll ships the full grid every 1.5s.** 10 KB × 2,400
-  = ~24 MB/hour per player -- free on Cloudflare's side (no egress
-  charge on Workers), but real on a player's mobile data plan, and real
-  CPU (parse a ~60 KB session record, serialise 10 KB) on every one.
+- **Polling itself is the whole cost.** With writes gone from actions and
+  keystrokes, and unchanged polls answered in 33 bytes, what a connected
+  player costs is almost entirely the poll *requests* -- one Worker
+  request plus one Durable Object request every 1.5-4s whether or not
+  anything happened. That is what tier 2 (WebSockets) removes.
+- **Server CPU per poll is unchanged.** The fingerprint is computed from
+  the full public state, so the object still builds it each poll; the
+  saving is bytes on the wire and the phone's parse/re-render, not the
+  object's work. Also a tier-2 item.
 
 The daily game (Top 10) is different: it doesn't poll, but it **writes to
 KV on every guess** (`guess.ts` -> `saveProgress`) plus 2-3 writes on
@@ -55,12 +57,12 @@ projects on this account (see `agents.md` -> Cloudflare resources).
 
 | # | Ceiling | Value | What hits it first | Roughly when |
 |---|---|---|---|---|
-| 1 | **`DAILY_REQUEST_BUDGET`** (ours, `wrangler.json`) | 20,000 non-poll API requests/day, then every route returns 503 until midnight UTC | Typeahead. ~20 suggest calls per attempted answer is normal | **~500-1,000 answered questions per day across everyone.** 20 players × a 10-question evening is fine; two such groups is not. |
+| ~~1~~ | ~~**`DAILY_REQUEST_BUDGET`** (ours)~~ **Removed 2026-09-14** | was 20,000 non-poll API requests/day, then 503 until midnight UTC | was: typeahead, ~20 suggest calls per attempted answer | was **~500-1,000 answered questions/day across everyone** -- the first wall. Replaced by the per-player and global Rate Limiting bindings (`lib/rateLimits.ts`), which count nothing in D1. |
 | 2 | **Worker requests** (Cloudflare free) | 100,000/day | Polling | **~110 player-hours/day at 4s** (10 players for 11h, or 100 for 1h). **~40 player-hours at 1.5s** (Roll of Honour). |
 | 3 | **Durable Object requests** (free) | 100,000/day | Polling -- one DO request per poll | same as #2 |
 | 4 | **Durable Object rows written** (free) | 100,000/day | Heartbeats (1,200/h/player) + actions | ~80 player-hours/day |
-| 5 | **D1 rows written** (free) | 100,000/day | The budget counter + rate limiter, 1-2 per action/keystroke | ~2,500-5,000 attempted answers/day |
-| 6 | **Suggest rate limit** (ours) | 30 typeahead calls/min **per IP** | **A whole room on one Wi-Fi is one IP.** Four people typing at once is ~30/min. | The first time a group plays from the same venue -- this is the one most likely to be *noticed* before the daily limits. |
+| ~~5~~ | ~~**D1 rows written** (free)~~ **No longer on the hot path** | 100,000/day | was: the budget counter + rate limiter, 1-2 per action/keystroke | Gameplay now writes nothing to D1 per request; the only D1 writes left are the nightly rebuild and content changes. |
+| ~~6~~ | ~~**Suggest rate limit** (ours, per IP)~~ **Re-keyed 2026-09-14** | now 60 typeahead calls/min **per player** (token, else a device cookie minted on first contact) | was: a whole room on one Wi-Fi sharing one 30/min bucket | A venue no longer shares a bucket. Roll of Honour typeahead makes no requests at all. |
 | 7 | **KV writes** (free) | 1,000/day | The daily game's per-guess write | **~70 completed Top 10 rounds/day**, app-wide |
 | 8 | **Worker CPU** (free) | 10 ms per request | Roll of Honour `/state` (parse ~60 KB, serialise 10 KB) is the heaviest route at ~1-3 ms | not yet; becomes the paid-plan cost driver if polling stays |
 | 9 | D1 rows read (free) | 5,000,000/day | Typeahead FTS reads (bounded, tens of rows each) | well beyond hundreds of players |
@@ -142,9 +144,15 @@ Expected effect: typeahead stops being the dominant request type;
 ceiling #9 recedes; D1 read replicas (tier 3) become unnecessary for a
 long time.
 
-**After tier 1** the ceilings are Cloudflare's request quotas (#2-#4):
-~40-110 player-hours per day. That is "a few dozen players for one
-evening", not "a few dozen players all day" -- tier 2 is what removes it.
+**After tier 1 (now)** the ceilings are Cloudflare's request quotas
+(#2-#4): ~40-110 player-hours per day. That is "a few dozen players for
+one evening", not "a few dozen players all day" -- tier 2 is what removes
+it. Two things learned doing tier 1 that the plan above didn't predict:
+badge/flag images (`/api/media/*`) had to be exempted from the per-player
+limit, since a revealed grid pulls dozens at once; and the per-player
+action limit had to be 600/min, not 120, because `npm run playtest`
+plays every category on one device at ~170/min -- the limit is a
+runaway-client bound, not a human-pace check.
 
 ## 4. Tier 2 -- hundreds of concurrent players
 
@@ -315,9 +323,9 @@ arithmetic; those will be measurements.
 
 | Step | Do it when | Cost/size |
 |---|---|---|
-| Rate Limiting binding; per-player keys; raise/remove `DAILY_REQUEST_BUDGET` (3a) | **Now** -- it's the first wall and it's ours | small |
-| `?v=` / 304 polling (3b) | Before the next group plays Roll of Honour on mobile data | small |
-| Static club typeahead + cached suggest responses (3c) | With 3a | small |
+| ~~Rate Limiting binding; per-player keys; remove `DAILY_REQUEST_BUDGET` (3a)~~ | **Done 2026-09-14** | -- |
+| ~~`?v=` unchanged-poll replies (3b)~~ | **Done 2026-09-14** | -- |
+| ~~Club typeahead fetched once, filtered in the browser (3c)~~ | **Done 2026-09-14** -- Club Run / Teammate Tell still use the server typeahead; edge-caching those responses is the remaining half | small |
 | Session TTL alarm (5d) | With 3a -- storage currently grows forever | tiny |
 | Workers Paid + Budget Alert (4a, 4e) | When any free daily limit is hit once, or before advertising the game | $5/mo |
 | WebSockets + hibernation (4b) | Before "hundreds" -- when >~30 concurrent is normal, or when lock/release lag is complained about again | the one real project (~days) |
