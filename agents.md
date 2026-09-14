@@ -284,6 +284,12 @@ dashboard change needs no deploy): `DAILY_REQUEST_BUDGET`,
 `SUGGEST_RATE_LIMIT_PER_MINUTE`, `TICKER_MESSAGE`,
 `REMOTE_MULTIPLAYER_ENABLED`, `ROUND_START_GRACE_MS`, `MIN_REVEAL_MS`.
 
+**Scaling remote play** -- what each player costs, which limit fails
+first (spoiler: our own `DAILY_REQUEST_BUDGET`, then polling against the
+100k/day request quotas), and the tiered plan to tens/hundreds/thousands
+of concurrent players (rate-limit binding, delta polling, then WebSockets
+with hibernation) -- is in `docs/scaling.md`.
+
 ## Data model
 
 **Rebuilt 2026-08-31 around a single source of truth for identity, plus a
