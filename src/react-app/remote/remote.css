@@ -492,11 +492,6 @@ body.remote-in-game:not(.remote-pane-open) .screen {
 	gap: 0.35rem;
 	overscroll-behavior: contain;
 }
-.remote-pane__empty {
-	margin: 0.5rem 0;
-	color: #9ca3af;
-	text-align: center;
-}
 .remote-pane__entry {
 	margin: 0;
 	line-height: 1.35;

@@ -222,7 +222,6 @@ export function ChatDock({ feed, players, myPlayerId, onPost, now }: Props) {
 		return (
 			<header ref={barRef} className="remote-chat-bar" role="complementary" aria-label="Chat and activity" style={{ top: safe.top }}>
 				<div className="remote-chat-bar__list" ref={listRef} aria-live="polite">
-					{feed.length === 0 && <p className="remote-pane__entry remote-pane__entry--line remote-pane__entry--system">Nothing yet -- say hello, or make a guess.</p>}
 					{feed.map((e) => {
 						if (e.kind === "system") {
 							return (
@@ -276,7 +275,6 @@ export function ChatDock({ feed, players, myPlayerId, onPost, now }: Props) {
 			</div>
 
 			<div className="remote-pane__list" ref={listRef} aria-live="polite">
-				{feed.length === 0 && <p className="remote-pane__empty">Nothing yet -- say hello, or make a guess.</p>}
 				{feed.map((e) => {
 					if (e.kind === "system") {
 						return (
