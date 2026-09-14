@@ -6,14 +6,6 @@
 // stored here purely so a page refresh mid-game doesn't lose the player's
 // seat.
 
-export interface PublicMessage {
-	text: string;
-	postedAt: number;
-	// Server-computed age at poll time -- see remoteGameSession.ts's
-	// PublicMessage on why it's this and not postedAt vs. the local clock.
-	ageMs: number;
-}
-
 export interface PublicPlayer {
 	id: string;
 	name: string;
@@ -21,9 +13,6 @@ export interface PublicPlayer {
 	ready: boolean;
 	away: boolean;
 	wins: number;
-	// This player's current chat message, or null -- see
-	// remoteGameSession.ts's MESSAGE_* constants for the limits.
-	message: PublicMessage | null;
 }
 
 // Which "name the player" format a session plays -- picked by the host

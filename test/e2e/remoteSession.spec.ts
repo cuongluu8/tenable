@@ -29,9 +29,8 @@ test("chat, a mid-game joiner, a guest leaving, and the host ending the game", a
 	await pickGuess(guest, "Lionel Messi", /Messi/);
 
 	// Chat lives in the side pane: the floating 💬 opens it, the message
-	// posts into the history with the round's events, the other player
-	// gets an unread badge, and a new message also pops beside the
-	// author's name on the leaderboard and scrolls away, never to return.
+	// posts into the history with the round's events, and the other player
+	// gets an unread badge until they open it.
 	await host.getByRole("button", { name: /Open chat/ }).click();
 	await expect(host.getByRole("complementary", { name: "Chat and activity" })).toBeVisible();
 	await expect(host.locator(".remote-pane__entry--system").first()).toHaveText("Question 1 of 1");
@@ -47,15 +46,11 @@ test("chat, a mid-game joiner, a guest leaving, and the host ending the game", a
 	await host.getByRole("button", { name: "Close chat" }).click();
 
 	await expect(guest.getByRole("button", { name: /Open chat, 1 new message/ })).toBeVisible(POLL);
-	await expect(guest.locator(".remote-chat__text")).toHaveText("no idea who this is 😂");
 	await guest.getByRole("button", { name: /Open chat/ }).click();
 	await expect(guest.locator(".remote-pane__bubble")).toHaveText("no idea who this is 😂");
 	await expect(guest.locator(".remote-pane__who").filter({ hasText: "Cuong" }).first()).toBeVisible();
 	await guest.getByRole("button", { name: "Close chat" }).click();
 	await expect(guest.getByRole("button", { name: "Open chat", exact: true })).toBeVisible();
-	await expect(guest.locator(".remote-chat__text")).toBeHidden({ timeout: 20_000 });
-	await guest.waitForTimeout(4_500); // another poll -- it must not come back
-	await expect(guest.locator(".remote-chat__text")).toHaveCount(0);
 
 	// Joining a game already in progress lands straight in the round.
 	await guestJoins(late, "Club Run", code, "Geoff");

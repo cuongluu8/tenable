@@ -185,20 +185,16 @@ interface PublicHonour {
 	givenUpPlayerIds: string[];
 }
 
-// Chat -- deliberately tiny: one live message per player (a new one
-// replaces the old), capped at 20 words (the product ask) and, as a
-// backstop against a 20-"word" wall of text, a character limit too, at
+// Chat -- deliberately tiny: capped at 20 words (the product ask) and, as
+// a backstop against a 20-"word" wall of text, a character limit too, at
 // most one post every 30s per player. Emojis are just characters here --
-// nothing strips or rewrites the text beyond trimming it. A message is
-// reported by /state for MESSAGE_VISIBLE_MS after posting, comfortably
-// longer than the client's 4s poll (so a client whose poll just missed
-// it still picks it up) plus the client's own 5s display; the client
-// decides on its own when to scroll it away and never re-shows one it's
-// already dismissed (RemoteGame.tsx's Leaderboard).
+// nothing strips or rewrites the text beyond trimming it. A message goes
+// into the activity feed (below) and nowhere else -- the per-player
+// "live message" the leaderboard used to show was dropped 2026-09-14
+// once the feed pane existed, so chat isn't shown in two places.
 const MESSAGE_MAX_WORDS = 20;
 const MESSAGE_MAX_CHARS = 240;
 const MESSAGE_COOLDOWN_MS = 30_000;
-const MESSAGE_VISIBLE_MS = 20_000;
 
 // The activity feed's cap. Oldest entries drop off past this -- a 4-player
 // game night with chat and every guess logged is a few hundred entries;
@@ -324,19 +320,9 @@ interface PlayerRecord {
 	joinedAt: number;
 	lastSeenAt: number;
 	wins: number;
-	// Chat (see MESSAGE_* above). Both absent on records persisted before
-	// chat existed -- read with `?? null`, never assumed present.
-	message: { text: string; postedAt: number } | null;
+	// Chat cooldown (see MESSAGE_COOLDOWN_MS). Absent on records persisted
+	// before chat existed -- read with `?? null`, never assumed present.
 	lastMessageAt: number | null;
-}
-
-interface PublicMessage {
-	text: string;
-	postedAt: number;
-	// Server-computed at /state time so clients can judge "is this still
-	// fresh enough to show" without comparing a server timestamp against
-	// their own possibly-skewed clock. At most one poll interval stale.
-	ageMs: number;
 }
 
 interface PublicPlayer {
@@ -346,7 +332,6 @@ interface PublicPlayer {
 	ready: boolean;
 	away: boolean;
 	wins: number;
-	message: PublicMessage | null;
 }
 
 interface PublicRound {
@@ -383,16 +368,7 @@ function toPublicPlayer(player: PlayerRecord, now: number): PublicPlayer {
 		ready: player.ready,
 		away: isAway(player, now),
 		wins: player.wins,
-		message: publicMessage(player, now),
 	};
-}
-
-function publicMessage(player: PlayerRecord, now: number): PublicMessage | null {
-	const message = player.message ?? null;
-	if (!message) return null;
-	const ageMs = now - message.postedAt;
-	if (ageMs >= MESSAGE_VISIBLE_MS) return null;
-	return { text: message.text, postedAt: message.postedAt, ageMs };
 }
 
 // Whitespace-separated tokens, so an emoji-only message counts as one
@@ -721,7 +697,6 @@ export class RemoteGameSession extends DurableObject<Env> {
 				joinedAt: now,
 				lastSeenAt: now,
 				wins: 0,
-				message: null,
 				lastMessageAt: null,
 			};
 			await storage.put({ session, players: [host] });
@@ -761,7 +736,6 @@ export class RemoteGameSession extends DurableObject<Env> {
 				joinedAt: now,
 				lastSeenAt: now,
 				wins: 0,
-				message: null,
 				lastMessageAt: null,
 			};
 			await storage.put("players", [...players, player]);
@@ -1122,10 +1096,9 @@ export class RemoteGameSession extends DurableObject<Env> {
 			return c.json({ ok: true as const });
 		});
 
-		// Chat -- see MESSAGE_* above. Allowed in any live status (lobby, a
-		// round, the final results), just not once the session's ended;
-		// the client only offers the composer on the game screen today,
-		// but nothing here should need to change if that widens.
+		// Chat -- see MESSAGE_* above. Posts into the activity feed. Allowed
+		// in any live status (lobby, a round, the final results), just not
+		// once the session's ended.
 		this.app.post("/message", async (c) => {
 			const session = await getSession();
 			if (!session) return c.json({ error: "Session not found" }, 404);
@@ -1160,7 +1133,6 @@ export class RemoteGameSession extends DurableObject<Env> {
 				return c.json({ error: `You can post again in ${Math.ceil(retryAfterMs / 1000)}s`, retryAfterMs }, 429);
 			}
 
-			self.message = { text, postedAt: now };
 			self.lastMessageAt = now;
 			pushFeed(session, now, { kind: "chat", playerId: self.id, text });
 			await storage.put({ session, players });

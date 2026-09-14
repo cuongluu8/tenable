@@ -30,8 +30,8 @@ interface StateResponse {
 		ready: boolean;
 		away: boolean;
 		wins: number;
-		message: { text: string; postedAt: number; ageMs: number } | null;
 	}[];
+	feed: { id: number; kind: string; playerId: string | null; text: string }[];
 	round: {
 		index: number;
 		total: number;
@@ -80,7 +80,7 @@ function post(code: string, path: string, token: string, body?: unknown) {
 }
 
 describe("POST /api/remote/sessions/:code/message", () => {
-	it("posts a message every other player sees in /state, emojis intact, whitespace collapsed", async () => {
+	it("posts a message into the feed every other player sees in /state, emojis intact, whitespace collapsed", async () => {
 		const host = await createSession("Host");
 		const guest = await joinSession(host.sessionCode, "Guest");
 		await post(host.sessionCode, "/ready", guest.playerToken, { ready: true });
@@ -90,11 +90,9 @@ describe("POST /api/remote/sessions/:code/message", () => {
 		expect(res.status).toBe(200);
 
 		const state = await getState(host.sessionCode, host.playerToken);
-		const guestRow = state.players.find((p) => p.id === guest.playerId)!;
-		expect(guestRow.message?.text).toBe("no idea 🤷‍♂️ who this is 😂");
-		expect(guestRow.message?.ageMs).toBeGreaterThanOrEqual(0);
-		expect(guestRow.message?.ageMs).toBeLessThan(20_000);
-		expect(state.players.find((p) => p.id === host.playerId)!.message).toBeNull();
+		const chat = state.feed.filter((e) => e.kind === "chat");
+		expect(chat).toHaveLength(1);
+		expect(chat[0]).toMatchObject({ playerId: guest.playerId, text: "no idea 🤷‍♂️ who this is 😂" });
 	});
 
 	it("400s an empty message or one over 20 words; emoji runs count as one word", async () => {
@@ -122,9 +120,9 @@ describe("POST /api/remote/sessions/:code/message", () => {
 		expect(body.retryAfterMs).toBeLessThanOrEqual(30_000);
 		expect(body.error).toMatch(/post again in \d+s/);
 
-		// The rejected one didn't replace the live message.
+		// The rejected one never reached the feed.
 		const state = await getState(host.sessionCode, host.playerToken);
-		expect(state.players[0].message?.text).toBe("first");
+		expect(state.feed.filter((e) => e.kind === "chat").map((e) => e.text)).toEqual(["first"]);
 	});
 
 	it("409s once the session has ended", async () => {

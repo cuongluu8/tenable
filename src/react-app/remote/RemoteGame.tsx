@@ -4,7 +4,7 @@ import { GuessInput } from "../components/GuessInput";
 import { colorForPlayerIndex } from "../components/playerColors";
 import { TeammateClueCards } from "../teammates/TeammateClueCards";
 import { ChatDock } from "./ChatPane";
-import type { FeedEntry, PublicMessage, PublicPlayer, SessionState } from "./remoteApi";
+import type { FeedEntry, PublicPlayer, SessionState } from "./remoteApi";
 
 const HINT_REVEAL_INTERVAL_MS = 30_000; // Matches remoteGameSession.ts's own HINT_REVEAL_INTERVAL_MS.
 const HINT_TIER_COUNT = 3;
@@ -15,85 +15,6 @@ const HINT_TIER_COUNT = 3;
 // guess box for this window, it isn't itself what makes guessing early
 // impossible.
 export const ROUND_START_GRACE_MS = 5_000;
-
-// Chat display. A message holds still next to its author's name for
-// CHAT_HOLD_MS, then scrolls off leftwards (behind the name -- the bubble
-// container clips it) over CHAT_SCROLL_MS and never comes back. Both are
-// also baked into remote.css's remote-chat-scroll keyframes (hold = 10/11
-// of the total) and the row flash's duration there, kept in step by hand.
-// Hold was 5s at first; doubled 2026-09-13 as too short to read across a
-// room. CHAT_MAX_FIRST_SEEN_AGE_MS: a message
-// this old on FIRST sight (server-reported ageMs, so clock skew can't
-// affect it) is treated as already over -- it's how a page refresh, or a
-// player joining, doesn't replay something everyone else watched scroll
-// away 15s ago. Comfortably above the 4s poll interval so a message that
-// just missed one poll is still fresh on the next.
-const CHAT_HOLD_MS = 10_000;
-const CHAT_SCROLL_MS = 1_000;
-const CHAT_MAX_FIRST_SEEN_AGE_MS = 12_000;
-
-// Messages this tab has finished showing (scrolled away) or decided were
-// already stale when first seen -- keyed on author + postedAt, which is
-// what makes "a new message from the same player" distinct from "the
-// same message again on the next poll". Module-level rather than
-// component state so it survives the Leaderboard remounting between the
-// round screen and the final results (the server keeps reporting a
-// message for 20s -- see MESSAGE_VISIBLE_MS there -- and the ask is that
-// once gone, it stays gone). Per tab, by design: a refresh is covered by
-// the age check above instead.
-const dismissedMessages = new Set<string>();
-const shownMessages = new Set<string>();
-
-function messageKey(playerId: string, message: PublicMessage): string {
-	return `${playerId}:${message.postedAt}`;
-}
-
-interface ChatBubbleProps {
-	playerId: string;
-	message: PublicMessage;
-}
-
-// One player's live message in their leaderboard row. Mounted once per
-// distinct message (keyed by the parent) so the CSS animation runs
-// exactly once from mount; when it ends the message is recorded as
-// dismissed and unmounted, and the Leaderboard's own check keeps it from
-// ever mounting again.
-function ChatBubble({ playerId, message }: ChatBubbleProps) {
-	const key = messageKey(playerId, message);
-	const [gone, setGone] = useState(false);
-	useEffect(() => {
-		shownMessages.add(key);
-	}, [key]);
-	if (gone) return null;
-	return (
-		<span className="remote-chat" aria-live="polite">
-			<span
-				className="remote-chat__text"
-				style={{ animationDuration: `${CHAT_HOLD_MS + CHAT_SCROLL_MS}ms` }}
-				onAnimationEnd={(e) => {
-					// Several animations run on this element (the entrance pop and
-					// the glow pulse end long before the hold does) -- only the
-					// hold-then-scroll one means the message is over.
-					if (e.animationName !== "remote-chat-scroll") return;
-					dismissedMessages.add(key);
-					setGone(true);
-				}}
-			>
-				{message.text}
-			</span>
-		</span>
-	);
-}
-
-function shouldShowMessage(playerId: string, message: PublicMessage | null): message is PublicMessage {
-	if (!message) return false;
-	const key = messageKey(playerId, message);
-	if (dismissedMessages.has(key)) return false;
-	// Already on screen: keep it there until its own animation ends, even
-	// if a later poll reports it older than the first-sight cutoff.
-	if (shownMessages.has(key)) return true;
-	return message.ageMs < CHAT_MAX_FIRST_SEEN_AGE_MS;
-}
 
 interface GuessAreaProps {
 	onGuess: (guess: string) => Promise<"correct" | "wrong" | null>;
@@ -186,20 +107,13 @@ export function Leaderboard({ players, myPlayerId, givenUpPlayerIds, compact }: 
 		<ol className={compact ? "remote-standings remote-standings--compact" : "remote-standings"}>
 			{ranked.map((p, i) => {
 				const rank = i > 0 && ranked[i - 1].wins === p.wins ? null : i + 1;
-				const message = shouldShowMessage(p.id, p.message) ? p.message : null;
 				return (
-					<li key={p.id} className={message ? "remote-standings__item remote-standings__item--speaking" : "remote-standings__item"}>
+					<li key={p.id} className="remote-standings__item">
 						<span className="remote-standings__rank">{rank ?? "="}</span>
 						<span className="remote-players__color" style={{ background: colorForPlayerIndex(players.indexOf(p)) }} />
 						<span className="remote-standings__name">
 							{p.name}
 							{p.id === myPlayerId && " (you)"}
-						</span>
-						{/* Always rendered (empty or not) so it's what takes up the
-						    row's spare width -- the message bubble scrolls off into
-						    its left edge, i.e. visually behind the name. */}
-						<span className="remote-standings__chat">
-							{message && <ChatBubble key={messageKey(p.id, message)} playerId={p.id} message={message} />}
 						</span>
 						{p.away && <span className="remote-badge remote-badge--away">Away</span>}
 						{givenUpPlayerIds?.includes(p.id) && (

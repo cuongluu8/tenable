@@ -75,7 +75,7 @@ describe("POST /api/remote/sessions (create)", () => {
 			round: null,
 			honour: null,
 			feed: [],
-			players: [{ id: created.playerId, name: "Alice", isHost: true, ready: true, away: false, wins: 0, message: null }],
+			players: [{ id: created.playerId, name: "Alice", isHost: true, ready: true, away: false, wins: 0 }],
 		});
 	});
 });
@@ -88,7 +88,7 @@ describe("full lifecycle: create -> join -> ready -> start", () => {
 		const afterJoin = await getState(host.sessionCode, host.playerToken);
 		expect(afterJoin.body.players).toHaveLength(2);
 		const guestInState = afterJoin.body.players.find((p) => p.id === guest.playerId);
-		expect(guestInState).toEqual({ id: guest.playerId, name: "Guest", isHost: false, ready: false, away: false, wins: 0, message: null });
+		expect(guestInState).toEqual({ id: guest.playerId, name: "Guest", isHost: false, ready: false, away: false, wins: 0 });
 
 		// Starting before the guest readies up is rejected -- see
 		// remoteSessionValidation.test.ts for the exact error shape.
