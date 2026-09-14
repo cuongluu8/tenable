@@ -52,8 +52,8 @@ cost-conscious about it. Two rules, agreed with the user 2026-09-04:
 **On handing work to a local/cheaper model to save tokens**: this was
 tried once (2026-09-01) — Claude Code itself, but pointed at a local model
 backend instead of the usual hosted one — for a multi-file, judgment-heavy
-handoff (see `docs/stats-enrichment.md`'s and `PROGRESS.md`'s history
-around that date) and failed — the local run never read the handoff doc,
+handoff (see `docs/stats-enrichment.md` and the git history around that
+date) and failed — the local run never read the handoff doc,
 invented an unrelated task, and committed code with a syntax error and
 undefined variables, plus silently broke `npm run build` (deleted from
 package.json without updating anything that depended on it) and desynced

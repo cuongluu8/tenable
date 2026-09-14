@@ -10,7 +10,7 @@ stats such as clubs managed from and to, titles, retirements."
 
 **Read this file before doing any more work on this project.** It's the
 complete reference: schema, conventions, sourcing rules, exact current
-state, and exactly what's left. `PROGRESS.md` only has a short pointer here.
+state, and exactly what's left.
 
 ## Why this isn't "for all players" (scope decision)
 
