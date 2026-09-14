@@ -40,10 +40,8 @@ describe("session expiry", () => {
 		expect(await runInDurableObject(stub, (_instance, state) => state.storage.getAlarm())).not.toBeNull();
 
 		// Age every player's last poll past the TTL, fire again: gone.
-		await runInDurableObject(stub, async (_instance, state) => {
-			const players = (await state.storage.get<{ lastSeenAt: number }[]>("players")) ?? [];
-			for (const p of players) p.lastSeenAt = Date.now() - 25 * 60 * 60 * 1000;
-			await state.storage.put("players", players);
+		await runInDurableObject(stub, (_instance, state) => {
+			state.storage.sql.exec("UPDATE players SET data = json_set(data, '$.lastSeenAt', ?)", Date.now() - 25 * 60 * 60 * 1000);
 		});
 		expect(await runDurableObjectAlarm(stub)).toBe(true);
 		const after = await SELF.fetch(`https://example.com/api/remote/sessions/${host.sessionCode}/state`, { headers: { "X-Player-Token": host.playerToken } });

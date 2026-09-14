@@ -501,37 +501,242 @@ function publicRound(session: SessionRecord, now: number): PublicRound | null {
 
 export class RemoteGameSession extends DurableObject<Env> {
 	private readonly app: Hono;
+	// Set in the constructor (the storage helpers are closure-local there).
+	private wipe!: () => Promise<void>;
 
 	constructor(ctx: DurableObjectState, env: Env) {
 		super(ctx, env);
 		this.app = new Hono();
 
-		// Small local helpers bound to this instance's storage -- kept
-		// inside the constructor (rather than free functions taking
-		// `storage` as a parameter) since every route needs both and this
-		// class has no other state worth threading through.
+		// ---- Storage (2026-09-14: the object's SQLite tables) ----
+		//
+		// The session used to be two KV values -- `session` (everything,
+		// including the whole feed and grid) and `players` -- rewritten in
+		// full on every change: ~60KB per guess for a chatty Roll of Honour
+		// game, against the KV backend's 128KiB value cap. Now (docs/
+		// scaling.md §4c) it's five tables, one row per player / tile / feed
+		// entry, and the object keeps the records IN MEMORY as the working
+		// copy: loaded once per wake, mutated by the handlers exactly as
+		// before, and persisted by save(), which diffs each record against
+		// what was last written and touches only the rows that changed. So
+		// a poll reads no storage at all (memory), a guess writes one or two
+		// rows, and the feed is a plain append. The object is the sole
+		// writer of its own storage, which is what makes the cache safe;
+		// alarm() below is the one reader that goes to SQL directly, so a
+		// test can age rows underneath it.
 		const storage = ctx.storage;
-		// roundGivenUpPlayerIds was added (2026-09-13) after real sessions
-		// had already been persisted without it -- a DO's storage outlives
-		// deploys, so a record from before that field existed is read back
-		// with it filled in rather than every reader having to `?? []`.
-		const getSession = async (): Promise<SessionRecord | undefined> => {
-			const session = await storage.get<SessionRecord>("session");
-			if (session && !Array.isArray(session.roundGivenUpPlayerIds)) session.roundGivenUpPlayerIds = [];
-			// Same for roundDecidedAt (added later the same day): a record
-			// without it that IS decided is treated as decided long ago, so
-			// the minimum-reveal check never holds a pre-existing session up.
-			if (session && session.roundDecidedAt === undefined) session.roundDecidedAt = session.roundAnswerName !== null ? 0 : null;
-			// And gameType (Teammate Tell added later still) -- see its own doc.
-			if (session && !session.gameType) session.gameType = "club-badges";
-			if (session && session.honour === undefined) session.honour = null;
-			if (session && !Array.isArray(session.feed)) {
+		const sql = storage.sql;
+		const ensureTables = (): void => {
+			sql.exec(`
+			CREATE TABLE IF NOT EXISTS session (id INTEGER PRIMARY KEY, data TEXT NOT NULL);
+			CREATE TABLE IF NOT EXISTS questions (id INTEGER PRIMARY KEY, data TEXT NOT NULL);
+			CREATE TABLE IF NOT EXISTS players (id TEXT PRIMARY KEY, data TEXT NOT NULL);
+			CREATE TABLE IF NOT EXISTS tiles (season TEXT PRIMARY KEY, data TEXT NOT NULL);
+			CREATE TABLE IF NOT EXISTS feed (id INTEGER PRIMARY KEY, at INTEGER NOT NULL, kind TEXT NOT NULL, player_id TEXT, text TEXT NOT NULL, correct INTEGER, season TEXT);
+			`);
+		};
+		ensureTables();
+
+		interface Loaded {
+			session: SessionRecord | undefined;
+			players: PlayerRecord[];
+		}
+		let loaded: Loaded | null = null;
+		let loading: Promise<Loaded> | null = null;
+		// Last-written JSON per row (session core, questions, player:<id>,
+		// tile:<season>) -- save() only writes a row whose JSON differs.
+		const written = new Map<string, string>();
+		let writtenFeedMaxId = 0;
+		let writtenFeedMinId = 0;
+
+		// Fields added after real sessions had been persisted without them
+		// (roundGivenUpPlayerIds 2026-09-13, roundDecidedAt, gameType,
+		// honour, feed) -- filled in on read so no reader needs `?? x`.
+		const normaliseSession = (session: SessionRecord): SessionRecord => {
+			if (!Array.isArray(session.roundGivenUpPlayerIds)) session.roundGivenUpPlayerIds = [];
+			if (session.roundDecidedAt === undefined) session.roundDecidedAt = session.roundAnswerName !== null ? 0 : null;
+			if (!session.gameType) session.gameType = "club-badges";
+			if (session.honour === undefined) session.honour = null;
+			if (!Array.isArray(session.feed)) {
 				session.feed = [];
 				session.feedNextId = 1;
 			}
 			return session;
 		};
-		const getPlayers = () => storage.get<PlayerRecord[]>("players").then((p) => p ?? []);
+
+		// The session row is everything EXCEPT the parts with their own
+		// tables (questions, tiles, feed) -- so a lock, a guess or a chat
+		// line never rewrites the question deck.
+		const coreJson = (session: SessionRecord): string => {
+			const { feed: _feed, questions: _questions, honour, ...rest } = session;
+			void _feed;
+			void _questions;
+			return JSON.stringify({ ...rest, honour: honour ? { competitionId: honour.competitionId, competitionName: honour.competitionName } : null });
+		};
+
+		const rememberWritten = (state: Loaded): void => {
+			written.clear();
+			if (state.session) {
+				written.set("session", coreJson(state.session));
+				written.set("questions", JSON.stringify(state.session.questions));
+				for (const t of state.session.honour?.tiles ?? []) written.set(`tile:${t.season}`, JSON.stringify(t));
+				const feed = state.session.feed;
+				writtenFeedMaxId = feed.length ? feed[feed.length - 1].id : 0;
+				writtenFeedMinId = feed.length ? feed[0].id : 0;
+			}
+			for (const p of state.players) written.set(`player:${p.id}`, JSON.stringify(p));
+		};
+
+		interface FeedRow {
+			id: number;
+			at: number;
+			kind: string;
+			player_id: string | null;
+			text: string;
+			correct: number | null;
+			season: string | null;
+		}
+
+		const load = async (): Promise<Loaded> => {
+			if (loaded) return loaded;
+			if (!loading) {
+				loading = (async () => {
+					const row = sql.exec<{ data: string }>("SELECT data FROM session WHERE id = 1").toArray()[0];
+					if (row) {
+						const session = JSON.parse(row.data) as SessionRecord;
+						const q = sql.exec<{ data: string }>("SELECT data FROM questions WHERE id = 1").toArray()[0];
+						session.questions = q ? (JSON.parse(q.data) as RemoteQuestionPublic[]) : [];
+						if (session.honour) {
+							session.honour.tiles = sql
+								.exec<{ data: string }>("SELECT data FROM tiles ORDER BY rowid")
+								.toArray()
+								.map((t) => JSON.parse(t.data) as HonourTileRecord);
+						}
+						session.feed = (sql.exec("SELECT id, at, kind, player_id, text, correct, season FROM feed ORDER BY id").toArray() as unknown as FeedRow[]).map((r) => ({
+								id: r.id,
+								at: r.at,
+								kind: r.kind as FeedEntry["kind"],
+								playerId: r.player_id,
+								text: r.text,
+								...(r.correct === null ? {} : { correct: r.correct === 1 }),
+								...(r.season === null ? {} : { season: r.season }),
+						}));
+						const players = sql
+							.exec<{ data: string }>("SELECT data FROM players ORDER BY rowid")
+							.toArray()
+							.map((p) => JSON.parse(p.data) as PlayerRecord);
+						loaded = { session: normaliseSession(session), players };
+						rememberWritten(loaded);
+						return loaded;
+					}
+					// One-time migration for a session persisted as the two KV
+					// values this replaced (still live at deploy time).
+					const kvSession = await storage.get<SessionRecord>("session");
+					if (kvSession) {
+						const kvPlayers = (await storage.get<PlayerRecord[]>("players")) ?? [];
+						loaded = { session: normaliseSession(kvSession), players: kvPlayers };
+						await save();
+						await storage.delete(["session", "players"]);
+						return loaded;
+					}
+					loaded = { session: undefined, players: [] };
+					return loaded;
+				})();
+			}
+			return loading;
+		};
+
+		// Writes `statement` only if this row's JSON changed since last
+		// written. The JSON is always the LAST bind parameter.
+		const upsert = (key: string, statement: string, ...bind: (string | number)[]): boolean => {
+			const json = String(bind[bind.length - 1]);
+			if (written.get(key) === json) return false;
+			sql.exec(statement, ...bind);
+			written.set(key, json);
+			return true;
+		};
+
+		// Persist whatever changed. `override` swaps in a new session/players
+		// object first (a fresh /create, a /join's appended roster, a
+		// /leave's filtered one). Returns whether anything was written.
+		// Synchronous underneath (sql.exec is), async-shaped so the ~40
+		// former KV write sites read the same as before.
+		const save = async (override?: { session?: SessionRecord; players?: PlayerRecord[] }): Promise<boolean> => {
+			const state = loaded ?? (loaded = { session: undefined, players: [] });
+			if (override?.session) state.session = override.session;
+			if (override?.players) state.players = override.players;
+			let changed = false;
+			const { session, players } = state;
+			if (session) {
+				if (upsert("session", "INSERT INTO session (id, data) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data", coreJson(session))) changed = true;
+				if (upsert("questions", "INSERT INTO questions (id, data) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data", JSON.stringify(session.questions)))
+					changed = true;
+				const seenTiles = new Set<string>();
+				for (const t of session.honour?.tiles ?? []) {
+					seenTiles.add(t.season);
+					if (upsert(`tile:${t.season}`, "INSERT INTO tiles (season, data) VALUES (?, ?) ON CONFLICT(season) DO UPDATE SET data = excluded.data", t.season, JSON.stringify(t))) changed = true;
+				}
+				for (const key of [...written.keys()]) {
+					if (key.startsWith("tile:") && !seenTiles.has(key.slice(5))) {
+						sql.exec("DELETE FROM tiles WHERE season = ?", key.slice(5));
+						written.delete(key);
+						changed = true;
+					}
+				}
+				for (const e of session.feed) {
+					if (e.id > writtenFeedMaxId) {
+						sql.exec(
+							"INSERT OR IGNORE INTO feed (id, at, kind, player_id, text, correct, season) VALUES (?, ?, ?, ?, ?, ?, ?)",
+							e.id,
+							e.at,
+							e.kind,
+							e.playerId,
+							e.text,
+							e.correct === undefined ? null : e.correct ? 1 : 0,
+							e.season ?? null,
+						);
+						changed = true;
+					}
+				}
+				if (session.feed.length) writtenFeedMaxId = Math.max(writtenFeedMaxId, session.feed[session.feed.length - 1].id);
+				const minId = session.feed.length ? session.feed[0].id : 0;
+				if (minId > writtenFeedMinId) {
+					sql.exec("DELETE FROM feed WHERE id < ?", minId);
+					writtenFeedMinId = minId;
+					changed = true;
+				}
+			}
+			const seenPlayers = new Set<string>();
+			for (const p of players) {
+				seenPlayers.add(p.id);
+				if (upsert(`player:${p.id}`, "INSERT INTO players (id, data) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data", p.id, JSON.stringify(p))) changed = true;
+			}
+			for (const key of [...written.keys()]) {
+				if (key.startsWith("player:") && !seenPlayers.has(key.slice(7))) {
+					sql.exec("DELETE FROM players WHERE id = ?", key.slice(7));
+					written.delete(key);
+					changed = true;
+				}
+			}
+			return changed;
+		};
+
+		// Everything gone -- the session expired (alarm()). Also forgets the
+		// in-memory copy so a later request sees an empty object. deleteAll()
+		// drops the tables too (this object stays alive afterwards, so its
+		// constructor won't recreate them) -- hence ensureTables() again.
+		this.wipe = async () => {
+			await storage.deleteAll();
+			ensureTables();
+			loaded = null;
+			loading = null;
+			written.clear();
+			writtenFeedMaxId = 0;
+			writtenFeedMinId = 0;
+		};
+
+		const getSession = async (): Promise<SessionRecord | undefined> => (await load()).session;
+		const getPlayers = async (): Promise<PlayerRecord[]> => (await load()).players;
 		const findByToken = (players: PlayerRecord[], token: string | undefined) =>
 			token ? players.find((p) => p.token === token) : undefined;
 
@@ -618,7 +823,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 			if (session.roundDecidedAt !== null && now - session.roundDecidedAt < minRevealMs) return;
 
 			startNewRound(session, players, session.roundIndex + 1, now);
-			await storage.put({ session, players });
+			await save();
 		}
 
 		// ---- Roll of Honour helpers (see class doc) ----
@@ -722,7 +927,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 				wins: 0,
 				lastMessageAt: null,
 			};
-			await storage.put({ session, players: [host] });
+			await save({ session, players: [host] });
 			// The expiry alarm is armed once here and then re-arms itself off
 			// the players' lastSeenAt each time it fires (see alarm()) -- no
 			// per-request alarm writes.
@@ -765,7 +970,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 				wins: 0,
 				lastMessageAt: null,
 			};
-			await storage.put("players", [...players, player]);
+			await save({ players: [...players, player] });
 
 			return c.json({ playerId: player.id, playerToken: player.token });
 		});
@@ -800,9 +1005,9 @@ export class RemoteGameSession extends DurableObject<Env> {
 			// this one.
 			const honourChanged = expireHonourLocks(session, now) || finishHonourIfDone(session, players, now);
 			if ((await resolveRoundByGiveUp(session, players, now)) || honourChanged) {
-				await storage.put({ session, players });
+				await save();
 			} else if (heartbeatDue) {
-				await storage.put("players", players);
+				await save();
 			}
 			// Unconditional -- see maybeAdvanceRound's own doc on why a poll
 			// has to be able to complete an advance the ready gate already
@@ -856,7 +1061,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 			const now = Date.now();
 			self.ready = Boolean(body.ready);
 			self.lastSeenAt = now;
-			await storage.put("players", players);
+			await save();
 
 			// Might be the last non-host player the current round's advance
 			// gate was waiting on -- a no-op read-only check when it isn't
@@ -883,7 +1088,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 				// right after this still shows who was in the room when it
 				// ended, not an empty list.
 				session.status = "ended";
-				await storage.put("session", session);
+				await save();
 			} else {
 				const remaining = players.filter((p) => p.id !== self.id);
 				const now = Date.now();
@@ -892,8 +1097,8 @@ export class RemoteGameSession extends DurableObject<Env> {
 				// round-advance gate was waiting on -- or, Roll of Honour,
 				// holding a tile lock / the last one still filling the grid.
 				const honourChanged = releaseHonourLocks(session, self.id) || finishHonourIfDone(session, remaining, now);
-				if ((await resolveRoundByGiveUp(session, remaining, now)) || honourChanged) await storage.put("session", session);
-				await storage.put("players", remaining);
+				if ((await resolveRoundByGiveUp(session, remaining, now)) || honourChanged) await save();
+				await save({ players: remaining });
 				await maybeAdvanceRound(session, remaining, now);
 			}
 
@@ -919,8 +1124,8 @@ export class RemoteGameSession extends DurableObject<Env> {
 			const remaining = players.filter((p) => p.id !== target.id);
 			const now = Date.now();
 			const honourChanged = releaseHonourLocks(session, target.id) || finishHonourIfDone(session, remaining, now);
-			if ((await resolveRoundByGiveUp(session, remaining, now)) || honourChanged) await storage.put("session", session);
-			await storage.put("players", remaining);
+			if ((await resolveRoundByGiveUp(session, remaining, now)) || honourChanged) await save();
+			await save({ players: remaining });
 			await maybeAdvanceRound(session, remaining, now);
 
 			return c.json({ ok: true });
@@ -961,7 +1166,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 				// round-shaped stays null, so no round ever "starts".
 				session.roundStartedAt = now;
 				session.roundGivenUpPlayerIds = [];
-				await storage.put({ session, players });
+				await save();
 				return c.json({ ok: true });
 			}
 
@@ -1006,7 +1211,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 			session.questionCount = questionCount;
 			session.questions = questions;
 			startNewRound(session, players, 0, now);
-			await storage.put({ session, players });
+			await save();
 
 			return c.json({ ok: true });
 		});
@@ -1024,18 +1229,18 @@ export class RemoteGameSession extends DurableObject<Env> {
 			self.lastSeenAt = now;
 
 			if (isRoundDecided(session)) {
-				await storage.put("players", players);
+				await save();
 				return c.json({ error: "This round is already over" }, 409);
 			}
 			if (session.roundGivenUpPlayerIds.includes(self.id)) {
 				// A give-up is final for the round (see class doc) -- same as
 				// Club Run's own RoundPlay, where giving up ends that player's
 				// turn at the question outright rather than being undoable.
-				await storage.put("players", players);
+				await save();
 				return c.json({ error: "You've already given up on this round" }, 409);
 			}
 			if (session.gameType === "roll-of-honour") {
-				await storage.put("players", players);
+				await save();
 				return c.json({ error: "This game is answered on the grid -- see /tile/answer" }, 409);
 			}
 
@@ -1049,14 +1254,14 @@ export class RemoteGameSession extends DurableObject<Env> {
 				// guess box is disabled for this same window, so only a client
 				// bypassing its own UI (or one whose clock is meaningfully off)
 				// ever actually reaches this.
-				await storage.put("players", players);
+				await save();
 				return c.json({ error: "Too early -- wait for the countdown" }, 409);
 			}
 
 			const body = await c.req.json<{ guess?: string }>().catch(() => ({}) as { guess?: string });
 			const rawGuess = (body.guess ?? "").trim();
 			if (!rawGuess) {
-				await storage.put("players", players);
+				await save();
 				return c.json({ error: "Missing guess" }, 400);
 			}
 
@@ -1065,7 +1270,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 			if (!result) {
 				// Defensive only -- question.id always came from a real
 				// club_badge_questions row selected at /start.
-				await storage.put("players", players);
+				await save();
 				return c.json({ error: "Unknown question" }, 404);
 			}
 
@@ -1075,12 +1280,12 @@ export class RemoteGameSession extends DurableObject<Env> {
 				session.roundAnswerName = result.name;
 				session.roundDecidedAt = now;
 				pushFeed(session, now, { kind: "guess", playerId: self.id, text: result.name, correct: true });
-				await storage.put({ session, players });
+				await save();
 				return c.json({ result: "correct" as const, answerName: result.name });
 			}
 
 			pushFeed(session, now, { kind: "guess", playerId: self.id, text: rawGuess, correct: false });
-			await storage.put({ session, players });
+			await save();
 			return c.json({ result: "wrong" as const });
 		});
 
@@ -1118,12 +1323,12 @@ export class RemoteGameSession extends DurableObject<Env> {
 				}
 				releaseHonourLocks(session, self.id);
 				finishHonourIfDone(session, players, now);
-				await storage.put({ session, players });
+				await save();
 				return c.json({ ok: true as const });
 			}
 
 			if (isRoundDecided(session)) {
-				await storage.put("players", players);
+				await save();
 				return c.json({ error: "This round is already over" }, 409);
 			}
 
@@ -1132,7 +1337,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 				pushFeed(session, now, { kind: "give-up", playerId: self.id, text: "gave up" });
 			}
 			await resolveRoundByGiveUp(session, players, now);
-			await storage.put({ session, players });
+			await save();
 			// A solo host (no other players) has nobody to wait on -- same
 			// vacuous-gate behaviour a win already gets there.
 			await maybeAdvanceRound(session, players, now);
@@ -1166,24 +1371,24 @@ export class RemoteGameSession extends DurableObject<Env> {
 			// could usefully mean there.
 			const text = typeof body.text === "string" ? body.text.replace(/\s+/g, " ").trim() : "";
 			if (!text) {
-				await storage.put("players", players);
+				await save();
 				return c.json({ error: "Type a message first" }, 400);
 			}
 			if (text.length > MESSAGE_MAX_CHARS || countWords(text) > MESSAGE_MAX_WORDS) {
-				await storage.put("players", players);
+				await save();
 				return c.json({ error: `Keep it to ${MESSAGE_MAX_WORDS} words` }, 400);
 			}
 
 			const lastMessageAt = self.lastMessageAt ?? null;
 			if (lastMessageAt !== null && now - lastMessageAt < MESSAGE_COOLDOWN_MS) {
 				const retryAfterMs = MESSAGE_COOLDOWN_MS - (now - lastMessageAt);
-				await storage.put("players", players);
+				await save();
 				return c.json({ error: `You can post again in ${Math.ceil(retryAfterMs / 1000)}s`, retryAfterMs }, 429);
 			}
 
 			self.lastMessageAt = now;
 			pushFeed(session, now, { kind: "chat", playerId: self.id, text });
-			await storage.put({ session, players });
+			await save();
 
 			return c.json({ ok: true as const });
 		});
@@ -1204,7 +1409,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 			const now = Date.now();
 			self.lastSeenAt = now;
 			if (session.roundGivenUpPlayerIds.includes(self.id)) {
-				await storage.put("players", players);
+				await save();
 				return { error: c.json({ error: "You've given up on this game" }, 409) };
 			}
 			expireHonourLocks(session, now);
@@ -1218,39 +1423,39 @@ export class RemoteGameSession extends DurableObject<Env> {
 		this.app.post("/tile/select", async (c) => {
 			const ctx = await honourContext(c);
 			if ("error" in ctx) return ctx.error;
-			const { session, honour, players, self, now } = ctx;
+			const { session, honour, self, now } = ctx;
 
 			const rawGraceMs = Number(this.env.ROUND_START_GRACE_MS);
 			const roundStartGraceMs = Number.isFinite(rawGraceMs) ? rawGraceMs : DEFAULT_ROUND_START_GRACE_MS;
 			if (session.roundStartedAt !== null && now - session.roundStartedAt < roundStartGraceMs) {
-				await storage.put({ session, players });
+				await save();
 				return c.json({ error: "Too early -- wait for the countdown" }, 409);
 			}
 
 			const body = await c.req.json<{ season?: string }>().catch(() => ({}) as { season?: string });
 			const tile = honour.tiles.find((t) => t.season === body.season);
 			if (!tile) {
-				await storage.put({ session, players });
+				await save();
 				return c.json({ error: "Unknown season" }, 404);
 			}
 			if (tile.answeredBy !== null) {
-				await storage.put({ session, players });
+				await save();
 				return c.json({ error: "That season's already been answered" }, 409);
 			}
 			if (tile.lockedBy !== null && tile.lockedBy !== self.id) {
-				await storage.put({ session, players });
+				await save();
 				return c.json({ error: "Someone else has that season right now" }, 409);
 			}
 			const blockedUntil = tile.blockedUntil[self.id] ?? 0;
 			if (blockedUntil > now) {
-				await storage.put({ session, players });
+				await save();
 				return c.json({ error: "You just got that one wrong -- give someone else a go", retryAfterMs: blockedUntil - now }, 409);
 			}
 
 			releaseHonourLocks(session, self.id);
 			tile.lockedBy = self.id;
 			tile.lockedUntil = now + HONOUR_LOCK_MS;
-			await storage.put({ session, players });
+			await save();
 			return c.json({ ok: true as const, lockedForMs: HONOUR_LOCK_MS });
 		});
 
@@ -1258,9 +1463,9 @@ export class RemoteGameSession extends DurableObject<Env> {
 		this.app.post("/tile/release", async (c) => {
 			const ctx = await honourContext(c);
 			if ("error" in ctx) return ctx.error;
-			const { session, players, self } = ctx;
+			const { session, self } = ctx;
 			releaseHonourLocks(session, self.id);
-			await storage.put({ session, players });
+			await save();
 			return c.json({ ok: true as const });
 		});
 
@@ -1276,22 +1481,22 @@ export class RemoteGameSession extends DurableObject<Env> {
 			const body = await c.req.json<{ season?: string; guess?: string }>().catch(() => ({}) as { season?: string; guess?: string });
 			const tile = honour.tiles.find((t) => t.season === body.season);
 			if (!tile) {
-				await storage.put({ session, players });
+				await save();
 				return c.json({ error: "Unknown season" }, 404);
 			}
 			if (tile.answeredBy !== null) {
-				await storage.put({ session, players });
+				await save();
 				return c.json({ error: "That season's already been answered" }, 409);
 			}
 			if (tile.lockedBy !== self.id) {
 				// Includes "was yours but the hold ran out" -- expireHonourLocks
 				// in the preamble already cleared it.
-				await storage.put({ session, players });
+				await save();
 				return c.json({ error: "Your hold on that season has run out -- take it again" }, 409);
 			}
 			const guess = (body.guess ?? "").trim();
 			if (!guess) {
-				await storage.put({ session, players });
+				await save();
 				return c.json({ error: "Missing guess" }, 400);
 			}
 
@@ -1302,12 +1507,12 @@ export class RemoteGameSession extends DurableObject<Env> {
 				self.wins += 1;
 				pushFeed(session, now, { kind: "guess", playerId: self.id, text: tile.winner, correct: true, season: tile.season });
 				finishHonourIfDone(session, players, now);
-				await storage.put({ session, players });
+				await save();
 				return c.json({ result: "correct" as const, winner: tile.winner, imageUrl: tile.imageUrl });
 			}
 			pushFeed(session, now, { kind: "guess", playerId: self.id, text: guess, correct: false, season: tile.season });
 			tile.blockedUntil[self.id] = now + HONOUR_RETRY_BLOCK_MS;
-			await storage.put({ session, players });
+			await save();
 			return c.json({ result: "wrong" as const, retryAfterMs: HONOUR_RETRY_BLOCK_MS });
 		});
 
@@ -1350,7 +1555,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 				p.ready = p.isHost; // Same as a fresh /create: the host is ready by definition, everyone else re-readies.
 			}
 			caller.lastSeenAt = now;
-			await storage.put({ session, players });
+			await save();
 
 			return c.json({ ok: true as const });
 		});
@@ -1368,19 +1573,22 @@ export class RemoteGameSession extends DurableObject<Env> {
 	// storage rather than through the constructor's helpers, which are
 	// closure-local to the router.
 	async alarm(): Promise<void> {
-		const storage = this.ctx.storage;
-		const session = await storage.get<SessionRecord>("session");
-		if (!session) {
-			await storage.deleteAll();
+		// Reads presence from SQL rather than the in-memory copy, so a test
+		// (or an operator) can age rows underneath it -- see the storage doc
+		// in the constructor.
+		const sql = this.ctx.storage.sql;
+		const sessionRow = sql.exec<{ data: string }>("SELECT data FROM session WHERE id = 1").toArray()[0];
+		if (!sessionRow) {
+			await this.wipe();
 			return;
 		}
-		const players = (await storage.get<PlayerRecord[]>("players")) ?? [];
-		const lastSeen = players.length ? Math.max(...players.map((p) => p.lastSeenAt)) : session.createdAt;
+		const lastSeenRow = sql.exec<{ last: number | null }>("SELECT MAX(json_extract(data, '$.lastSeenAt')) AS last FROM players").toArray()[0];
+		const lastSeen = lastSeenRow?.last ?? (JSON.parse(sessionRow.data) as SessionRecord).createdAt;
 		const now = Date.now();
 		if (now - lastSeen >= SESSION_TTL_MS) {
-			await storage.deleteAll();
+			await this.wipe();
 			return;
 		}
-		await storage.setAlarm(lastSeen + SESSION_TTL_MS);
+		await this.ctx.storage.setAlarm(lastSeen + SESSION_TTL_MS);
 	}
 }
