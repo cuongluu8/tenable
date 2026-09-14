@@ -21,6 +21,9 @@ interface Props {
 	// Back to the game-type picker (MultiplayerGameTypePick.tsx), same
 	// "one step back" pattern as MultiplayerCategoryPick.tsx's own onBack.
 	onBack: () => void;
+	// Which game's Sets to list -- both games expose the same /sets index
+	// shape (lib/setsIndex.ts). Club Run unless told otherwise.
+	game?: "club-badges" | "teammates";
 }
 
 // Third step of multiplayer's club-badges setup, between choosing that game
@@ -35,7 +38,7 @@ interface Props {
 // ten questions the round uses, not tracking how anyone did in them
 // afterward (MultiplayerResult.tsx already shows standings for the round,
 // same as it does for a random one).
-export function MultiplayerSetPick({ onStart, onBack }: Props) {
+export function MultiplayerSetPick({ onStart, onBack, game = "club-badges" }: Props) {
 	const [load, setLoad] = useState<LoadState>({ status: "loading" });
 	// null is its own real selectable choice ("Random round"), not "nothing
 	// picked yet" -- so this can't reuse the empty-string-means-unselected
@@ -44,13 +47,16 @@ export function MultiplayerSetPick({ onStart, onBack }: Props) {
 	const [selected, setSelected] = useState<number | null | undefined>(undefined);
 
 	useEffect(() => {
-		fetch("/api/club-badges/sets")
+		fetch(`/api/${game}/sets`)
 			.then((res) => {
 				if (!res.ok) throw new Error("Couldn't load sets");
 				return res.json() as Promise<SetsResponse>;
 			})
 			.then((data) => setLoad({ status: "ready", sets: data.sets }))
 			.catch((err: Error) => setLoad({ status: "error", message: err.message }));
+		// `game` never changes under a live instance (Multiplayer.tsx remounts
+		// this step per game type), so mount-once is the real trigger.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
 	return (

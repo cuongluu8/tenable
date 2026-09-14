@@ -213,7 +213,7 @@ simpler content model.
 |---|---|---|---|
 | **Daily categories** (Top 10) | `PlayScreen` -- Classic / Tension | `multiplayer/` -- turns, lives | -- |
 | **Club Run** | curated Sets (`clubBadges/`) | `GuessThePlayer` random round or a Set | yes |
-| **Teammate Tell** | curated Sets (`teammates/`) | -- | yes |
+| **Teammate Tell** | curated Sets (`teammates/`) | `GuessThePlayer` (game="teammates"), random round or a Set | yes |
 | **Roll of Honour** | 5 lives, country hint, saved per competition | turns, one attempt each | yes |
 
 - **Club Run / Teammate Tell** are "name the player" games: a badge trail
@@ -223,7 +223,8 @@ simpler content model.
   nationality, transfer dates / clubs and overlap years) cost points in
   solo. Question assembly lives in `lib/clubBadgeRound.ts` /
   `lib/teammateRound.ts`, shared by the solo routes and the Durable Object
-  so the two can't drift. The question tables are built offline by
+  so the two can't drift. Pass-and-play for both runs on one engine,
+  `clubBadges/GuessThePlayer.tsx`, told which game it's playing. The question tables are built offline by
   `data/research/build_club_badge_questions.py` /
   `build_teammate_questions.py`.
 - **Roll of Honour** (2026-09-13) is a grid of seasons for one competition;

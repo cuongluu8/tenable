@@ -10,15 +10,46 @@ import { RoundPlay } from "../components/RoundPlay";
 import { RoundResultScreen } from "../components/RoundResultScreen";
 import { roundReducer, initialRoundState, type CbQuestion } from "../components/clubBadgesState";
 import { checkRoundGuess } from "../components/checkRoundGuess";
+import { TeammateClueCards, type ClueCardHint } from "../teammates/TeammateClueCards";
+
+// Which "name the player" game this round is (2026-09-14: Teammate Tell
+// joined Club Run here so pass-and-play could offer both). Everything the
+// two differ in -- endpoints, how a raw /round question maps onto the
+// reducer's CbQuestion, and what RoundPlay shows in place of the badge
+// chain -- is selected off this one value below; the round/turn/lives/
+// scoring engine is identical.
+export type GuessGame = "club-badges" | "teammates";
+
+// Teammate Tell's raw /round question -- same shape TeammateSetPlay.tsx
+// reads (see its own RoundQuestion doc).
+interface TeammateRawQuestion {
+	id: number;
+	teammates: string[];
+	cardHints: ClueCardHint[];
+	nationality: string | null;
+}
+type RawQuestion = CbQuestion | TeammateRawQuestion;
 
 interface RoundResponse {
-	questions: CbQuestion[];
+	questions: RawQuestion[];
 	// Only present when the round was resolved from a fixed set (setId
 	// below) -- clubBadges.ts's /round doc. Threaded through to the
 	// progress label below so a multiplayer group playing "Set 3: Velvet
 	// Wolf" sees which set they're actually on, same as solo's own
 	// ClubBadgeSetPlay.tsx does.
 	setName?: string;
+}
+
+const GAME_API: Record<GuessGame, string> = { "club-badges": "/api/club-badges", teammates: "/api/teammates" };
+
+// Club Run's raw question already IS a CbQuestion; Teammate Tell's has
+// none of the badge fields, so the reducer gets an empty shell and the
+// clue names/hints are read back off the raw question at render time --
+// exactly the split useSetRound.ts/TeammateSetPlay.tsx already use.
+function toQuestion(game: GuessGame, raw: RawQuestion): CbQuestion {
+	if (game === "club-badges") return raw as CbQuestion;
+	const q = raw as TeammateRawQuestion;
+	return { id: q.id, badges: [], nationality: null, transferDates: [], loanMoves: [] };
 }
 
 interface Props {
@@ -48,6 +79,8 @@ interface Props {
 	// (SinglePlayerHome or Multiplayer's game-type picker) -- distinct from
 	// "Play again" below, which stays in the game with a fresh round.
 	onExit: () => void;
+	// Club Run unless told otherwise -- see GuessGame.
+	game?: GuessGame;
 }
 
 // The actual "guess the player from their clubs" engine, reusable from
@@ -55,10 +88,14 @@ interface Props {
 // roster) -- see App.tsx and Multiplayer.tsx for the two entry points. Same
 // round-fetch-then-grade-guesses shape the previous single-entry-point
 // version had, just without owning its own roster-collection step anymore.
-export function GuessThePlayer({ playerNames, setId, onExit }: Props) {
+export function GuessThePlayer({ playerNames, setId, onExit, game = "club-badges" }: Props) {
 	const [state, dispatch] = useReducer(roundReducer, initialRoundState);
 	const [submitting, setSubmitting] = useState(false);
 	const [loadError, setLoadError] = useState<string | null>(null);
+	// The untouched /round questions, parallel to state.questions -- only
+	// Teammate Tell reads these back (clue names + card hints have no room
+	// in the reducer's CbQuestion).
+	const [rawQuestions, setRawQuestions] = useState<RawQuestion[]>([]);
 	// "Crimson Falcon" etc, only ever set when setId is given -- see
 	// RoundResponse's own doc on why this rides along on /round rather than
 	// a separate /sets lookup.
@@ -78,11 +115,8 @@ export function GuessThePlayer({ playerNames, setId, onExit }: Props) {
 			// choice -- but if they ever were, landing on one specific player's
 			// question is the more useful thing to actually get.
 			const playerId = new URLSearchParams(window.location.search).get("playerId");
-			const url = playerId
-				? `/api/club-badges/round?playerId=${encodeURIComponent(playerId)}`
-				: setId
-					? `/api/club-badges/round?setId=${setId}`
-					: "/api/club-badges/round";
+			const api = GAME_API[game];
+			const url = playerId ? `${api}/round?playerId=${encodeURIComponent(playerId)}` : setId ? `${api}/round?setId=${setId}` : `${api}/round`;
 			const res = await fetch(url);
 			const data = (await res.json()) as RoundResponse | { error: string };
 			if (!res.ok || "error" in data || data.questions.length === 0) {
@@ -90,7 +124,8 @@ export function GuessThePlayer({ playerNames, setId, onExit }: Props) {
 				return;
 			}
 			setSetName(data.setName ?? null);
-			dispatch({ type: "start", playerNames, questions: data.questions });
+			setRawQuestions(data.questions);
+			dispatch({ type: "start", playerNames, questions: data.questions.map((q) => toQuestion(game, q)) });
 		} catch {
 			setLoadError("Couldn't load a round right now — try again in a moment.");
 		}
@@ -115,7 +150,7 @@ export function GuessThePlayer({ playerNames, setId, onExit }: Props) {
 	// mini-round can share it (it only ever touches the CURRENT question).
 	function submitGuess(guess: string, points: number) {
 		return checkRoundGuess({
-			checkGuessUrl: "/api/club-badges/check-guess",
+			checkGuessUrl: `${GAME_API[game]}/check-guess`,
 			state,
 			dispatch,
 			submitting,
@@ -127,7 +162,7 @@ export function GuessThePlayer({ playerNames, setId, onExit }: Props) {
 
 	function giveUp(points: number) {
 		return checkRoundGuess({
-			checkGuessUrl: "/api/club-badges/check-guess",
+			checkGuessUrl: `${GAME_API[game]}/check-guess`,
 			state,
 			dispatch,
 			submitting,
@@ -145,6 +180,14 @@ export function GuessThePlayer({ playerNames, setId, onExit }: Props) {
 		dispatch({ type: "reset" });
 		startRound();
 	}
+
+	// Teammate Tell's RoundPlay extras for the CURRENT question -- the same
+	// hint ordering TeammateSetPlay.tsx uses (club+badge in the cards,
+	// nationality as text, overlap years in the cards); undefined for Club
+	// Run so RoundPlay renders its own badge chain and hint button.
+	const currentRaw = rawQuestions[state.questionIndex] as TeammateRawQuestion | undefined;
+	const teammateHints: React.ReactNode[] | undefined =
+		game === "teammates" && currentRaw ? [null, ...(currentRaw.nationality ? [`They represent ${currentRaw.nationality}`] : []), null] : undefined;
 
 	return (
 		<div className="screen">
@@ -173,6 +216,20 @@ export function GuessThePlayer({ playerNames, setId, onExit }: Props) {
 					progressLabel={
 						setId && setName
 							? `Set ${setId}: ${setName} — Question ${state.questionIndex + 1} of ${state.questions.length}`
+							: undefined
+					}
+					soloBanner={game === "teammates" ? "Who am I?" : undefined}
+					extraHints={teammateHints}
+					middle={
+						game === "teammates" && currentRaw && teammateHints
+							? (hintsRevealed) => (
+									<TeammateClueCards
+										teammates={currentRaw.teammates}
+										cardHints={currentRaw.cardHints}
+										showClub={hintsRevealed >= 1}
+										showYears={hintsRevealed >= teammateHints.length}
+									/>
+								)
 							: undefined
 					}
 				/>

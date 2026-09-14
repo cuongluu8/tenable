@@ -136,10 +136,12 @@ export function Multiplayer({ onBack }: Props) {
 		return <RollOfHonourPassPlay playerNames={rosterNames} competitionId={honourCompetitionId} onExit={resetGame} />;
 	}
 
-	if (gameType === "club-badges" && rosterNames && clubBadgeSetId !== undefined) {
-		return (
-			<GuessThePlayer playerNames={rosterNames} setId={clubBadgeSetId ?? undefined} onExit={resetGame} />
-		);
+	// Club Run and Teammate Tell share the set step and the round engine --
+	// only the game the engine is told to play differs. clubBadgeSetId
+	// doubles as the chosen Teammate Tell set (same "undefined = not chosen
+	// yet, null = random round" meaning).
+	if ((gameType === "club-badges" || gameType === "teammates") && rosterNames && clubBadgeSetId !== undefined) {
+		return <GuessThePlayer key={gameType} game={gameType} playerNames={rosterNames} setId={clubBadgeSetId ?? undefined} onExit={resetGame} />;
 	}
 
 	return (
@@ -149,8 +151,8 @@ export function Multiplayer({ onBack }: Props) {
 					<MultiplayerPlayers onNext={setRosterNames} onBack={onBack} />
 				) : gameType === null ? (
 					<MultiplayerGameTypePick onStart={setGameType} onBack={() => setRosterNames(null)} />
-				) : gameType === "club-badges" ? (
-					<MultiplayerSetPick onStart={setClubBadgeSetId} onBack={() => setGameType(null)} />
+				) : gameType === "club-badges" || gameType === "teammates" ? (
+					<MultiplayerSetPick key={gameType} game={gameType} onStart={setClubBadgeSetId} onBack={() => setGameType(null)} />
 				) : gameType === "roll-of-honour" ? (
 					<RollOfHonourCompetitionPick onStart={setHonourCompetitionId} onBack={() => setGameType(null)} />
 				) : (
