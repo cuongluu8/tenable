@@ -103,7 +103,9 @@ storage ops, no D1). Two limits:
 
 - **Per player, not per IP**: key on the remote-play token (or the daily
   game's device cookie), so a room on one Wi-Fi isn't one bucket. Suggest
-  at ~60/min/player, actions at ~120/min/player.
+  at ~60/min/player, actions at a few hundred/min/player -- a runaway-
+  client bound, not a human-pace check (the playtest's ~170/min on one
+  device has to fit; 120 didn't).
 - **Per route class** for a coarse global backstop if wanted -- but the
   free plan already fails closed at 100k requests/day, which is what
   `DAILY_REQUEST_BUDGET` was standing in for. Either raise it to ~90,000

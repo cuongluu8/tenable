@@ -51,8 +51,13 @@
 	// location and best-effort, which is fine for a per-player abuse guard
 	// and a burst backstop, not for accounting.
 	"ratelimits": [
-		// Per player (token / device / IP fallback): every non-poll API call.
-		{ "name": "PLAYER_RATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 120, "period": 60 } },
+		// Per player (token / device): every non-poll, non-image API call. A
+		// runaway-client bound (a stuck retry loop does hundreds a second),
+		// NOT a human-pace check -- a person peaks at maybe 60/min, and
+		// scripts/playtest.ts, which plays all 48 categories on one device
+		// in ~4 minutes, runs at ~170/min and must fit under it (it didn't at
+		// 120: CI run 34892255975, 2026-09-14).
+		{ "name": "PLAYER_RATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 600, "period": 60 } },
 		// Per player: typeahead keystrokes specifically.
 		{ "name": "SUGGEST_RATE_LIMITER", "namespace_id": "1002", "simple": { "limit": 60, "period": 60 } },
 		// Whole app, one key: a per-location burst ceiling standing in for the

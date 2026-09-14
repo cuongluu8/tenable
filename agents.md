@@ -1115,9 +1115,12 @@ plan's own limits -- now **`src/worker/lib/rateLimits.ts`**, on
 Cloudflare's Rate Limiting binding (`wrangler.json` `ratelimits`;
 in-memory at the edge, free-plan compatible, no storage ops):
 
-- **`PLAYER_RATE_LIMITER`** (120/min) -- every `/api/*` request except the
-  remote-play poll, keyed **per player**: the remote-play token, else the
-  daily game's device cookie, else the IP. `429` past it.
+- **`PLAYER_RATE_LIMITER`** (600/min) -- every `/api/*` request except
+  the remote-play poll, badge/flag images and the ticker, keyed **per
+  player**: the remote-play token, else the device cookie (minted on
+  first contact). `429` past it. A runaway-client bound, not a human-pace
+  check: `npm run playtest` plays every category on one device at
+  ~170/min and has to fit under it (120 didn't).
 - **`SUGGEST_RATE_LIMITER`** (60/min, same key) -- the typeahead routes
   specifically (the one thing that scales with keystrokes, not plays).
 - **`GLOBAL_RATE_LIMITER`** (3,000/min, one key) -- a burst ceiling for the
