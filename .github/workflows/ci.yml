@@ -58,13 +58,17 @@ jobs:
     # A real hang should fail loudly within a bounded window rather than run
     # until GitHub's default 6-hour job timeout. Not a response to an actual
     # hang, to be clear — the full suite (now including unit/integration/e2e
-    # tests, added 2026-09-12) reliably completes in under 10 minutes, most
-    # of that Playwright's own browser download (see scripts/playtest.ts's
-    # startDevServer for a note on a false alarm here: this workflow's early
-    # runs *looked* stuck via list_workflow_jobs' per-step status, which
-    # lagged well behind actual completion, and got cancelled for nothing)
-    # — just defense in depth against a genuine future hang.
-    timeout-minutes: 15
+    # tests, added 2026-09-12) completed in ~12 minutes before the remote-
+    # play e2e specs (2026-09-14), which add real waits (a 5s start
+    # countdown, a 5s answer reveal, a 10s chat hold, 4s polling between
+    # browsers) on top of Playwright's own browser download (see
+    # scripts/playtest.ts's startDevServer for a note on a false alarm
+    # here: this workflow's early runs *looked* stuck via
+    # list_workflow_jobs' per-step status, which lagged well behind actual
+    # completion, and got cancelled for nothing) — just defense in depth
+    # against a genuine future hang, with headroom so a slow runner doesn't
+    # turn a green suite red.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
