@@ -118,3 +118,18 @@ jobs:
       # and run here as its own step.
       - name: E2E tests, slow project (disconnect and reconnect)
         run: npm run test:e2e:slow
+
+      # A failed e2e test's Playwright trace (recorded on first retry --
+      # network log, screenshots, console) is the only way to tell a slow
+      # runner from an app fault after the fact. The 2026-09-15
+      # dailyCategories timeout (3 attempts, then green on rerun and in six
+      # local runs under CI conditions) couldn't be settled because the
+      # traces stayed on the runner. Kept a week; only uploaded on failure.
+      - name: Upload Playwright traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results
+          path: test-results/
+          retention-days: 7
+          if-no-files-found: ignore

@@ -52,5 +52,11 @@ export default defineConfig({
 		// no credentials at all.
 		reuseExistingServer: !process.env.CI,
 		timeout: 30_000,
+		// In CI the dev server's own output goes into the job log, so a
+		// stall or a Vite reload during a test is visible next to the
+		// failure rather than lost with the runner (see ci.yml's trace
+		// upload step for the same reason). Locally it stays quiet.
+		stdout: process.env.CI ? "pipe" : "ignore",
+		stderr: "pipe",
 	},
 });
