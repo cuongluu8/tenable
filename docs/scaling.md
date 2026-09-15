@@ -28,7 +28,7 @@ explain the ceilings in §2):
 
 | Activity | Frequency | Worker requests | Durable Object | D1 | Notes |
 |---|---|---|---|---|---|
-| **WebSocket** (the live channel) | 1 upgrade per connect; a 25s keep-alive ping | 1 per connect | 1 request per connect; pings are auto-answered by the runtime without waking the object; **pushes out are free**; the object hibernates between events | none | replaces polling entirely while the socket is up. A push is only sent to a socket that hasn't got that exact state (per-socket fingerprint), ~1.5 KB round formats / ~10 KB a Roll of Honour grid change. |
+| **WebSocket** (the live channel) | 1 upgrade per connect; a 5s keep-alive ping (720/h, billed 20:1 = 36 requests/h) | 1 per connect | 1 request per connect; pings are auto-answered by the runtime without waking the object and double as presence; **pushes out are free**; the object hibernates between events, woken by its alarm every 15s mid-game / 60s idle to check presence | none | replaces polling entirely while the socket is up. A push is only sent to a socket that hasn't got that exact state (per-socket fingerprint), ~1.5 KB round formats / ~10 KB a Roll of Honour grid change. |
 | **Poll `/state`** (fallback only, socket down) | 4s / 1.5s (Roll of Honour) while disconnected | 1 each | 1 request, no storage reads (in-memory copy), ≤1 heartbeat row per 3s | none | reply *measured* **33 bytes** when nothing changed (`?v=` fingerprint). [Before sockets: 900-2,400 of these an hour per player, every hour connected -- the whole cost.] |
 | **Action** (guess, claim, answer, give up, chat, ready) | maybe 20-60/h | 1 each | 1 request, no storage reads, **1-2 rows written** (the changed player / tile, plus one feed row) | up to 3 indexed reads (grading), **no writes** | [Before: the whole ~60 KB session record rewritten per action; +1 D1 write for the daily budget counter.] Rate-limited per player in memory at the edge (`lib/rateLimits.ts`). |
 | **Typeahead keystroke** (≥3 chars, 200ms debounce) | maybe 60-200/h | Roll of Honour: **0**; Club Run / Teammate Tell: 1 each | none | Roll of Honour: **none** (the ~700-club list is fetched once, ~36 KB raw, edge-cached, filtered in the browser); others: a bounded FTS read | [Before: +2 D1 writes per keystroke for the budget counter and per-IP limiter.] |
@@ -212,22 +212,34 @@ How it was built (all in `remoteGameSession.ts`, "WebSockets" section):
   player id, `serializeAttachment` holding which player / last feed id
   sent / last fingerprint sent, `webSocketClose`/`webSocketError`
   handlers; `setWebSocketAutoResponse("ping" -> "pong")` so the client's
-  25s keep-alive never wakes the object.
+  5s keep-alive never wakes the object.
 - A push goes out after any request that wrote (save() flags it, a Hono
   middleware broadcasts), and from the **alarm** for clock-driven changes
   -- the object books the earliest of: next hint tier, next lock expiry,
-  next player crossing 15s without a socket, the reveal hold closing, and
-  the daily expiry check.
-- Presence: an open socket is presence; a player with none falls back to
-  the 15s-since-last-poll rule. A closing socket grants 15s of grace.
+  next presence check (15s mid-game, 60s in a lobby or on results), the
+  reveal hold closing, and the daily expiry check.
+- Presence: a player is present while their socket keeps **pinging** --
+  the runtime records when it last auto-answered a ping
+  (`getWebSocketAutoResponseTimestamp`) -- or while they poll. An open
+  socket alone is NOT presence: a phone that loses signal never sends a
+  close frame, so its socket looks open for minutes (found by the offline
+  e2e test, 2026-09-15). ~3 missed pings is away, as ~3 missed polls
+  was. A socket silent for 60s is closed by the next broadcast.
 - The client (`useRemoteSession.ts`) applies a push exactly as it did a
   poll body; the poll loop stands down while the socket is open;
-  reconnect backs off 1s -> 15s. Close codes 4404/4410 mean what a poll's
-  404/401 did.
+  reconnect backs off 1s -> 15s; two unanswered pings, or the browser's
+  `online` event, drop the socket and reconnect at once (re-polling once
+  for what was missed). Close codes 4404/4410 mean what a poll's 404/401
+  did.
 - Tested: `test/integration/remoteSessionSocket.test.ts` (initial push,
   another player's action, incremental feed, leave closes with 4410, the
-  alarm booked at the first hint tier); the e2e suite runs on the socket
-  through the Vite dev server.
+  alarm booked for the presence check, `since=` resume); the e2e suite
+  runs on the socket through the Vite dev server, and the `@slow`
+  Playwright project (`test/e2e/remoteReconnect.spec.ts`, `npm run
+  test:e2e:slow`) covers a device dropping offline mid-game (away after
+  15s, the game finishing without them, catching up on reconnect), a
+  socket that keeps failing (poll fallback, still present), and a refresh
+  mid-game.
 
 ### 4c. Storage shape inside the object
 

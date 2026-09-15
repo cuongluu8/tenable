@@ -111,3 +111,10 @@ jobs:
 
       - name: E2E tests (real browser against a real dev server)
         run: npm run test:e2e
+
+      # The @slow project (see playwright.config.ts): remote play over a bad
+      # connection -- offline/away/reconnect, socket-failure poll fallback,
+      # refresh mid-game. Real 15s waits, so kept out of the quick suite
+      # and run here as its own step.
+      - name: E2E tests, slow project (disconnect and reconnect)
+        run: npm run test:e2e:slow

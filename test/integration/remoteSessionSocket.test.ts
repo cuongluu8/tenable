@@ -121,7 +121,7 @@ describe("remote session WebSockets", () => {
 		expect(plain.status).toBe(426);
 	});
 
-	it("books the alarm for the next clock-driven change while a socket is open (the first hint tier)", async () => {
+	it("books the alarm for the earliest clock-driven change while a socket is open (the away check, before the first hint tier)", async () => {
 		const host = await createSession("Host");
 		const socket = await connect(host.sessionCode, host.playerToken);
 		await socket.next();
@@ -135,13 +135,16 @@ describe("remote session WebSockets", () => {
 		expect(started.status).toBe("in_progress");
 		expect(started.round?.hintsRevealed).toBe(0);
 
-		// The tier reveals at 30s (HINT_REVEAL_INTERVAL_MS) -- before sockets
-		// the next poll noticed; now the alarm is booked for it.
+		// Mid-game the object checks presence every 15s (PLAYER_AWAY_MS --
+		// a pinging socket is presence) and the first hint tier is at 30s
+		// (HINT_REVEAL_INTERVAL_MS); before sockets the next poll noticed
+		// both. The alarm is booked for the earlier: the away check, counted
+		// from the host's connect since this socket never pinged.
 		const stub = env.REMOTE_GAME_SESSION.get(env.REMOTE_GAME_SESSION.idFromName(host.sessionCode));
 		const alarmAt = await runInDurableObject(stub, (_instance, state) => state.storage.getAlarm());
 		expect(alarmAt).not.toBeNull();
-		expect(alarmAt! - started.round!.startedAt!).toBeGreaterThanOrEqual(30_000);
-		expect(alarmAt! - started.round!.startedAt!).toBeLessThan(30_100);
+		expect(alarmAt! - started.round!.startedAt!).toBeGreaterThan(10_000);
+		expect(alarmAt! - started.round!.startedAt!).toBeLessThanOrEqual(15_001);
 		socket.ws.close(1000, "done");
 	});
 

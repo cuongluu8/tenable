@@ -257,8 +257,9 @@ simpler content model.
     device sees the answer before the "everyone ready" gate advances.
   - **Give up** bows a player out of the round (Roll of Honour: the whole
     game); once every non-away player has, the round resolves with no
-    winner. A player is **away** after 15s with no open socket and no
-    poll, and is skipped by every gate.
+    winner. A player is **away** after 15s without a socket ping (the
+    client pings every 5s; an open-but-silent socket is a phone that lost
+    signal) or a poll, and is skipped by every gate.
   - **Roll of Honour** is a different engine inside the same object: tap
     to hold a season for 20s, answer it; wrong frees it and blocks that
     player from it for 5s; scores are correct tiles.
@@ -864,8 +865,10 @@ npm run lint
 npm run build             # tsc -b && vite build
 npm run test:unit         # vitest, pure logic/reducers next to the code (coverage-gated in CI)
 npm run test:integration  # vitest-pool-workers: real routes + the Durable Object vs test/integration/fixtures
-npm run test:e2e          # Playwright vs a real `npm run dev` (reuses one already running locally)
-npm run verify:all        # coverage + integration + e2e + build, in that order
+npm run test:e2e          # Playwright vs a real `npm run dev` (reuses one already running locally); the quick project
+npm run test:e2e:slow     # the @slow project: remote play over a bad connection (offline/away/reconnect), real 15s waits
+npm run test:e2e:all      # both projects
+npm run verify:all        # coverage + integration + e2e (both) + build, in that order
 npm run verify:matching        # re-seed local D1 first — see scripts/verify-guess-matching.ts
 npm run verify:category-defs   # re-seed local D1 first — see scripts/verify-category-defs.ts
 npm run verify:query-plans     # re-seed local D1 first — see scripts/verify-query-plans.ts
@@ -951,7 +954,13 @@ tests are split across many small files. The e2e suite runs against the
 real seed (CI seeds local D1 first), drives every game and mode through
 the UI only, and for remote play opens two or three independent browser
 contexts per test; its remote specs carry real waits (5s countdown, 5s
-reveal), which is why the CI job timeout is 25 minutes.
+reveal), which is why the CI job timeout is 25 minutes. Specs whose waits
+can't be shortened -- remote play over a bad connection: the 15s away
+window and the reconnect backoff (`remoteReconnect.spec.ts`) -- are tagged
+`@slow` and form a second Playwright project, `e2e-slow`, outside the
+default `npm run test:e2e`; CI runs it as its own step after the quick
+suite, so both run on every commit without the slow one dominating the
+suite people run while iterating.
 A correct guess in remote Club Run / Teammate Tell is deliberately NOT
 covered end to end -- the answer never reaches the client by design --
 so the winning path is exercised through Roll of Honour, whose answers

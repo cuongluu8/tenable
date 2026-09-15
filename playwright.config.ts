@@ -28,6 +28,16 @@ export default defineConfig({
 		baseURL: "http://localhost:5173",
 		trace: "on-first-retry",
 	},
+	// Two projects over the same specs, split by the @slow tag: the default
+	// `npm run test:e2e` runs "e2e" (everything untagged, a minute or so);
+	// "e2e-slow" is the specs built on real waits that can't be shortened --
+	// remote play's 15s away window and reconnect backoff
+	// (remoteReconnect.spec.ts) -- run with `npm run test:e2e:slow`, and in
+	// CI as its own step after the quick suite. Same dev server for both.
+	projects: [
+		{ name: "e2e", grepInvert: /@slow/ },
+		{ name: "e2e-slow", grep: /@slow/ },
+	],
 	webServer: {
 		command: "npm run dev",
 		env: { E2E_LOCAL_ONLY: "1" },

@@ -33,10 +33,15 @@ import {
 // released reads as a dead tile until the next update shows it open.
 const POLL_INTERVAL_MS = 4_000;
 const HONOUR_POLL_INTERVAL_MS = 1_500;
-// Keep-alive over the socket -- answered by the runtime without waking
-// the session object, so it's free; it keeps idle connections open
-// through proxies that drop quiet ones.
-const SOCKET_PING_MS = 25_000;
+// Keep-alive over the socket, answered by the runtime without waking the
+// session object. It's also this device's PRESENCE: the server counts a
+// player present while their socket keeps pinging (see remoteGameSession
+// .ts's presence doc), so ~3 missed pings is "away", as ~3 missed polls
+// was. And it's how THIS side notices a dead connection: a socket the
+// network dropped without a close frame still reads as open here, so two
+// unanswered pings close it and reconnect (which also re-polls).
+const SOCKET_PING_MS = 5_000;
+const SOCKET_MAX_UNANSWERED_PINGS = 2;
 // Reconnect backoff: 1s, 2s, 4s, 8s, then every 15s.
 const SOCKET_RETRY_MAX_MS = 15_000;
 
@@ -213,14 +218,22 @@ export function useRemoteSession(): UseRemoteSessionResult {
 			if (disposed) return;
 			const socket = new WebSocket(sessionSocketUrl(identity.sessionCode, identity.playerToken, lastFeedIdRef.current));
 			ws = socket;
+			let unansweredPings = 0;
 			socket.onopen = () => {
 				attempt = 0;
 				socketOpenRef.current = true;
 				pingTimer = setInterval(() => {
-					if (socket.readyState === WebSocket.OPEN) socket.send("ping");
+					if (socket.readyState !== WebSocket.OPEN) return;
+					if (unansweredPings >= SOCKET_MAX_UNANSWERED_PINGS) {
+						socket.close(4000, "no pong"); // Dead connection -- onclose reconnects.
+						return;
+					}
+					unansweredPings += 1;
+					socket.send("ping");
 				}, SOCKET_PING_MS);
 			};
 			socket.onmessage = (event) => {
+				unansweredPings = 0; // Anything arriving proves the connection.
 				if (typeof event.data !== "string" || event.data === "pong") return;
 				if (identityRef.current !== identity) return;
 				let body: SessionState;
@@ -249,9 +262,21 @@ export function useRemoteSession(): UseRemoteSessionResult {
 		};
 		connect();
 
+		// The browser says the network is back: don't wait out the backoff
+		// (or for the missed-pong check) -- drop whatever socket there is and
+		// reconnect now, which also polls once for what was missed.
+		const onOnline = () => {
+			attempt = 0;
+			clearTimeout(retryTimer);
+			if (ws && ws.readyState !== WebSocket.CLOSED) ws.close(4001, "network back");
+			else connect();
+		};
+		window.addEventListener("online", onOnline);
+
 		return () => {
 			disposed = true;
 			socketOpenRef.current = false;
+			window.removeEventListener("online", onOnline);
 			clearTimeout(retryTimer);
 			clearInterval(pingTimer);
 			ws?.close(1000, "leaving");
