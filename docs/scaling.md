@@ -32,7 +32,7 @@ explain the ceilings in §2):
 | **WebSocket** (the live channel) | 1 upgrade per connect; a 25s keep-alive ping (144/h, billed 20:1 = ~7 requests/h) | 1 per connect | 1 request per connect; pings are auto-answered by the runtime without waking the object and double as presence; **pushes out are free**; the object hibernates between events -- nothing wakes it on a timer to check presence | none | replaces polling entirely while the socket is up. A push is only sent to a socket that hasn't got that exact state (per-socket fingerprint), ~1.5 KB round formats / ~10 KB a Roll of Honour grid change. |
 | **Poll `/state`** (fallback only, socket down) | 4s / 1.5s (Roll of Honour) while disconnected | 1 each | 1 request, no storage reads (in-memory copy), ≤1 heartbeat row per 3s | none | reply *measured* **33 bytes** when nothing changed (`?v=` fingerprint). [Before sockets: 900-2,400 of these an hour per player, every hour connected -- the whole cost.] |
 | **Action** (guess, claim, answer, give up, chat, ready) | maybe 20-60/h | 1 each | 1 request, no storage reads, **1-2 rows written** (the changed player / tile, plus one feed row) | up to 3 indexed reads (grading), **no writes** | [Before: the whole ~60 KB session record rewritten per action; +1 D1 write for the daily budget counter.] Rate-limited per player in memory at the edge (`lib/rateLimits.ts`). |
-| **Typeahead keystroke** (≥3 chars, 200ms debounce) | maybe 60-200/h | Roll of Honour: **0**; Club Run / Teammate Tell: 1 each | none | Roll of Honour: **none** (the ~700-club list is fetched once, ~36 KB raw, edge-cached, filtered in the browser); others: a bounded FTS read | [Before: +2 D1 writes per keystroke for the budget counter and per-IP limiter.] |
+| **Typeahead keystroke** (≥3 chars, 200ms debounce) | maybe 60-200/h | **0** in every remote and Club Run / Teammate Tell mode; the daily game's category typeahead is still 1 per keystroke (edge-cached) | none | **none**: Roll of Honour filters a once-fetched club list (~700 clubs, ~36 KB raw); Club Run / Teammate Tell filter a **shard** of the ~18,500-player pool cut by the first two letters of the word being typed (`/api/club-badges/players/:prefix`, ~400 shards, biggest "ma" ~1,850 players / 28 KB gzipped, most 3-7 KB), fetched once per prefix per device and edge-cached per content version | [Before (until 2026-09-15): one request per keystroke, 60-200/h/player -- after sockets, the largest request type left.] |
 
 What stands out now:
 
@@ -293,11 +293,18 @@ dashboard.
 
 ### 4e. See what's happening
 
-Before scaling, be able to see it: enable **Workers Logs** (or ship to
-Analytics Engine), watch the dashboard's per-Worker and per-DO-namespace
-request/CPU/error graphs, and keep `wrangler d1 insights` for the
-occasional "which query read 70,000 rows" hunt (see `agents.md`'s
-2026-09-06 incident). Set a **Budget Alert** on the account.
+Before scaling, be able to see it. **Workers Logs is on**
+(`observability.enabled` in `wrangler.json`; the Worker's Logs tab in
+the dashboard shows every request and every DO alarm, with the
+console output). Watch the dashboard's per-Worker and per-DO-namespace
+request/CPU/error graphs after a real game night -- that is what tells
+you whether the alarm cadence and shard sizes in this doc are right --
+and keep `wrangler d1 insights` for the occasional "which query read
+70,000 rows" hunt (see `agents.md`'s 2026-09-06 incident). **Still to
+do, dashboard only** (it can't be set from this repo): a **Budget
+Alert** -- Cloudflare dashboard -> Notifications -> add a Billing /
+usage notification for the account -- so the first paid-plan overage
+is an email, not a surprise.
 
 ## 5. Tier 3 -- thousands of concurrent players
 
@@ -318,10 +325,18 @@ and question assembly** are, if they still touch D1/R2 per request.
 
 ### 5b. Get D1 out of the interactive path entirely
 
-- **Typeahead as static indexes**: clubs (tier 1) and the full player
-  list (~300 KB gz, loaded once and cached forever) served as assets;
-  D1 is then only queried when *grading* a guess -- one indexed lookup
-  per answer, which 25 B included reads covers indefinitely.
+- **Typeahead as local indexes -- done 2026-09-15** for every game
+  mode but the daily category game: clubs whole (tier 1) and the player
+  pool in **shards by two-letter word prefix** rather than one ~300 KB
+  asset (too much for a phone up front; a device typing a few names
+  pulls a few shards of 3-30 KB). Each shard is built once per content
+  version behind the edge cache (`PLAYER_INDEX_SHARD_SQL`, plan-checked
+  by `verify:query-plans` so it probes `entities` by primary key, never
+  scanning all 18,500 rows per shard). D1 is then only queried when
+  *grading* a guess -- one indexed lookup per answer, which 25 B
+  included reads covers indefinitely. The daily game's category
+  typeahead (`/api/suggest`, scoped per category) stays per-keystroke
+  and edge-cached; its volume is a fraction of remote play's.
 - **Question/grid assembly at `/start`** does several D1 queries per
   game. At thousands of games an hour, precompute: build each Club Run /
   Teammate Tell question's public JSON and each competition's tile set
@@ -393,7 +408,9 @@ arithmetic; those will be measurements.
 | Workers Paid + Budget Alert (4a, 4e) | When any free daily limit is hit once, or before advertising the game | $5/mo |
 | ~~WebSockets + hibernation (4b)~~ | **Done 2026-09-14** -- push on change, alarm for clock-driven changes, `/state` poll as fallback | -- |
 | ~~SQL storage in the object (4c)~~ | **Done 2026-09-14** -- five tables, in-memory working copy, diffed writes | -- |
-| Precomputed question/tile blobs; static player index (5b) | When D1 shows up in the bill or in p99s | medium |
+| ~~Player typeahead as local shards (5b, first half)~~ | **Done 2026-09-15** -- a keystroke in Club Run / Teammate Tell makes no request | -- |
+| Precomputed question/tile blobs at `/start` (5b, second half) | When D1 shows up in the bill or in p99s | medium |
+| Budget Alert (4e) | Now, in the dashboard -- not scriptable from the repo | minutes |
 | ~~Edge image cache (5c)~~ | **Done 2026-09-14** -- once per location per day, not per browser | -- |
 | Load test (5f) | Before each of the above tiers is declared done | medium |
 

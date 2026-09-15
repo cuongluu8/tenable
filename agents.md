@@ -288,8 +288,13 @@ simpler content model.
     sent a state it hasn't got, and an unchanged fallback poll comes back
     as a few bytes (`{ unchanged: true }`), not the ~10KB grid. Roll of
     Honour's club typeahead is fetched once (`/api/roll-of-honour/clubs`,
-    edge-cached) and filtered in the browser -- a keystroke there makes
-    no request.
+    edge-cached) and filtered in the browser, and the player typeahead in
+    Club Run / Teammate Tell (solo, pass-and-play and remote) is fetched
+    in **shards** by the first two letters of the word being typed
+    (`/api/club-badges/players/:prefix`, `components/usePlayerIndex.ts`,
+    filtered by `components/localSuggest.ts`) -- a keystroke in any of
+    them makes no request. The daily game's category typeahead
+    (`/api/suggest`) is still per keystroke, edge-cached.
   - Tested three ways: `lib/remoteSession.test.ts` (codes/tokens),
     `test/integration/remoteSession*.test.ts` (every route against the real
     object, with `ROUND_START_GRACE_MS`/`MIN_REVEAL_MS` overridden to 0 in

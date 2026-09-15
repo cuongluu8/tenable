@@ -47,3 +47,27 @@ export const SUGGEST_NAMES_SQL = `SELECT name FROM (
  )
  ORDER BY priority ASC, LENGTH(name) ASC, name ASC
  LIMIT ?5`;
+
+// One shard of the player typeahead index (routes/clubBadges.ts's
+// /players/:prefix, 2026-09-15): every player whose canonical name has a
+// word starting with the two-character prefix, or a curated alias
+// starting with it -- with the aliases, so the browser can filter the
+// shard exactly as suggestNames() would filter the whole table, and in
+// suggestNames()'s order (answers first, then shorter names) so taking
+// the first 20 local hits gives the same list. Placeholders: ?1 fts
+// query, ?2 entity type, ?3 prefix, ?4 prefix upper bound (D1 needs them
+// contiguous). The id list is a derived table so the plan probes
+// `entities` by primary key per matched id rather than scanning every
+// player-typed row per shard -- ~400 shards get built per content
+// version, and a full scan each would be millions of rows read.
+export const PLAYER_INDEX_SHARD_SQL = `SELECT e.canonical_name AS name,
+       (SELECT GROUP_CONCAT(alias, char(31)) FROM entity_aliases WHERE entity_id = e.id) AS aliases,
+       CASE WHEN EXISTS (SELECT 1 FROM category_answers WHERE entity_id = e.id) THEN 0 ELSE 2 END AS priority
+FROM (
+	SELECT es.entity_id AS id FROM entity_search es WHERE es.entity_search MATCH ?1 AND es.entity_type = ?2
+	UNION
+	SELECT al.entity_id AS id FROM entity_aliases al INDEXED BY idx_entity_aliases_alias WHERE al.alias >= ?3 AND al.alias < ?4
+) ids
+JOIN entities e ON e.id = ids.id
+WHERE e.entity_type = ?2
+ORDER BY priority ASC, LENGTH(name) ASC, name ASC`;

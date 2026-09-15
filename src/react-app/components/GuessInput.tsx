@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { localSuggest, type LocalSuggestEntry } from "./localSuggest";
+export type { LocalSuggestEntry } from "./localSuggest";
 import { getSafeViewport } from "../lib/safeViewport";
 import { useKeepInSafeZone } from "../hooks/useKeepInSafeZone";
 
@@ -38,47 +40,15 @@ interface Props {
 	// and where the modal's own placement already guarantees room below.
 	placement?: "above" | "below";
 	// When given, suggestions come from THIS list, filtered in the browser,
-	// and `suggestUrl` is never fetched -- for pools small enough to ship
-	// whole (Roll of Honour's ~700 clubs; see rollOfHonour/useClubIndex.ts).
-	// Matches the way the server does: a word of the name starting with
-	// the typed text, or an alias starting with it. Same 20-row cap and
-	// `truncated` hint.
-	localIndex?: LocalSuggestEntry[];
-}
-
-export interface LocalSuggestEntry {
-	name: string;
-	aliases: string[];
-}
-
-const LOCAL_MAX_RESULTS = 20; // Matches suggest.ts's MAX_RESULTS.
-
-// The client-side twin of normalize.ts's normalize(): lowercase, strip
-// diacritics and punctuation, collapse whitespace.
-function localNormalize(s: string): string {
-	return s
-		.normalize("NFD")
-		.replace(/[\u0300-\u036f]/g, "")
-		.toLowerCase()
-		.replace(/[^a-z0-9\s]/g, " ")
-		.replace(/\s+/g, " ")
-		.trim();
-}
-
-function localSuggest(index: LocalSuggestEntry[], query: string): { suggestions: string[]; truncated: boolean } {
-	const q = localNormalize(query);
-	if (!q) return { suggestions: [], truncated: false };
-	const hits: string[] = [];
-	for (const entry of index) {
-		const name = localNormalize(entry.name);
-		const wordHit = name.startsWith(q) || name.split(" ").some((w) => w.startsWith(q));
-		const aliasHit = !wordHit && entry.aliases.some((a) => localNormalize(a).startsWith(q));
-		if (wordHit || aliasHit) {
-			hits.push(entry.name);
-			if (hits.length > LOCAL_MAX_RESULTS) break;
-		}
-	}
-	return { suggestions: hits.slice(0, LOCAL_MAX_RESULTS), truncated: hits.length > LOCAL_MAX_RESULTS };
+	// and `suggestUrl` is never fetched -- for pools shipped whole (Roll
+	// of Honour's ~700 clubs; rollOfHonour/useClubIndex.ts) or in shards
+	// (the player pool, by two-letter prefix; usePlayerIndex.ts).
+	// "loading" means the right list is on its way: show the skeleton and
+	// don't fall back to a fetch per keystroke meanwhile. Matches the way
+	// the server does (suggestNames): every typed word is the start of
+	// some word of the name, or the whole typed text is the start of an
+	// alias. Same 20-row cap and `truncated` hint.
+	localIndex?: LocalSuggestEntry[] | "loading";
 }
 
 const DEBOUNCE_MS = 200;
@@ -276,9 +246,18 @@ export function GuessInput({ value, onChange, onPick, disabled, suggestUrl, extr
 		if (query.length < MIN_QUERY_LENGTH) return; // `visible` already hides any stale list
 
 		const id = ++requestId.current;
+		if (localIndex === "loading") {
+			// The shard for this prefix is in flight (usePlayerIndex.ts):
+			// skeleton, and no fetch-per-keystroke fallback in the meantime
+			// -- it would only duplicate what's about to arrive.
+			setLoading(true);
+			setDismissed(false);
+			return;
+		}
 		if (localIndex) {
 			// No network, no debounce, no skeleton -- the answer is a few
 			// hundred string comparisons away.
+			setLoading(false);
 			const data = localSuggest(localIndex, query);
 			setSuggestions(data.suggestions);
 			setTruncated(data.truncated);

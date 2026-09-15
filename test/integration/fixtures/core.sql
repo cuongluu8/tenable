@@ -75,6 +75,9 @@ INSERT INTO category_answers (category_id, rank, entity_id, value_numeric, displ
 -- matchGuess() coverage (typeahead + "guess by alias" both go through
 -- entity_aliases).
 INSERT INTO entity_aliases (entity_id, alias) VALUES (11, 'fp1');
+-- A self-alias (the normalised name itself), as much of the real data
+-- has -- playerIndex.test.ts checks the index shards leave it out.
+INSERT INTO entity_aliases (entity_id, alias) VALUES (12, 'fixture player two');
 
 -- Second category, NOT pre-materialized -- category_defs + entity_stats
 -- only, so rebuild.test.ts can verify rebuildAll() actually produces the

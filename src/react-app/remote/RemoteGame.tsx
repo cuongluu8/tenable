@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { BadgeChain } from "../components/BadgeChain";
 import { GuessInput } from "../components/GuessInput";
+import { usePlayerIndex } from "../components/usePlayerIndex";
 import { colorForPlayerIndex } from "../components/playerColors";
 import { TeammateClueCards } from "../teammates/TeammateClueCards";
 import { ChatDock } from "./ChatPane";
@@ -30,6 +31,7 @@ interface GuessAreaProps {
 // cause an extra render.
 function GuessArea({ onGuess, onGiveUp }: GuessAreaProps) {
 	const [value, setValue] = useState("");
+	const playerIndex = usePlayerIndex(value); // see components/usePlayerIndex.ts
 	const [submitting, setSubmitting] = useState(false);
 	const [feedback, setFeedback] = useState<"correct" | "wrong" | null>(null);
 	// Same two-step "confirm before it costs you" guard as Club Run's own
@@ -59,7 +61,7 @@ function GuessArea({ onGuess, onGiveUp }: GuessAreaProps) {
 	return (
 		<>
 			{feedback === "wrong" && <p className="remote-feedback remote-feedback--wrong">Not quite -- try again!</p>}
-			<GuessInput value={value} onChange={setValue} onPick={handleGuess} disabled={submitting} suggestUrl="/api/club-badges/suggest" />
+			<GuessInput value={value} onChange={setValue} onPick={handleGuess} disabled={submitting} suggestUrl="/api/club-badges/suggest" localIndex={playerIndex} />
 			{/* .give-up-link/.give-up-confirm center themselves with align-self,
 			    which only works inside a flex column (RoundPlay's .cb-play is
 			    one; this screen's .screen isn't) -- hence the wrapper. */}

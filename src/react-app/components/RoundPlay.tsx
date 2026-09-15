@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { GuessInput } from "./GuessInput";
+import { usePlayerIndex } from "./usePlayerIndex";
 import { LivesIndicator } from "./LivesIndicator";
 import { BadgeChain } from "./BadgeChain";
 import {
@@ -83,6 +84,8 @@ export function RoundPlay({
 	// HINT_KEYS button is off and the extraHints button drives scoring.
 	const useExtraHints = extraHints !== undefined;
 	const [guessInput, setGuessInput] = useState("");
+	// The player typeahead shard for what's being typed -- see usePlayerIndex.ts.
+	const playerIndex = usePlayerIndex(guessInput);
 	// Same "confirm before it costs you" pattern as single-player's give-up
 	// (PlayScreen.tsx) -- a stray tap here loses a point on this question
 	// just as surely as give-up loses the round there, so it gets the same
@@ -346,6 +349,7 @@ export function RoundPlay({
 						onPick={pick}
 						disabled={submitting}
 						suggestUrl="/api/club-badges/suggest"
+						localIndex={playerIndex}
 					/>
 					{confirmingGiveUp ? (
 						<div className="give-up-confirm">

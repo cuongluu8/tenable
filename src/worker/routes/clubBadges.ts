@@ -3,6 +3,7 @@ import { normalize, toFtsPrefixQuery } from "../lib/normalize";
 import { suggestNames } from "../lib/categories";
 import { enforceSuggestRateLimit } from "../lib/rateLimits";
 import { cachedContentQuery } from "../lib/responseCache";
+import { PLAYER_INDEX_SHARD_SQL } from "../lib/suggestNamesSql";
 import { CLUB_BADGE_SETS, CLUB_BADGE_SET_NAMES } from "../lib/clubBadgeSets";
 import { buildSetsIndex, resolveSetQuestions } from "../lib/setsIndex";
 import { checkPlayerGuess } from "../lib/checkPlayerGuess";
@@ -176,6 +177,38 @@ clubBadges.get("/suggest", enforceSuggestRateLimit, async (c) => {
 		suggestNames(c.env.DB, prefix, "player", 20, null),
 	);
 	return c.json({ suggestions: names, truncated }, 200, { "cache-control": "public, max-age=300" });
+});
+
+// GET /api/club-badges/players/:prefix -- one shard of the player
+// typeahead index (2026-09-15; docs/scaling.md §5b). The whole ~18,500-
+// player pool is too big to ship to a phone at once (~600 KB of names and
+// aliases), so it's cut by the first two normalised characters of a
+// word: the client (components/usePlayerIndex.ts) fetches the shard for
+// the first word being typed and filters it in the browser, so a
+// keystroke costs no request -- only the first two letters of each new
+// name do, once per device per visit. ~400 shards; the biggest ("ma") is
+// a couple of thousand players, ~20 KB gzipped, most are a few KB. Same
+// membership and order as /suggest (see PLAYER_INDEX_SHARD_SQL), public
+// and identical for everyone, so edge-cached by content_version and
+// browser-cacheable for a day. Not rate-limited as an action: one per
+// prefix is the point, and the edge absorbs a room typing the same names.
+clubBadges.get("/players/:prefix", async (c) => {
+	const prefix = normalize(c.req.param("prefix"));
+	if (!/^[a-z0-9]{2}$/.test(prefix)) return c.json({ error: "prefix must be two letters or digits" }, 400);
+
+	const players = await cachedContentQuery(c.env.DB, c.executionCtx, `players-index:${prefix}`, async () => {
+		const { results } = await c.env.DB.prepare(PLAYER_INDEX_SHARD_SQL)
+			.bind(toFtsPrefixQuery(prefix), "player", prefix, prefix + "￿")
+			.all<{ name: string; aliases: string | null }>();
+		// An alias that's just the normalised name adds nothing the browser
+		// can't derive (localSuggest normalises the name itself) -- and the
+		// data has many; dropping them is a third off the biggest shards.
+		return (results ?? []).map((r) => {
+			const self = normalize(r.name);
+			return { name: r.name, aliases: r.aliases ? r.aliases.split("\u001f").filter((a) => a !== self) : [] };
+		});
+	});
+	return c.json({ players }, 200, { "cache-control": "public, max-age=86400" });
 });
 
 export default clubBadges;

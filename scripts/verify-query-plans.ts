@@ -32,7 +32,7 @@
 //   (requires a locally seeded D1 — see README/agents.md for setup)
 
 import { execFileSync } from "node:child_process";
-import { SUGGEST_NAMES_SQL } from "../src/worker/lib/suggestNamesSql.ts";
+import { PLAYER_INDEX_SHARD_SQL, SUGGEST_NAMES_SQL } from "../src/worker/lib/suggestNamesSql.ts";
 
 interface PlanRow {
 	id: number;
@@ -67,9 +67,18 @@ const LITERAL_VALUES: Record<string, string> = {
 	"?6": "'mes￿'", // prefixUpperBound
 };
 
-function withLiterals(sql: string): string {
+// PLAYER_INDEX_SHARD_SQL numbers its four placeholders contiguously (D1
+// requires it), so ?4 there is the prefix upper bound, not the scope.
+const SHARD_LITERAL_VALUES: Record<string, string> = {
+	"?1": "'me*'",
+	"?2": "'player'",
+	"?3": "'me'",
+	"?4": "'me￿'",
+};
+
+function withLiterals(sql: string, values: Record<string, string> = LITERAL_VALUES): string {
 	let out = sql;
-	for (const [placeholder, literal] of Object.entries(LITERAL_VALUES)) {
+	for (const [placeholder, literal] of Object.entries(values)) {
 		out = out.replaceAll(placeholder, literal);
 	}
 	return out;
@@ -97,6 +106,17 @@ const CHECKS: PlanCheck[] = [
 		// on `e` catches either one recurring, not just the exact wording
 		// seen so far.
 		mustNotContain: [/SEARCH al USING INDEX idx_entity_aliases_entity/, /SEARCH e USING INDEX idx_entities_type/],
+	},
+	{
+		// The player typeahead shard (routes/clubBadges.ts /players/:prefix).
+		// Same alias-range branch as above, and `entities` must be probed by
+		// primary key from the matched-id list, never scanned by type: ~400
+		// shards get built per content version, and a scan of every player
+		// row for each would be millions of D1 rows read for nothing.
+		name: "player index shard",
+		sql: withLiterals(PLAYER_INDEX_SHARD_SQL, SHARD_LITERAL_VALUES),
+		mustContain: [/SEARCH al USING INDEX idx_entity_aliases_alias \(alias>\? AND alias<\?\)/, /SEARCH e USING INTEGER PRIMARY KEY \(rowid=\?\)/],
+		mustNotContain: [/SEARCH al USING INDEX idx_entity_aliases_entity/, /SEARCH e USING INDEX idx_entities_type/, /SCAN e\b/],
 	},
 ];
 
