@@ -66,6 +66,36 @@ describe("remote session storage", () => {
 		});
 	});
 
+	it("writes only a feed row for a wrong guess -- not the session row, not the player's row", async () => {
+		const host = await createSession("Host");
+		expect(
+			(
+				await SELF.fetch(`https://example.com/api/remote/sessions/${host.sessionCode}/start`, {
+					method: "POST",
+					headers: { "Content-Type": "application/json", "X-Player-Token": host.playerToken },
+					body: JSON.stringify({ questionCount: 1 }),
+				})
+			).status,
+		).toBe(200);
+		const snapshot = () =>
+			runInDurableObject(stubFor(host.sessionCode), (_instance, state) => ({
+				session: state.storage.sql.exec<{ data: string }>("SELECT data FROM session WHERE id = 1").one().data,
+				players: state.storage.sql.exec<{ data: string }>("SELECT data FROM players ORDER BY rowid").toArray().map((r) => r.data),
+				feed: count(state, "feed"),
+			}));
+		const before = await snapshot();
+		const guess = await SELF.fetch(`https://example.com/api/remote/sessions/${host.sessionCode}/guess`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json", "X-Player-Token": host.playerToken },
+			body: JSON.stringify({ guess: "Nobody At All" }),
+		});
+		expect(guess.status).toBe(200);
+		const after = await snapshot();
+		expect(after.feed).toBe(before.feed + 1);
+		expect(after.session).toBe(before.session);
+		expect(after.players).toEqual(before.players);
+	});
+
 	it("migrates a session persisted as the old two KV values on first read", async () => {
 		// Build a legacy-shaped record from a real one: the pre-switch format
 		// was the whole SessionRecord (questions, feed and all) under

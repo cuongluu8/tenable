@@ -162,7 +162,9 @@
 	// -- remote play reads D1 (grading, question assembly) and writes
 	// nothing to it, the daily game's KV isn't exercised by the load test,
 	// and images are read-only -- so deploying it creates no new storage,
-	// only the Worker itself. What it does NOT share is what matters for a
+	// only the Worker itself. It DOES share the account's daily free-tier
+	// quotas (rows written above all: 100,000/day, and a load test spends
+	// them fast -- 2026-09-15). What it does NOT share is what matters for a
 	// load test: its own Durable Object namespace (every session object),
 	// its own rate-limit buckets, its own logs. No cron triggers: the
 	// nightly rebuild and the ticker refresh must run exactly once, from

@@ -31,7 +31,7 @@ explain the ceilings in §2):
 |---|---|---|---|---|---|
 | **WebSocket** (the live channel) | 1 upgrade per connect; a 25s keep-alive ping (144/h, billed 20:1 = ~7 requests/h) | 1 per connect | 1 request per connect; pings are auto-answered by the runtime without waking the object and double as presence; **pushes out are free**; the object hibernates between events -- nothing wakes it on a timer to check presence | none | replaces polling entirely while the socket is up. A push is only sent to a socket that hasn't got that exact state (per-socket fingerprint), ~1.5 KB round formats / ~10 KB a Roll of Honour grid change. |
 | **Poll `/state`** (fallback only, socket down) | 4s / 1.5s (Roll of Honour) while disconnected | 1 each | 1 request, no storage reads (in-memory copy), ≤1 heartbeat row per 3s | none | reply *measured* **33 bytes** when nothing changed (`?v=` fingerprint). [Before sockets: 900-2,400 of these an hour per player, every hour connected -- the whole cost.] |
-| **Action** (guess, claim, answer, give up, chat, ready) | maybe 20-60/h | 1 each | 1 request, no storage reads, **1-2 rows written** (the changed player / tile, plus one feed row) | up to 3 indexed reads (grading), **no writes** | [Before: the whole ~60 KB session record rewritten per action; +1 D1 write for the daily budget counter.] Rate-limited per player in memory at the edge (`lib/rateLimits.ts`). |
+| **Action** (guess, claim, answer, give up, chat, ready) | maybe 20-60/h | **0** while the socket is up (sent as a socket message, billed 20:1); 1 as the HTTP fallback | 1 request (20:1 over the socket), no storage reads, **1 row written** for a wrong guess or chat line (the feed row), 2-3 when something changes (the player's wins/ready, a tile, the session's round) | **none** -- a round's answers are resolved at `/start` | [Before 2026-09-15: 3-4 rows per action -- the feed counter lived in the session row and every action rewrote the player's row for presence -- and one Worker + one DO request each.] Rate-limited per player at the edge for HTTP, per socket player in the object. |
 | **Typeahead keystroke** (≥3 chars, 200ms debounce) | maybe 60-200/h | **0** in every remote and Club Run / Teammate Tell mode; the daily game's category typeahead is still 1 per keystroke (edge-cached) | none | **none**: Roll of Honour filters a once-fetched club list (~700 clubs, ~36 KB raw); Club Run / Teammate Tell filter a **shard** of the ~18,500-player pool cut by the first two letters of the word being typed (`/api/club-badges/players/:prefix`, ~400 shards, biggest "ma" ~1,850 players / 28 KB gzipped, most 3-7 KB), fetched once per prefix per device and edge-cached per content version | [Before (until 2026-09-15): one request per keystroke, 60-200/h/player -- after sockets, the largest request type left.] |
 
 What stands out now:
@@ -408,6 +408,15 @@ production D1/KV/R2 bindings read-only -- see `wrangler.json`'s
 `env.staging`). From one machine the ramp is paced under the per-IP
 session limit, so 500 players take ~5.5 minutes to seat before the
 measured window. Never aim it at production.
+
+> **The account's daily write budget is shared with production.** The
+> five runs below (~19,000 actions at 3-4 rows each, before the write
+> reduction) used up the free tier's 100,000 Durable Object rows written
+> for the day, and production remote play returned 500 until the reset
+> at 00:00 UTC. The script now prints its estimated row cost and refuses
+> more than 30 players against a remote URL without `--paid-plan`. On the
+> free plan, load-test locally or small; the 500-player runs need Workers
+> Paid.
 
 **Measured 2026-09-15** from one laptop in the UK, staging Worker,
 measured window after the ramp (numbers are the load generator's

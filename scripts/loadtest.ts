@@ -10,7 +10,15 @@
 //     --players 500 --room-size 6 --seconds 120 [--game roll-of-honour]
 //
 // Aim it at STAGING (`npm run deploy:staging`) or a local dev server --
-// never at production: it creates real sessions and real load. From one
+// never at production: it creates real sessions and real load.
+//
+// AND MIND THE ACCOUNT'S DAILY WRITE BUDGET. Cloudflare's free-tier
+// quotas are per ACCOUNT per day, shared by staging and production: the
+// Durable Object limit is 100,000 rows written, and on 2026-09-15 five
+// runs of this script (~19,000 actions) used it up -- production remote
+// play returned 500 for the rest of the day. The script now prints its
+// estimated row cost and refuses to run more than FREE_TIER_MAX_PLAYERS
+// against a non-local URL unless --paid-plan is passed. From one
 // machine all rooms come from one IP, so the ramp is paced under the
 // per-IP session limit (wrangler.json's SESSION_RATE_LIMITER, 120
 // create+join a minute): 500 players in rooms of 6 is ~5 minutes of
@@ -35,7 +43,9 @@ interface Args {
 	// as {id, type, body}, as the real client does since 2026-09-15; "http"
 	// sends them as POSTs, the fallback path, for comparison.
 	transport: "ws" | "http";
+	paidPlan: boolean;
 }
+const FREE_TIER_MAX_PLAYERS = 30;
 
 function parseArgs(): Args {
 	const a = process.argv.slice(2);
@@ -51,6 +61,7 @@ function parseArgs(): Args {
 		game: get("game", "club-badges") as Args["game"],
 		rampPerMinute: Number(get("ramp-per-min", "110")),
 		transport: get("transport", "ws") as Args["transport"],
+		paidPlan: a.includes("--paid-plan"),
 	};
 }
 
@@ -351,6 +362,21 @@ async function makeRoom(index: number, size: number): Promise<Player[]> {
 
 async function main(): Promise<void> {
 	console.log(`loadtest: ${args.players} players in rooms of ${args.roomSize}, ${args.game}, actions over ${args.transport}, ${args.seconds}s measured, against ${args.base}`);
+
+	// Row budget (see the header): ~10 actions/min/player, ~1.5 rows per
+	// action after the 2026-09-15 write reduction (a feed row, plus a
+	// player/session/tile row for the actions that change one), plus the
+	// ramp (~3 rows per seat) and the pushes' alarm bookings.
+	const roomCount0 = Math.ceil(args.players / args.roomSize);
+	const rampMinutes = (args.players + roomCount0) / args.rampPerMinute;
+	const estimatedActions = Math.round(args.players * 10 * (args.seconds / 60 + rampMinutes / 2));
+	const estimatedRows = Math.round(estimatedActions * 1.5 + args.players * 3);
+	const local = /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(args.base);
+	console.log(`estimated cost: ~${estimatedActions} actions, ~${estimatedRows} Durable Object rows written${local ? " (local server: not billed)" : " -- counted against the ACCOUNT's daily quota, shared with production"}`);
+	if (!local && args.players > FREE_TIER_MAX_PLAYERS && !args.paidPlan) {
+		console.error(`refusing: ${args.players} players against a remote URL exceeds the free-tier guard of ${FREE_TIER_MAX_PLAYERS}. The free plan allows 100,000 rows written a day across the whole account; pass --paid-plan only if the account is on Workers Paid.`);
+		process.exit(2);
+	}
 	if (args.game === "roll-of-honour") {
 		const comps = await api<{ competitions: { id: string }[] }>("GET competitions", "/api/roll-of-honour/competitions");
 		competitionId = comps.body?.competitions[0]?.id ?? "";

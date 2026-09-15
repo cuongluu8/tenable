@@ -613,10 +613,10 @@ export class RemoteGameSession extends DurableObject<Env> {
 			if (session.roundDecidedAt === undefined) session.roundDecidedAt = session.roundAnswerName !== null ? 0 : null;
 			if (!session.gameType) session.gameType = "club-badges";
 			if (session.honour === undefined) session.honour = null;
-			if (!Array.isArray(session.feed)) {
-				session.feed = [];
-				session.feedNextId = 1;
-			}
+			if (!Array.isArray(session.feed)) session.feed = [];
+			// Ids are monotonic and trimming keeps the newest, so the next id
+			// is always one past the last entry -- not persisted (see coreJson).
+			session.feedNextId = (session.feed.length ? session.feed[session.feed.length - 1].id : 0) + 1;
 			if (!Array.isArray(session.answers)) session.answers = []; // Pre-2026-09-15 session: graded against D1 until its next /start.
 			return session;
 		};
@@ -625,10 +625,14 @@ export class RemoteGameSession extends DurableObject<Env> {
 		// tables (questions, tiles, feed) -- so a lock, a guess or a chat
 		// line never rewrites the question deck.
 		const coreJson = (session: SessionRecord): string => {
-			const { feed: _feed, questions: _questions, answers: _answers, honour, ...rest } = session;
+			// feedNextId is derived from the feed on load (see load /
+			// normaliseSession), so a chat line or a wrong guess -- which
+			// change nothing else in here -- doesn't rewrite this row.
+			const { feed: _feed, questions: _questions, answers: _answers, feedNextId: _next, honour, ...rest } = session;
 			void _feed;
 			void _questions;
 			void _answers;
+			void _next;
 			return JSON.stringify({ ...rest, honour: honour ? { competitionId: honour.competitionId, competitionName: honour.competitionName } : null });
 		};
 
@@ -821,6 +825,14 @@ export class RemoteGameSession extends DurableObject<Env> {
 		// looks open for minutes (found by the offline e2e test, 2026-09-15);
 		// its pings stop at once. The poll rule still applies alongside.
 		//
+		// Actions do NOT touch lastSeenAt (2026-09-15, write reduction): a
+		// socket player's presence is their pings, a polling player's is
+		// their polls (throttled to one write per 3s in /state), so writing
+		// the player's row on every guess and ready only cost a row -- the
+		// day the account's free-tier row budget ran out under a load test,
+		// that row was a third of every action's cost. Only /ws connect,
+		// socket close and the poll heartbeat write it now.
+		//
 		// Nothing wakes the object just to re-check presence (2026-09-15):
 		// "away" is evaluated whenever something else happens -- a request,
 		// a hint tier, a lock expiry -- and the only alarm booked FOR it is
@@ -960,7 +972,9 @@ export class RemoteGameSession extends DurableObject<Env> {
 			const consider = (at: number) => {
 				if (at > now && at < next) next = at;
 			};
-			for (const p of gateBlockers(session, players, now)) consider(presenceDeadline(p) + 1);
+			// Rounded up to a 5s boundary: a blocker's presence deadline moves
+			// with every ping, and each move was an alarm write.
+			for (const p of gateBlockers(session, players, now)) consider(Math.ceil((presenceDeadline(p) + 1) / 5_000) * 5_000);
 			if (inProgress) {
 				for (const t of session.honour?.tiles ?? []) if (t.lockedBy !== null && t.lockedUntil !== null) consider(t.lockedUntil);
 				if (session.gameType !== "roll-of-honour") {
@@ -1392,7 +1406,6 @@ export class RemoteGameSession extends DurableObject<Env> {
 			const body = await c.req.json<{ ready?: boolean }>().catch(() => ({}) as { ready?: boolean });
 			const now = Date.now();
 			self.ready = Boolean(body.ready);
-			self.lastSeenAt = now;
 			await save();
 
 			// Might be the last non-host player the current round's advance
@@ -1568,7 +1581,6 @@ export class RemoteGameSession extends DurableObject<Env> {
 			if (!self) return c.json({ error: "Invalid session token" }, 401);
 
 			const now = Date.now();
-			self.lastSeenAt = now;
 
 			if (isRoundDecided(session)) {
 				await save();
@@ -1660,7 +1672,6 @@ export class RemoteGameSession extends DurableObject<Env> {
 			if (!self) return c.json({ error: "Invalid session token" }, 401);
 
 			const now = Date.now();
-			self.lastSeenAt = now;
 
 			if (session.gameType === "roll-of-honour") {
 				// Bows out of the whole game (see class doc): any held tile goes
@@ -1710,7 +1721,6 @@ export class RemoteGameSession extends DurableObject<Env> {
 			if (!self) return c.json({ error: "Invalid session token" }, 401);
 
 			const now = Date.now();
-			self.lastSeenAt = now;
 
 			const body = await c.req.json<{ text?: string }>().catch(() => ({}) as { text?: string });
 			// Internal runs of whitespace collapsed too, not just trimmed --
@@ -1755,7 +1765,6 @@ export class RemoteGameSession extends DurableObject<Env> {
 			const self = findByToken(players, c.req.header("X-Player-Token"));
 			if (!self) return { error: c.json({ error: "Invalid session token" }, 401) };
 			const now = Date.now();
-			self.lastSeenAt = now;
 			if (session.roundGivenUpPlayerIds.includes(self.id)) {
 				await save();
 				return { error: c.json({ error: "You've given up on this game" }, 409) };
@@ -1903,7 +1912,6 @@ export class RemoteGameSession extends DurableObject<Env> {
 				if (!keepScores) p.wins = 0;
 				p.ready = p.isHost; // Same as a fresh /create: the host is ready by definition, everyone else re-readies.
 			}
-			caller.lastSeenAt = now;
 			await save();
 
 			return c.json({ ok: true as const });

@@ -896,10 +896,13 @@ npm run verify:matching        # re-seed local D1 first — see scripts/verify-g
 npm run verify:category-defs   # re-seed local D1 first — see scripts/verify-category-defs.ts
 npm run verify:query-plans     # re-seed local D1 first — see scripts/verify-query-plans.ts
 npm run playtest                # self-resets local D1 + KV — see scripts/playtest.ts
-npm run loadtest -- --base <url> --players 50 [--room-size 6 --seconds 90 --game roll-of-honour]
+npm run loadtest -- --base <url> --players 50 [--room-size 6 --seconds 90 --game roll-of-honour --paid-plan]
                                 # N simulated remote players in rooms, sockets and all, against a URL --
-                                # STAGING or a local dev server, never production. See scripts/loadtest.ts
-                                # and docs/scaling.md §5f for the numbers it has produced.
+                                # STAGING or a local dev server, never production. Rows it writes count
+                                # against the ACCOUNT's daily free-tier quota (shared with production --
+                                # 2026-09-15: five runs exhausted it and took production remote play down
+                                # for the day), so it refuses >30 players remotely without --paid-plan.
+                                # See scripts/loadtest.ts and docs/scaling.md §5f.
 npm run deploy:staging          # CLOUDFLARE_ENV=staging vite build && wrangler deploy -> top-10-tension-staging
 
 # Requires FOOTBALL_DATA_API_KEY (free tier: https://www.football-data.org/client/register)
