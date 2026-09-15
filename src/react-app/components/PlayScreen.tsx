@@ -49,17 +49,33 @@ export function PlayScreen({ slug, onBack }: Props) {
 	const [confirmingGiveUp, setConfirmingGiveUp] = useState(false);
 
 	useEffect(() => {
+		// Ignore this run's response once the effect has been superseded.
+		// Without this (2026-09-15) the SECOND of the two loads development
+		// mode issues (React StrictMode mounts effects twice) could land
+		// after the player had already picked a mode and started typing --
+		// setProgress(null) then threw them back to the mode picker with
+		// the guess box, and what they'd typed, gone. Only when the server
+		// was slow enough for a response to straddle the player's first
+		// actions, which is how it surfaced: as a CI-only e2e timeout, never
+		// locally. See dailyCategories.spec.ts's regression test.
+		let cancelled = false;
 		fetch(`/api/categories/${slug}`)
 			.then((res) => {
 				if (!res.ok) throw new Error("Couldn't load that category");
 				return res.json() as Promise<CategoryResponse>;
 			})
 			.then((data) => {
+				if (cancelled) return;
 				setLoad({ status: "ready", category: data.category });
 				setProgress(data.progress);
 				setFound(new Map(data.foundAnswers.map((a) => [a.rank, a])));
 			})
-			.catch((err: Error) => setLoad({ status: "error", message: err.message }));
+			.catch((err: Error) => {
+				if (!cancelled) setLoad({ status: "error", message: err.message });
+			});
+		return () => {
+			cancelled = true;
+		};
 	}, [slug]);
 
 	useEffect(() => {
