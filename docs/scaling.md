@@ -1,6 +1,7 @@
 # Scaling remote play: where the bottlenecks are, and how to get to tens, hundreds, thousands
 
-Written 2026-09-14 against the code as of that date. Numbers marked
+Written 2026-09-14 against the code as of that date; last checked
+against the code 2026-09-15. Numbers marked
 *measured* were taken from the running app; Cloudflare limits and prices
 were read from the official pricing/limits pages the same day -- re-check
 them before spending money, they change.
@@ -40,11 +41,14 @@ What stands out now:
   the object hibernates with the sockets held by the runtime. Before
   tier 2, a connected player was 900-2,400 requests an hour whether or
   not anything happened.
-- **The clock still needs a tick.** Hint tiers, lock expiry, "away" and
-  the reveal hold used to be noticed by whichever poll came next; the
-  object now books an alarm for the earliest of them and pushes from
-  there. That's one alarm write per state change mid-game -- small, and
-  only while a game is in progress or someone is connected.
+- **The clock still needs a tick, but only mid-game.** Hint tiers, lock
+  expiry and the reveal hold used to be noticed by whichever poll came
+  next; the object now books an alarm for the earliest of them and
+  pushes from there. That's one alarm write per state change while a
+  game is in progress -- small. A lobby or results screen books nothing
+  but its expiry, however many players are connected. Presence is never
+  swept: the one presence alarm is for a gate held up by a player who
+  has gone quiet (§4b).
 - **Storage per action is rows, not records.** save() diffs the in-memory
   copy against what was last written; a guess touches the guesser's row
   and a feed row, a lock touches one tile row.
@@ -69,7 +73,7 @@ projects on this account (see `agents.md` -> Cloudflare resources).
 | 7 | **KV writes** (free) | 1,000/day | The daily game's per-guess write | **~70 completed Top 10 rounds/day**, app-wide |
 | 8 | **Worker CPU** (free) | 10 ms per request | A Roll of Honour broadcast (serialise ~10 KB per socket) is the heaviest step at ~1-3 ms | not yet |
 | 9 | D1 rows read (free) | 5,000,000/day | Typeahead FTS reads (bounded, tens of rows each) | well beyond hundreds of players |
-| 10 | Per-object throughput | soft 1,000 req/s per Durable Object | An 8-player session at 1.5s is ~5 req/s | never, by design -- sessions are the unit of scale |
+| 10 | Per-object throughput | soft 1,000 req/s per Durable Object | An 8-player session is a few requests a second at its busiest (actions + pushes); idle it is zero | never, by design -- sessions are the unit of scale |
 
 What is **not** a bottleneck, and why it's worth knowing:
 
@@ -204,8 +208,8 @@ drops from 0-1.5 s to tens of milliseconds, and the 5 s start-countdown
 and reveal-hold windows can shrink (they exist to paper over poll
 skew -- kept for now, they're also what lets every device count down
 together). `/state` stays as the fallback for a client whose socket is
-down, at the old cadences, and the client re-polls once on every
-reconnect to cover the gap.
+down, at the old cadences, and a client whose socket drops after it had
+been delivering re-polls once to cover the gap.
 
 How it was built (all in `remoteGameSession.ts`, "WebSockets" section):
 - Hibernation API throughout: `ctx.acceptWebSocket` tagged with the
@@ -254,7 +258,9 @@ How it was built (all in `remoteGameSession.ts`, "WebSockets" section):
   fallback poll. Close codes 4404/4410 mean what a poll's 404/401 did.
 - Tested: `test/integration/remoteSessionSocket.test.ts` (initial push,
   another player's action, incremental feed, leave closes with 4410, the
-  alarm booked for the presence check, `since=` resume); the e2e suite
+  alarm booked for the first hint tier and nothing earlier, `since=`
+  resume), `remoteSessionIdle.test.ts` (the lazy drop, host rules) and
+  `remoteSessionExpiry.test.ts` (24h / 1h expiry); the e2e suite
   runs on the socket through the Vite dev server, and the `@slow`
   Playwright project (`test/e2e/remoteReconnect.spec.ts`, `npm run
   test:e2e:slow`) covers a device dropping offline mid-game (the round
@@ -328,27 +334,34 @@ and question assembly** are, if they still touch D1/R2 per request.
 
 ### 5c. Images at the edge
 
-`/api/media/*` sets `Cache-Control: max-age=86400` for the *browser*; at
-thousands of first-time visitors that's still one R2 read each. Add the
-**edge Cache API** (or a `cf: { cacheEverything }` fetch through the
-Worker's own zone) so each image is read from R2 once per edge location,
-not once per browser; mark keys immutable with a long max-age (they're
-content-addressed by entity id; a badge swap changes the key). R2 Class B
-reads are $0.36/M -- not expensive, just unnecessary.
+**Done 2026-09-14** (pulled forward from this tier because it was
+cheap). `/api/media/*` set `Cache-Control: max-age=86400` for the
+*browser* only; at thousands of first-time visitors that was still one
+R2 read each. It now also goes through the **edge Cache API**
+(`caches.default` in `routes/media.ts`), so each image is read from R2
+once per edge location per day, not once per browser. Keys are NOT
+marked immutable: a badge can be re-uploaded under the same entity id,
+so a one-day edge TTL is the trade. R2 Class B reads are $0.36/M -- not
+expensive, just unnecessary.
 
 ### 5d. Protect the shared things
 
-- **Rate Limiting binding per player** (tier 1) plus a per-IP backstop
-  for the unauthenticated routes (`/sessions` create, `/join`), so a
-  script can't mint sessions or spray joins. Session codes are a 1.07 B
-  space -- brute force isn't a concern, volume is.
+- **Rate Limiting binding per player** (tier 1, done) covers the
+  unauthenticated routes too: a request with no player token is keyed
+  on a device cookie minted on first contact, and a global 3,000/min
+  bucket backstops everything. What's missing for a determined script
+  is a per-IP limit on `/sessions` create and `/join` specifically
+  (a cookie is trivially discarded); add it if session minting is ever
+  abused. Session codes are a 1.07 B space -- brute force isn't a
+  concern, volume is.
 - **Bound per-session growth**: cap players (already 8), feed (already
-  300 -> becomes rows), and chat rate (already 30 s). Add a session TTL
-  (`ctx.storage.setAlarm` to delete an object untouched for 24 h) so
-  abandoned games don't accumulate storage forever -- today they do.
-- **Ready gates and give-up resolution** already skip "away" players;
-  with sockets, "away" is immediate, which makes those gates faster,
-  not slower.
+  300, one row each), and chat rate (already 30 s). Session TTL: done
+  (24 h untouched, 1 h once ended or emptied, §6).
+- **Ready gates and give-up resolution** already skip "away" players.
+  With sockets "away" is 60 s after the last keep-alive ping (or 15 s
+  after the last poll), and a gate held up only by a quiet player is
+  re-checked by a one-off alarm at that deadline -- so a dropped
+  connection can delay a round by about a minute, never hang it.
 
 ### 5e. Latency across geographies
 
@@ -391,5 +404,9 @@ arithmetic; those will be measurements.
 - **Server-authoritative grading and hint gating.** The client never
   sees an answer it hasn't earned; every optimisation above keeps that.
 - **Materialised `category_answers`, `content_version` cache keys, the
-  `since=` feed cursor, the heartbeat throttle.** All already the right
-  shape; they just need the transport underneath them to change.
+  `since=` feed cursor, the per-socket fingerprint, the heartbeat
+  throttle on the fallback poll.** All the right shape; the transport
+  changed underneath them without touching any of them.
+- **The 25 s ping and the lazy idle drop.** Both are the minimum that
+  handles a dropped or idle player at all; tightening either means
+  more pings or timer wakes for an edge case (see §4b).
