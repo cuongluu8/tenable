@@ -67,7 +67,14 @@
 		{ "name": "SUGGEST_RATE_LIMITER", "namespace_id": "1002", "simple": { "limit": 60, "period": 60 } },
 		// Whole app, one key: a per-location burst ceiling standing in for the
 		// old daily budget as the "runaway cost" guard on a paid plan.
-		{ "name": "GLOBAL_RATE_LIMITER", "namespace_id": "1003", "simple": { "limit": 3000, "period": 60 } }
+		{ "name": "GLOBAL_RATE_LIMITER", "namespace_id": "1003", "simple": { "limit": 3000, "period": 60 } },
+		// Per connecting IP: remote-play session create + join together (the
+		// two routes reachable with no identity -- see lib/rateLimits.ts's
+		// enforceSessionRateLimit). Generous on purpose: a 100-person venue
+		// on one Wi-Fi joining inside a minute is a real case; a script
+		// minting sessions is what this bounds. scripts/loadtest.ts ramps
+		// its rooms under this from one machine.
+		{ "name": "SESSION_RATE_LIMITER", "namespace_id": "1004", "simple": { "limit": 120, "period": 60 } }
 	],
 	"upload_source_maps": true,
 	"triggers": {
@@ -148,4 +155,52 @@
 			"new_sqlite_classes": ["RemoteGameSession"]
 		}
 	]
+	,
+	// Staging (2026-09-15): a second Worker, `top-10-tension-staging`, for
+	// scripts/loadtest.ts to hammer without touching real players'
+	// sessions. Deliberately SHARES the production D1, KV and R2 bindings
+	// -- remote play reads D1 (grading, question assembly) and writes
+	// nothing to it, the daily game's KV isn't exercised by the load test,
+	// and images are read-only -- so deploying it creates no new storage,
+	// only the Worker itself. What it does NOT share is what matters for a
+	// load test: its own Durable Object namespace (every session object),
+	// its own rate-limit buckets, its own logs. No cron triggers: the
+	// nightly rebuild and the ticker refresh must run exactly once, from
+	// production. Deploy with `npm run deploy:staging`; remove with
+	// `wrangler delete --name top-10-tension-staging`.
+	//
+	// HOW `wrangler deploy` PICKS AN ENV HERE: the Cloudflare Vite plugin
+	// writes a RESOLVED config to dist/top_10_tension/wrangler.json (one
+	// environment, no `env` block) and a redirect in .wrangler/deploy/ that
+	// `wrangler deploy` follows -- so `wrangler deploy --env staging` on
+	// its own does NOT pick this block up (confirmed 2026-09-15: the dry
+	// run resolved to whatever the LAST build was). The environment is
+	// chosen at BUILD time: `CLOUDFLARE_ENV=staging vite build`, which is
+	// what `npm run deploy:staging` does; `npm run deploy` rebuilds for
+	// production first for the same reason. Workers Builds (the auto
+	// deploy on push) runs its own production build.
+	"env": {
+		"staging": {
+			"name": "top-10-tension-staging",
+			"vars": {
+				"TICKER_MESSAGE": "",
+				"REMOTE_MULTIPLAYER_ENABLED": true,
+				"ROUND_START_GRACE_MS": 5000,
+				"MIN_REVEAL_MS": 5000,
+				"IDLE_REMOVE_MS": 1800000
+			},
+			"ratelimits": [
+				{ "name": "PLAYER_RATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 600, "period": 60 } },
+				{ "name": "SUGGEST_RATE_LIMITER", "namespace_id": "1002", "simple": { "limit": 60, "period": 60 } },
+				{ "name": "GLOBAL_RATE_LIMITER", "namespace_id": "1003", "simple": { "limit": 3000, "period": 60 } },
+				{ "name": "SESSION_RATE_LIMITER", "namespace_id": "1004", "simple": { "limit": 120, "period": 60 } }
+			],
+			"triggers": { "crons": [] },
+			"d1_databases": [{ "binding": "DB", "database_name": "tenable-content", "database_id": "a87ef250-cc94-4765-a821-785acbcd71a4" }],
+			"kv_namespaces": [{ "binding": "PROGRESS", "id": "f04cfb81bc8e4ba783cd3157d59e2734" }],
+			"r2_buckets": [{ "binding": "MEDIA", "bucket_name": "tenable-media" }],
+			"durable_objects": { "bindings": [{ "name": "REMOTE_GAME_SESSION", "class_name": "RemoteGameSession" }] },
+			"migrations": [{ "tag": "v1", "new_sqlite_classes": ["RemoteGameSession"] }]
+		}
+	}
 }

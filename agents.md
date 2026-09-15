@@ -888,6 +888,11 @@ npm run verify:matching        # re-seed local D1 first — see scripts/verify-g
 npm run verify:category-defs   # re-seed local D1 first — see scripts/verify-category-defs.ts
 npm run verify:query-plans     # re-seed local D1 first — see scripts/verify-query-plans.ts
 npm run playtest                # self-resets local D1 + KV — see scripts/playtest.ts
+npm run loadtest -- --base <url> --players 50 [--room-size 6 --seconds 90 --game roll-of-honour]
+                                # N simulated remote players in rooms, sockets and all, against a URL --
+                                # STAGING or a local dev server, never production. See scripts/loadtest.ts
+                                # and docs/scaling.md §5f for the numbers it has produced.
+npm run deploy:staging          # CLOUDFLARE_ENV=staging vite build && wrangler deploy -> top-10-tension-staging
 
 # Requires FOOTBALL_DATA_API_KEY (free tier: https://www.football-data.org/client/register)
 # — re-seed local D1 first; prints a "skipped" message rather than failing if the key isn't set.
@@ -1021,6 +1026,24 @@ to what an earlier version of this section claimed — that claim was simply
 wrong/stale, not a rule to preserve), so `npm run deploy` also works as a
 manual/emergency path if Workers Builds is ever down or mid-reconfiguration.
 
+**How `wrangler deploy` picks its config here (2026-09-15):** the Cloudflare
+Vite plugin writes a *resolved* config -- one environment, no `env` block
+-- to `dist/top_10_tension/wrangler.json`, plus a redirect in
+`.wrangler/deploy/` that `wrangler deploy` follows. So `wrangler deploy`
+deploys **whatever the last `vite build` resolved**, and `wrangler deploy
+--env staging` on its own does *not* pick up `wrangler.json`'s `env.staging`
+(confirmed: a dry run resolved to stale values from an older build). The
+environment is chosen at **build** time with `CLOUDFLARE_ENV`; both deploy
+scripts rebuild first for exactly this reason (`npm run deploy` for
+production, `npm run deploy:staging` for staging).
+
+**Staging** (`top-10-tension-staging`, `wrangler.json` -> `env.staging`)
+exists for `npm run loadtest` -- see that block's own doc: it shares the
+production D1, KV and R2 bindings (remote play only reads D1 and never
+touches the daily game's KV) so deploying it creates no storage, but has
+its own Durable Object namespace, rate-limit buckets and logs, and no cron
+triggers. Remove with `wrangler delete --name top-10-tension-staging`.
+
 **2026-09-08 rename, now fully cut over:** the app was renamed from
 `tenable` to `top-10-tension` (see "What this is" above for why). Cloudflare
 doesn't support renaming a Worker in place, so the cutover was: deploy a
@@ -1042,6 +1065,7 @@ cuong-luu.workers.dev` is the one and only live URL, and push-to-deploy on
 | KV namespace | `tenable-progress` | `f04cfb81bc8e4ba783cd3157d59e2734` (`PROGRESS`) |
 | R2 bucket | `tenable-media` | `MEDIA` (`remote: true` in local dev so badges render; `E2E_LOCAL_ONLY` forces it local for CI) |
 | Durable Object | `RemoteGameSession` | `REMOTE_GAME_SESSION`, SQLite-backed (`new_sqlite_classes`, migration tag `v1`) |
+| Worker (staging) | `top-10-tension-staging` | load-test target only; same D1/KV/R2 bindings, own DO namespace, no crons -- see Deployment |
 
 The D1 database and KV namespace keep their pre-rename names deliberately —
 they're internal Cloudflare-dashboard labels, referenced everywhere in code
@@ -1160,6 +1184,12 @@ in-memory at the edge, free-plan compatible, no storage ops):
   whole app; `503` past it. This is the "runaway cost on a paid plan"
   backstop the old daily budget provided. Enforcement is per Cloudflare
   location and best-effort, so read it as "bounded", not "exact".
+- **`SESSION_RATE_LIMITER`** (120/min, keyed per **connecting IP**;
+  2026-09-15) -- remote-play session create + join only, the two routes
+  reachable with no identity, where a device cookie is no bound on a
+  script. Generous because a whole venue on one Wi-Fi is a real case; a
+  request without `CF-Connecting-IP` (tests, local dev) falls back to the
+  per-player key. `scripts/loadtest.ts` paces its ramp under this.
 
 Limits are static in `wrangler.json` (a change is a deploy). A missing
 binding fails open -- these are guardrails, not gates.

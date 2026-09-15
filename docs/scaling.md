@@ -201,9 +201,14 @@ pattern and the billing is built for it:
 - **Hibernation** means an idle connection consumes no duration. Players
   sitting on a reveal or a lobby cost nothing until something happens.
 
-Effect on the numbers above: 300 concurrent players for a month goes
-from ~48 M billable requests to well **under 1 M** -- inside the paid
-plan's included amounts. Latency for another player's lock/release
+Effect on the numbers above, **as designed**: 300 concurrent players
+for a month goes from ~48 M billable requests to well **under 1 M** --
+inside the paid plan's included amounts. **As built (measured 2026-09-15,
+§5f): not yet.** The polling is gone, but a player's actions still
+travel as HTTP requests, one Worker + one DO request each, so 500 active
+players measure ~3,600 requests/min (~20 M a month at 3 h/night). The
+20:1 billing only applies to messages sent *over* the socket -- moving
+actions onto it is §6's 5g. Latency for another player's lock/release
 drops from 0-1.5 s to tens of milliseconds, and the 5 s start-countdown
 and reveal-hold windows can shrink (they exist to paper over poll
 skew -- kept for now, they're also what lets every device count down
@@ -364,11 +369,12 @@ expensive, just unnecessary.
 - **Rate Limiting binding per player** (tier 1, done) covers the
   unauthenticated routes too: a request with no player token is keyed
   on a device cookie minted on first contact, and a global 3,000/min
-  bucket backstops everything. What's missing for a determined script
-  is a per-IP limit on `/sessions` create and `/join` specifically
-  (a cookie is trivially discarded); add it if session minting is ever
-  abused. Session codes are a 1.07 B space -- brute force isn't a
-  concern, volume is.
+  bucket backstops everything. **Done 2026-09-15:** a per-IP limit on
+  `/sessions` create and `/join` specifically (`SESSION_RATE_LIMITER`,
+  120 a minute per connecting IP, the two combined), since a cookie is
+  trivially discarded by a script. Generous because a venue on one Wi-Fi
+  is real; `scripts/loadtest.ts` paces its ramp under it. Session codes
+  are a 1.07 B space -- brute force isn't a concern, volume is.
 - **Bound per-session growth**: cap players (already 8), feed (already
   300, one row each), and chat rate (already 30 s). Session TTL: done
   (24 h untouched, 1 h once ended or emptied, §6).
@@ -388,14 +394,77 @@ fact to state in the UI copy if it's ever noticed.
 
 ### 5f. Load-test before believing any of this
 
-Write `scripts/loadtest.ts`: N simulated players (host creates, N-1
-join, all ready, start; then each player guesses/claims on a realistic
-cadence with the typeahead debounce modelled) against a **separate
-staging Worker** (`wrangler deploy --env staging`, its own DO namespace
-and a copy of D1 -- never the production object namespace). Run at 50,
-500, 5,000 and read the dashboard: p99 latency per route, CPU per
-request, DO duration, error rate. The numbers in this doc are
-arithmetic; those will be measurements.
+**Done 2026-09-15.** `npm run loadtest -- --base <url> --players N`
+(`scripts/loadtest.ts`): N simulated players in rooms of 6, each holding
+a WebSocket and acting every ~6s -- guessing names from a typeahead
+shard (almost always wrong), giving up after a few, readying when the
+round is decided, chatting a little, the host restarting a finished
+game; in Roll of Honour, claiming and answering tiles. Against the
+**staging Worker** (`npm run deploy:staging` -> `top-10-tension-staging`:
+its own Durable Object namespace and rate-limit buckets, sharing the
+production D1/KV/R2 bindings read-only -- see `wrangler.json`'s
+`env.staging`). From one machine the ramp is paced under the per-IP
+session limit, so 500 players take ~5.5 minutes to seat before the
+measured window. Never aim it at production.
+
+**Measured 2026-09-15** from one laptop in the UK, staging Worker,
+measured window after the ramp (numbers are the load generator's
+end-to-end latency, so they include the laptop-to-edge hop):
+
+| Run | Requests | Per player | Guess / tile answer | Ready, give up, chat | Start | Errors |
+|---|---|---|---|---|---|---|
+| 50 players, Club Run, 90s | 569 (379/min) | 7.6/min | p50 238 ms, p99 319 ms | p50 ~52 ms | 278 ms | none |
+| **500 players, Club Run, 120s** | 7,260 (**3,630/min**) | 7.3/min | p50 231 ms, p99 374 ms, max 3.7 s | p50 48 ms, p99 ~120 ms | p50 277 ms | **1 × 500** on `/guess` in 4,579; 114 socket failures in 614 opens (see below) |
+| 100 players, Roll of Honour, 90s | 1,805 (1,203/min) | 12/min | tile answer p50 43 ms, p99 76 ms; select p50 45 ms | p50 ~45 ms | 231 ms | none |
+
+Pushes received: Club Run ~40/min/player, ~64 KB/min/player; Roll of
+Honour **~70/min/player, ~330 KB/min/player** (every tile event pushes
+the whole ~5-10 KB grid to every socket in the room).
+
+What it showed:
+
+1. **The object tier holds.** 500 concurrent players across 84 session
+   objects: every non-guess action at ~50 ms p50 and ~120 ms p99, no
+   queueing visible, no rate-limit binding tripped (the 3,000/min global
+   limit is enforced per Cloudflare location and best-effort; 3,630/min
+   from one location did not trip it -- read it as "bounded", not
+   "exact").
+2. **A guess costs ~230 ms; everything else ~50 ms.** The difference is
+   grading: `/guess` round-trips from the object to D1 (`checkPlayerGuess`),
+   while a Roll of Honour tile answer is graded from the tile record
+   already in the object (43 ms). Grading a round's answer inside the
+   object -- store the normalised answer and aliases in the session at
+   `/start` -- would take the D1 read off the hot path and make a guess
+   as fast as a give-up. (5h in §6.)
+3. **Actions are HTTP, so they bill as full requests.** §4b's "under 1 M
+   billable a month for 300 players" assumed actions travel over the
+   socket at 20:1. They don't yet: a guess, ready, give-up or chat is
+   one Worker request plus one Durable Object request. Measured, 500
+   active players are ~3,600 requests/min -- 3 hours a night for a month
+   is ~20 M Worker + ~20 M DO requests, roughly $3 + $3 over the paid
+   plan's included amounts. Not expensive, but it scales with actions.
+   Sending actions over the open socket (5g in §6) would make the same
+   load ~180 billable requests/min. The pushes back are already free.
+4. **Roll of Honour's grid push is the heavy payload**: ~330 KB/min per
+   player at 100 players, free on egress but real on phones. Tile deltas
+   (only the changed tile per push) would cut it ~10× (§6's tier-3
+   list).
+5. **One `/guess` returned 500 in 4,579**, cause not captured -- the
+   staging Worker's logs weren't being tailed during that run; a later
+   run with `wrangler tail --status error` saw nothing. Watch for it in
+   the Logs tab; if it recurs the object's request path has a rare
+   exception.
+6. **Socket failures** (114 of 614 opens at 500 players, 6 of 106 at
+   100) were counted on the load generator, which held 500 sockets from
+   one process; they reconnected on the client's backoff and the rooms
+   played on. Most likely the generator's own connection limits rather
+   than the edge -- unverified, and the reason to re-run from more than
+   one machine before quoting a socket ceiling.
+
+Not yet measured: 5,000 players (needs more than one generator machine
+and a paid plan for the D1 reads), CPU per request and DO duration from
+the dashboard (read them after the next run), and a real multi-region
+mix.
 
 ## 6. Order of work, with the trigger for each
 
@@ -412,7 +481,10 @@ arithmetic; those will be measurements.
 | Precomputed question/tile blobs at `/start` (5b, second half) | When D1 shows up in the bill or in p99s | medium |
 | Budget Alert (4e) | Now, in the dashboard -- not scriptable from the repo | minutes |
 | ~~Edge image cache (5c)~~ | **Done 2026-09-14** -- once per location per day, not per browser | -- |
-| Load test (5f) | Before each of the above tiers is declared done | medium |
+| ~~Per-IP limit on session create/join (5d)~~ | **Done 2026-09-15** -- 120/min per IP, create + join combined | -- |
+| ~~Load test (5f)~~ | **Done 2026-09-15** -- `npm run loadtest` against the staging Worker; results in §5f, re-run before declaring the next tier | -- |
+| **Actions over the socket** (5g, new) | Before "hundreds every night" on the paid plan -- the load test showed actions are still one HTTP request each, so 500 players is ~3,600 Worker requests/min; over the socket that bills 20:1 | medium |
+| **Grade guesses in the object** (5h, new) | With 5g, or when guess latency matters -- a guess is ~230 ms p50 against ~50 ms for every other action because grading round-trips to D1 | small-medium |
 
 ## 7. What to leave alone
 

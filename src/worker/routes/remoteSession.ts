@@ -1,4 +1,5 @@
 import { Hono, type Context } from "hono";
+import { enforceSessionRateLimit } from "../lib/rateLimits";
 import { generateSessionCode, isValidSessionCode, normalizeSessionCode } from "../lib/remoteSession";
 
 const remoteSession = new Hono<{ Bindings: Env }>();
@@ -53,7 +54,11 @@ async function forward(c: Context<{ Bindings: Env }>, path: string, init: Reques
 // retry.
 const MAX_CREATE_ATTEMPTS = 5;
 
-remoteSession.post("/sessions", async (c) => {
+// Create and join carry the per-IP session limit (lib/rateLimits.ts's
+// enforceSessionRateLimit) on top of the per-player one every /api route
+// gets: these two are reachable with no identity, and a device cookie is
+// no bound on a script.
+remoteSession.post("/sessions", enforceSessionRateLimit, async (c) => {
 	const body = await c.req.text();
 	for (let attempt = 0; attempt < MAX_CREATE_ATTEMPTS; attempt++) {
 		const code = generateSessionCode();
@@ -68,7 +73,7 @@ remoteSession.post("/sessions", async (c) => {
 	return c.json({ error: "Could not allocate a session code, please try again." }, 500);
 });
 
-remoteSession.post("/sessions/:code/join", async (c) => forward(c, "/join", { method: "POST", body: await c.req.text() }));
+remoteSession.post("/sessions/:code/join", enforceSessionRateLimit, async (c) => forward(c, "/join", { method: "POST", body: await c.req.text() }));
 
 // The query string rides along: /state?since=<feed id> is how the client
 // asks for only the activity-feed entries it hasn't seen (see

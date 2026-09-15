@@ -25,6 +25,7 @@ export interface RateLimitEnv {
 	PLAYER_RATE_LIMITER?: RateLimit;
 	SUGGEST_RATE_LIMITER?: RateLimit;
 	GLOBAL_RATE_LIMITER?: RateLimit;
+	SESSION_RATE_LIMITER?: RateLimit;
 }
 
 // Who is this request from, for limiting purposes: the remote-play token,
@@ -68,6 +69,28 @@ export const enforcePlayerRateLimit: MiddlewareHandler<{ Bindings: Env }> = asyn
 	}
 	if (!(await allowed(env.PLAYER_RATE_LIMITER, rateLimitKey(c)))) {
 		return c.json({ error: "Too many requests -- slow down a little." }, 429);
+	}
+	return next();
+};
+
+// Session create and join specifically (2026-09-15; docs/scaling.md §5d)
+// -- the two routes a caller can hit with NO identity yet, so the
+// per-player limit above keys them on a device cookie a script simply
+// discards. This one keys on the connecting IP instead: a venue on one
+// Wi-Fi is a real case (a 100-person pub quiz joining inside a minute),
+// hence the generous limit, but a script minting sessions or spraying
+// joins from one address is bounded. Behind Cloudflare the IP header is
+// always set; a request without it (a test runner, a local dev server)
+// falls back to the per-player key so the limit still exists there.
+export function sessionRateLimitKey(c: Context): string {
+	const ip = c.req.header("CF-Connecting-IP");
+	return ip ? `ip:${ip}` : rateLimitKey(c);
+}
+
+export const enforceSessionRateLimit: MiddlewareHandler<{ Bindings: Env }> = async (c, next) => {
+	const env = c.env as RateLimitEnv;
+	if (!(await allowed(env.SESSION_RATE_LIMITER, sessionRateLimitKey(c)))) {
+		return c.json({ error: "Too many sessions started from your network -- please wait a minute." }, 429);
 	}
 	return next();
 };
