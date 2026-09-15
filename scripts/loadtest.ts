@@ -46,6 +46,8 @@ interface Args {
 	paidPlan: boolean;
 }
 const FREE_TIER_MAX_PLAYERS = 30;
+// The live Worker's hostnames -- never a load-test target (see main()).
+const PRODUCTION_HOSTS = ["top-10-tension.cuong-luu.workers.dev"];
 
 function parseArgs(): Args {
 	const a = process.argv.slice(2);
@@ -371,6 +373,13 @@ async function main(): Promise<void> {
 	const rampMinutes = (args.players + roomCount0) / args.rampPerMinute;
 	const estimatedActions = Math.round(args.players * 10 * (args.seconds / 60 + rampMinutes / 2));
 	const estimatedRows = Math.round(estimatedActions * 1.5 + args.players * 3);
+	// Production is refused outright, whatever the flags: this creates real
+	// sessions, real load and real rows against the account's quota, and
+	// the only reason to point it at the live URL would be a typo.
+	if (PRODUCTION_HOSTS.some((h) => args.base.includes(h))) {
+		console.error(`refusing: ${args.base} is production. Load-test staging (npm run deploy:staging) or a local dev server.`);
+		process.exit(2);
+	}
 	const local = /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(args.base);
 	console.log(`estimated cost: ~${estimatedActions} actions, ~${estimatedRows} Durable Object rows written${local ? " (local server: not billed)" : " -- counted against the ACCOUNT's daily quota, shared with production"}`);
 	if (!local && args.players > FREE_TIER_MAX_PLAYERS && !args.paidPlan) {
