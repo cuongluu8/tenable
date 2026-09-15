@@ -4,5 +4,10 @@
 		"tsBuildInfoFile": "./node_modules/.tmp/tsconfig.worker.tsbuildinfo",
 		"types": ["vite/client", "./worker-configuration.d.ts"]
 	},
-	"include": ["src/worker"]
+	// worker-configuration.d.ts is already in via `types`; listing it here
+	// too is for editors: a file no project includes is opened in an
+	// inferred project with the browser DOM lib, and every runtime global
+	// wrangler generates then clashes with the DOM copy (TS6200/TS2717
+	// storms in the IDE, never in `tsc -b`).
+	"include": ["src/worker", "worker-configuration.d.ts"]
 }
