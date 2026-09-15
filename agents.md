@@ -243,8 +243,16 @@ simpler content model.
   **pushed** on every change -- after any request that wrote, and from
   the object's alarm for clock-driven changes (hint tiers, lock expiry,
   away, the reveal hold); **polling `/state`** (4s, 1.5s during a Roll of
-  Honour game) is the fallback while a socket is down. Identity is a
-  per-player token (header on HTTP, query on the socket upgrade). The
+  Honour game) is the fallback while a socket is down. Every in-session
+  **action also travels over the socket** as `{id, type, body}`
+  (`webSocketMessage` dispatches it to the same Hono route the HTTP POST
+  uses -- nothing is implemented twice -- and answers `{id, status,
+  body}`; the client's `perform()` falls back to the HTTP call if the
+  socket is down or a reply takes 5s). Create, join and leave stay HTTP.
+  A round's **answer is resolved at `/start`** and kept with the deck
+  (`SessionRecord.answers`, never in the public state) so a guess is
+  graded in memory, not against D1. Identity is a per-player token
+  (header on HTTP, query on the socket upgrade). The
   session record lives in the object's **SQLite tables** (one row per
   player / tile / feed entry), kept in memory as the working copy and
   written back as a diff. Rules worth knowing before touching it (each

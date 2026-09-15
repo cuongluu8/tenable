@@ -3,7 +3,7 @@ import { Hono, type Context } from "hono";
 import { generateToken } from "../lib/remoteSession";
 import { buildClubBadgeQuestions, pickRandomEligibleQuestions, type ClubBadgeQuestionPublic, type QuestionRow } from "../lib/clubBadgeRound";
 import { buildTeammateQuestions, pickRandomTeammateQuestions, type TeammateQuestionPublic, type TeammateQuestionRow } from "../lib/teammateRound";
-import { checkPlayerGuess } from "../lib/checkPlayerGuess";
+import { checkPlayerGuess, gradeGuess, loadRoundAnswers, type RoundAnswer } from "../lib/checkPlayerGuess";
 import { buildHonourTiles, DEFAULT_HONOUR_COMPETITION_ID, gradeHonourGuess, HONOUR_COMPETITIONS, type HonourTilePrivate } from "../lib/rollOfHonour";
 
 // The authoritative session for one "remote" multiplayer game -- players
@@ -137,6 +137,25 @@ const SOCKET_AWAY_MS = 60_000;
 // it doesn't linger. Past SOCKET_AWAY_MS: by then the player has been
 // away for a while and, if they're back, has a fresh socket.
 const SOCKET_STALE_MS = 120_000;
+// Actions a client may send over its socket (webSocketMessage) and the
+// route each one dispatches to -- the same routes the HTTP path uses.
+// create/join/leave/state stay HTTP: no socket exists yet for the first
+// two, leave closes it, state IS the push.
+const SOCKET_ACTIONS: Record<string, string> = {
+	ready: "/ready",
+	guess: "/guess",
+	"give-up": "/give-up",
+	message: "/message",
+	restart: "/restart",
+	start: "/start",
+	remove: "/remove",
+	"tile/select": "/tile/select",
+	"tile/release": "/tile/release",
+	"tile/answer": "/tile/answer",
+};
+// Socket-action burst guard per player -- see webSocketMessage.
+const SOCKET_ACTIONS_PER_WINDOW = 60;
+const SOCKET_ACTION_WINDOW_MS = 10_000;
 // A player unseen (no ping, no poll) for this long is dropped from the
 // session -- lazily, by whichever request or alarm tick next runs (see
 // pruneIdle), never by a timer of its own: an idle player is the unhappy
@@ -318,6 +337,11 @@ interface SessionRecord {
 	// Phase 2 -- all null/empty while status is "lobby". Shape follows
 	// gameType; the client discriminates on that, not on the question.
 	questions: RemoteQuestionPublic[];
+	// One per question, resolved at /start (lib/checkPlayerGuess.ts's
+	// RoundAnswer) so a guess is graded here, not against D1. null where
+	// the answer couldn't be resolved (then /guess falls back to D1).
+	// NEVER part of the public state -- see publicRound/publicQuestion.
+	answers: (RoundAnswer | null)[];
 	roundIndex: number; // 0-based index into `questions`.
 	roundStartedAt: number | null; // Epoch ms the current round began -- hint timing reads off this.
 	roundWinnerId: string | null; // Set the instant someone's guess is graded correct; stays null if the round instead resolves by everyone giving up.
@@ -528,6 +552,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 	// Set in the constructor (the storage and socket helpers are
 	// closure-local there).
 	private wipe!: () => Promise<void>;
+	private tokenForPlayer!: (playerId: string) => Promise<string | null>;
 	private tick!: (now: number) => Promise<void>;
 	private onSocketGone!: (ws: WebSocket) => Promise<void>;
 	private socketsLastSeen!: () => number;
@@ -592,6 +617,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 				session.feed = [];
 				session.feedNextId = 1;
 			}
+			if (!Array.isArray(session.answers)) session.answers = []; // Pre-2026-09-15 session: graded against D1 until its next /start.
 			return session;
 		};
 
@@ -599,17 +625,22 @@ export class RemoteGameSession extends DurableObject<Env> {
 		// tables (questions, tiles, feed) -- so a lock, a guess or a chat
 		// line never rewrites the question deck.
 		const coreJson = (session: SessionRecord): string => {
-			const { feed: _feed, questions: _questions, honour, ...rest } = session;
+			const { feed: _feed, questions: _questions, answers: _answers, honour, ...rest } = session;
 			void _feed;
 			void _questions;
+			void _answers;
 			return JSON.stringify({ ...rest, honour: honour ? { competitionId: honour.competitionId, competitionName: honour.competitionName } : null });
 		};
+
+		// The questions row carries the deck AND its answers -- both change
+		// only at /start, never on a guess, so they share one row.
+		const questionsJson = (session: SessionRecord): string => JSON.stringify({ questions: session.questions, answers: session.answers });
 
 		const rememberWritten = (state: Loaded): void => {
 			written.clear();
 			if (state.session) {
 				written.set("session", coreJson(state.session));
-				written.set("questions", JSON.stringify(state.session.questions));
+				written.set("questions", questionsJson(state.session));
 				for (const t of state.session.honour?.tiles ?? []) written.set(`tile:${t.season}`, JSON.stringify(t));
 				const feed = state.session.feed;
 				writtenFeedMaxId = feed.length ? feed[feed.length - 1].id : 0;
@@ -636,7 +667,15 @@ export class RemoteGameSession extends DurableObject<Env> {
 					if (row) {
 						const session = JSON.parse(row.data) as SessionRecord;
 						const q = sql.exec<{ data: string }>("SELECT data FROM questions WHERE id = 1").toArray()[0];
-						session.questions = q ? (JSON.parse(q.data) as RemoteQuestionPublic[]) : [];
+						const parsedQuestions = q ? (JSON.parse(q.data) as RemoteQuestionPublic[] | { questions: RemoteQuestionPublic[]; answers: (RoundAnswer | null)[] }) : [];
+						// The row was a bare question array before answers joined it (2026-09-15).
+						if (Array.isArray(parsedQuestions)) {
+							session.questions = parsedQuestions;
+							session.answers = [];
+						} else {
+							session.questions = parsedQuestions.questions;
+							session.answers = parsedQuestions.answers ?? [];
+						}
 						if (session.honour) {
 							session.honour.tiles = sql
 								.exec<{ data: string }>("SELECT data FROM tiles ORDER BY rowid")
@@ -700,7 +739,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 			const { session, players } = state;
 			if (session) {
 				if (upsert("session", "INSERT INTO session (id, data) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data", coreJson(session))) changed = true;
-				if (upsert("questions", "INSERT INTO questions (id, data) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data", JSON.stringify(session.questions)))
+				if (upsert("questions", "INSERT INTO questions (id, data) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data", questionsJson(session)))
 					changed = true;
 				const seenTiles = new Set<string>();
 				for (const t of session.honour?.tiles ?? []) {
@@ -985,6 +1024,8 @@ export class RemoteGameSession extends DurableObject<Env> {
 			return true;
 		};
 
+		this.tokenForPlayer = async (playerId) => (await load()).players.find((p) => p.id === playerId)?.token ?? null;
+
 		this.tick = async (now) => {
 			const { session, players } = await load();
 			if (!session) return;
@@ -1088,11 +1129,11 @@ export class RemoteGameSession extends DurableObject<Env> {
 			if (active.length === 0 || !active.every((p) => session.roundGivenUpPlayerIds.includes(p.id))) return false;
 
 			const question = session.questions[session.roundIndex];
-			// checkPlayerGuess's give-up branch is exactly "hand me the real
-			// answer without grading anything" -- the same lookup Club Run's
-			// own solo give-up uses (clubBadges.ts's /check-guess), reused
-			// rather than duplicating the entities join here.
-			const result = await checkPlayerGuess(this.env.DB, QUESTIONS_TABLE[session.gameType as RoundGameType], question.id, { giveUp: true });
+			// The answer resolved at /start, else (a session from before
+			// stored answers) checkPlayerGuess's give-up branch -- "hand me the
+			// real answer without grading anything".
+			const stored = session.answers[session.roundIndex] ?? null;
+			const result = stored ? { name: stored.name } : await checkPlayerGuess(this.env.DB, QUESTIONS_TABLE[session.gameType as RoundGameType], question.id, { giveUp: true });
 			if (!result) return false; // Defensive only -- see /guess's own "Unknown question" note.
 			session.roundAnswerName = result.name;
 			session.roundDecidedAt = now;
@@ -1208,6 +1249,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 				questionCount: null,
 				createdAt: now,
 				questions: [],
+				answers: [],
 				roundIndex: 0,
 				roundStartedAt: null,
 				roundWinnerId: null,
@@ -1483,13 +1525,21 @@ export class RemoteGameSession extends DurableObject<Env> {
 			// The one place the two formats' assembly differs -- everything
 			// downstream works off the built RemoteQuestionPublic list.
 			let questions: RemoteQuestionPublic[];
+			let picked: { id: number; player_id: number }[];
 			if (session.gameType === "teammates") {
 				const { results: rows } = await this.env.DB.prepare("SELECT id, player_id, teammate_ids, hints FROM teammate_questions").all<TeammateQuestionRow>();
-				questions = await buildTeammateQuestions(this.env.DB, pickRandomTeammateQuestions(rows ?? [], questionCount));
+				picked = pickRandomTeammateQuestions(rows ?? [], questionCount);
+				questions = await buildTeammateQuestions(this.env.DB, picked as TeammateQuestionRow[]);
 			} else {
 				const { results: rows } = await this.env.DB.prepare("SELECT id, player_id, club_sequence FROM club_badge_questions").all<QuestionRow>();
-				questions = await buildClubBadgeQuestions(this.env.DB, pickRandomEligibleQuestions(rows ?? [], questionCount));
+				picked = pickRandomEligibleQuestions(rows ?? [], questionCount);
+				questions = await buildClubBadgeQuestions(this.env.DB, picked as QuestionRow[]);
 			}
+			// The answers, resolved now so every guess this game is graded in
+			// memory (see SessionRecord.answers). Two indexed queries, once.
+			const answersByPlayer = await loadRoundAnswers(this.env.DB, picked.map((p) => p.player_id));
+			const playerByQuestion = new Map(picked.map((p) => [p.id, p.player_id]));
+			const answers = questions.map((q) => answersByPlayer.get(playerByQuestion.get(q.id) ?? -1) ?? null);
 			if (questions.length < questionCount) {
 				// Never expected in practice (the eligible pool is comfortably
 				// larger than MAX_QUESTION_COUNT -- see that constant's own
@@ -1501,6 +1551,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 
 			session.questionCount = questionCount;
 			session.questions = questions;
+			session.answers = answers;
 			startNewRound(session, players, 0, now);
 			await save();
 
@@ -1557,7 +1608,13 @@ export class RemoteGameSession extends DurableObject<Env> {
 			}
 
 			const question = session.questions[session.roundIndex];
-			const result = await checkPlayerGuess(this.env.DB, QUESTIONS_TABLE[session.gameType as RoundGameType], question.id, { guess: rawGuess });
+			// Graded here from the answer resolved at /start -- no D1 on the
+			// hot path (docs/scaling.md §5f); D1 only for a session that
+			// predates stored answers.
+			const stored = session.answers[session.roundIndex] ?? null;
+			const result = stored
+				? { result: gradeGuess(stored, rawGuess) ? ("correct" as const) : ("wrong" as const), name: stored.name }
+				: await checkPlayerGuess(this.env.DB, QUESTIONS_TABLE[session.gameType as RoundGameType], question.id, { guess: rawGuess });
 			if (!result) {
 				// Defensive only -- question.id always came from a real
 				// club_badge_questions row selected at /start.
@@ -1833,6 +1890,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 			session.status = "lobby";
 			session.questionCount = null;
 			session.questions = [];
+			session.answers = [];
 			session.roundIndex = 0;
 			session.roundStartedAt = null;
 			session.roundWinnerId = null;
@@ -1882,9 +1940,85 @@ export class RemoteGameSession extends DurableObject<Env> {
 		await this.tick(now);
 	}
 
-	// Clients only ever send "ping" (answered by the runtime without waking
-	// this object -- setWebSocketAutoResponse); anything else is ignored.
-	webSocketMessage(): void {}
+	// Actions over the socket (2026-09-15; docs/scaling.md §5g). A client
+	// with its socket open sends {id, type, body} instead of an HTTP POST
+	// -- an incoming socket message bills at 20:1 against one Worker + one
+	// Durable Object request for the same action, and it skips the Worker
+	// hop. The action is dispatched to the SAME Hono route the HTTP path
+	// uses (an internal Request through this.app.fetch, token supplied from
+	// the socket's own identity), so every rule, every middleware --
+	// idle pruning before, broadcast after -- and every reply shape is
+	// shared with the HTTP fallback; nothing is implemented twice. The
+	// reply is {id, status, body}; pushes carry no `id`. "ping" never
+	// reaches here (setWebSocketAutoResponse).
+	//
+	// What the Worker's per-player rate limiter did for HTTP actions is done
+	// here per socket player: a runaway client's messages still wake the
+	// object, so a burst beyond SOCKET_ACTIONS_PER_WINDOW in
+	// SOCKET_ACTION_WINDOW_MS is answered 429 without dispatching.
+	async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
+		if (typeof message !== "string") return;
+		let parsed: { id?: unknown; type?: unknown; body?: unknown };
+		try {
+			parsed = JSON.parse(message) as typeof parsed;
+		} catch {
+			return; // Not an action.
+		}
+		const id = typeof parsed.id === "string" ? parsed.id : null;
+		if (id === null) return;
+		const reply = (status: number, body: unknown) => {
+			try {
+				ws.send(JSON.stringify({ id, status, body }));
+			} catch {
+				/* socket mid-close */
+			}
+		};
+		const path = typeof parsed.type === "string" ? SOCKET_ACTIONS[parsed.type] : undefined;
+		if (!path) {
+			reply(400, { error: "Unknown action" });
+			return;
+		}
+		const att = ws.deserializeAttachment() as { playerId?: string } | null;
+		if (!att?.playerId || !this.withinSocketActionLimit(att.playerId)) {
+			reply(429, { error: "Too many requests -- slow down a little." });
+			return;
+		}
+		const token = await this.tokenForPlayer(att.playerId);
+		if (!token) {
+			reply(401, { error: "Invalid session token" });
+			ws.close(4410, "No longer in this session");
+			return;
+		}
+		const res = await this.app.fetch(
+			new Request(`https://do${path}`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json", "X-Player-Token": token },
+				body: parsed.body === undefined ? "{}" : JSON.stringify(parsed.body),
+			}),
+		);
+		let body: unknown = null;
+		try {
+			body = await res.json();
+		} catch {
+			body = null;
+		}
+		reply(res.status, body);
+	}
+
+	// Per-player sliding window for socket actions -- in memory, so it
+	// resets when the object hibernates, which is fine for a burst guard.
+	private readonly socketActionTimes = new Map<string, number[]>();
+	private withinSocketActionLimit(playerId: string): boolean {
+		const now = Date.now();
+		const times = (this.socketActionTimes.get(playerId) ?? []).filter((t) => now - t < SOCKET_ACTION_WINDOW_MS);
+		if (times.length >= SOCKET_ACTIONS_PER_WINDOW) {
+			this.socketActionTimes.set(playerId, times);
+			return false;
+		}
+		times.push(now);
+		this.socketActionTimes.set(playerId, times);
+		return true;
+	}
 
 	async webSocketClose(ws: WebSocket, code: number, reason: string): Promise<void> {
 		ws.close(code, reason);

@@ -31,6 +31,10 @@ interface Args {
 	seconds: number;
 	game: "club-badges" | "roll-of-honour";
 	rampPerMinute: number;
+	// "ws" (default): in-session actions travel over each player's socket
+	// as {id, type, body}, as the real client does since 2026-09-15; "http"
+	// sends them as POSTs, the fallback path, for comparison.
+	transport: "ws" | "http";
 }
 
 function parseArgs(): Args {
@@ -46,6 +50,7 @@ function parseArgs(): Args {
 		seconds: Number(get("seconds", "60")),
 		game: get("game", "club-badges") as Args["game"],
 		rampPerMinute: Number(get("ramp-per-min", "110")),
+		transport: get("transport", "ws") as Args["transport"],
 	};
 }
 
@@ -90,7 +95,11 @@ interface Player {
 	guesses: string[];
 	ws: WebSocket | null;
 	stopped: boolean;
+	pending: Map<string, (reply: { status: number; body: unknown }) => void>;
+	seq: number;
 }
+let socketActionsSent = 0;
+let socketActionFallbacks = 0;
 
 interface SessionState {
 	status: string;
@@ -130,6 +139,45 @@ async function api<T = unknown>(route: string, path: string, init: RequestInit &
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// An in-session action: over the player's socket when it's open (the
+// reply is matched by id and timed like an HTTP call, under the same route
+// label so the two transports compare directly), else the HTTP POST.
+async function action<T = unknown>(p: Player, route: string, type: string, path: string, body?: unknown): Promise<{ status: number; body: T | null }> {
+	const ws = p.ws;
+	if (args.transport === "ws" && ws && ws.readyState === WebSocket.OPEN) {
+		const id = String(++p.seq);
+		const t0 = performance.now();
+		const s = stats(route);
+		const reply = await new Promise<{ status: number; body: unknown } | null>((resolve) => {
+			const timer = setTimeout(() => {
+				p.pending.delete(id);
+				resolve(null);
+			}, 5_000);
+			p.pending.set(id, (r) => {
+				clearTimeout(timer);
+				resolve(r);
+			});
+			try {
+				ws.send(JSON.stringify({ id, type, body }));
+			} catch {
+				clearTimeout(timer);
+				p.pending.delete(id);
+				resolve(null);
+			}
+		});
+		if (reply) {
+			if (measuring) {
+				socketActionsSent += 1;
+				s.latencies.push(performance.now() - t0);
+				s.statuses.set(reply.status, (s.statuses.get(reply.status) ?? 0) + 1);
+			}
+			return { status: reply.status, body: reply.body as T };
+		}
+		if (measuring) socketActionFallbacks += 1;
+	}
+	return api<T>(route, `/api/remote/sessions/${p.code}${path}`, { method: "POST", token: p.token, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+}
 const pick = <T>(xs: T[]): T => xs[Math.floor(Math.random() * xs.length)];
 const jitter = (baseMs: number) => baseMs * (0.6 + Math.random() * 0.8);
 
@@ -166,15 +214,22 @@ function connect(p: Player): void {
 	};
 	ws.onmessage = (ev) => {
 		if (typeof ev.data !== "string" || ev.data === "pong") return;
+		let msg: SessionState | { id: string; status: number; body: unknown };
+		try {
+			msg = JSON.parse(ev.data) as typeof msg;
+		} catch {
+			return;
+		}
+		if ("id" in msg && typeof msg.id === "string") {
+			p.pending.get(msg.id)?.(msg);
+			p.pending.delete(msg.id);
+			return;
+		}
 		if (measuring) {
 			pushes += 1;
 			pushBytes += ev.data.length;
 		}
-		try {
-			p.state = JSON.parse(ev.data) as SessionState;
-		} catch {
-			/* ignore */
-		}
+		p.state = msg as SessionState;
 	};
 	ws.onerror = () => {
 		socketFailures += 1;
@@ -189,7 +244,7 @@ async function act(p: Player): Promise<void> {
 	const s = p.state;
 	if (!s) return;
 	if (s.status === "finished") {
-		if (p.isHost) await api("POST /restart", `/api/remote/sessions/${p.code}/restart`, { method: "POST", token: p.token, body: JSON.stringify({ keepScores: false }) });
+		if (p.isHost) await action(p, "restart", "restart", "/restart", { keepScores: false });
 		return;
 	}
 	if (s.status === "lobby") {
@@ -198,14 +253,14 @@ async function act(p: Player): Promise<void> {
 			if (everyoneReady) await startGame(p);
 		} else {
 			const me = s.players.find((x) => x.id === p.id);
-			if (me && !me.ready) await api("POST /ready", `/api/remote/sessions/${p.code}/ready`, { method: "POST", token: p.token, body: JSON.stringify({ ready: true }) });
+			if (me && !me.ready) await action(p, "ready", "ready", "/ready", { ready: true });
 		}
 		return;
 	}
 	if (s.status !== "in_progress") return;
 
 	if (Math.random() < 0.04) {
-		await api("POST /message", `/api/remote/sessions/${p.code}/message`, { method: "POST", token: p.token, body: JSON.stringify({ text: pick(["nice", "no way", "😂", "come on", "so close"]) }) });
+		await action(p, "message", "message", "/message", { text: pick(["nice", "no way", "😂", "come on", "so close"]) });
 	}
 
 	if (args.game === "roll-of-honour") {
@@ -213,14 +268,14 @@ async function act(p: Player): Promise<void> {
 		const open = s.honour.tiles.filter((t) => t.status === "open");
 		if (open.length === 0) return;
 		if (Math.random() < 0.03) {
-			await api("POST /give-up", `/api/remote/sessions/${p.code}/give-up`, { method: "POST", token: p.token });
+			await action(p, "give-up", "give-up", "/give-up");
 			return;
 		}
 		const season = pick(open).season;
-		const sel = await api<{ ok?: true }>("POST /tile/select", `/api/remote/sessions/${p.code}/tile/select`, { method: "POST", token: p.token, body: JSON.stringify({ season }) });
+		const sel = await action<{ ok?: true }>(p, "tile/select", "tile/select", "/tile/select", { season });
 		if (sel.status !== 200) return;
 		await sleep(jitter(2_500)); // "thinking" while holding the tile
-		await api("POST /tile/answer", `/api/remote/sessions/${p.code}/tile/answer`, { method: "POST", token: p.token, body: JSON.stringify({ season, guess: pick(await guessPool()) }) });
+		await action(p, "tile/answer", "tile/answer", "/tile/answer", { season, guess: pick(await guessPool()) });
 		return;
 	}
 
@@ -229,26 +284,26 @@ async function act(p: Player): Promise<void> {
 	if (round.answerName !== null) {
 		// Decided: guests ready up for the next one.
 		const me = s.players.find((x) => x.id === p.id);
-		if (!p.isHost && me && !me.ready) await api("POST /ready", `/api/remote/sessions/${p.code}/ready`, { method: "POST", token: p.token, body: JSON.stringify({ ready: true }) });
+		if (!p.isHost && me && !me.ready) await action(p, "ready", "ready", "/ready", { ready: true });
 		p.guesses = [];
 		p.gaveUp = false;
 		return;
 	}
 	if (round.givenUpPlayerIds.includes(p.id)) return;
 	if (p.guesses.length >= 3 && Math.random() < 0.5) {
-		await api("POST /give-up", `/api/remote/sessions/${p.code}/give-up`, { method: "POST", token: p.token });
+		await action(p, "give-up", "give-up", "/give-up");
 		p.gaveUp = true;
 		return;
 	}
 	const guess = pick(await guessPool());
 	p.guesses.push(guess);
-	await api("POST /guess", `/api/remote/sessions/${p.code}/guess`, { method: "POST", token: p.token, body: JSON.stringify({ guess }) });
+	await action(p, "guess", "guess", "/guess", { guess });
 }
 
 let competitionId = "";
 async function startGame(host: Player): Promise<void> {
 	const body = args.game === "roll-of-honour" ? { questionCount: 1, competitionId } : { questionCount: 5 };
-	await api("POST /start", `/api/remote/sessions/${host.code}/start`, { method: "POST", token: host.token, body: JSON.stringify(body) });
+	await action(host, "start", "start", "/start", body);
 }
 
 async function playerLoop(p: Player): Promise<void> {
@@ -277,7 +332,7 @@ async function makeRoom(index: number, size: number): Promise<Player[]> {
 		return [];
 	}
 	const code = created.body.sessionCode;
-	const players: Player[] = [{ name: `Host${index}`, code, token: created.body.playerToken, id: created.body.playerId, isHost: true, state: null, gaveUp: false, guesses: [], ws: null, stopped: false }];
+	const players: Player[] = [{ name: `Host${index}`, code, token: created.body.playerToken, id: created.body.playerId, isHost: true, state: null, gaveUp: false, guesses: [], ws: null, stopped: false, pending: new Map(), seq: 0 }];
 	for (let g = 1; g < size; g++) {
 		await gate();
 		const joined = await api<{ playerId: string; playerToken: string }>("POST /join", `/api/remote/sessions/${code}/join`, {
@@ -288,14 +343,14 @@ async function makeRoom(index: number, size: number): Promise<Player[]> {
 			console.error(`  room ${index}: join failed (${joined.status})`);
 			continue;
 		}
-		players.push({ name: `Guest${index}-${g}`, code, token: joined.body.playerToken, id: joined.body.playerId, isHost: false, state: null, gaveUp: false, guesses: [], ws: null, stopped: false });
+		players.push({ name: `Guest${index}-${g}`, code, token: joined.body.playerToken, id: joined.body.playerId, isHost: false, state: null, gaveUp: false, guesses: [], ws: null, stopped: false, pending: new Map(), seq: 0 });
 	}
 	for (const p of players) connect(p);
 	return players;
 }
 
 async function main(): Promise<void> {
-	console.log(`loadtest: ${args.players} players in rooms of ${args.roomSize}, ${args.game}, ${args.seconds}s measured, against ${args.base}`);
+	console.log(`loadtest: ${args.players} players in rooms of ${args.roomSize}, ${args.game}, actions over ${args.transport}, ${args.seconds}s measured, against ${args.base}`);
 	if (args.game === "roll-of-honour") {
 		const comps = await api<{ competitions: { id: string }[] }>("GET competitions", "/api/roll-of-honour/competitions");
 		competitionId = comps.body?.competitions[0]?.id ?? "";
@@ -352,13 +407,15 @@ async function main(): Promise<void> {
 	console.log(widths.map((w) => "-".repeat(w)).join("  "));
 	for (const r of rows) console.log(line(r));
 	console.log("");
-	console.log(`requests: ${totalRequests} in ${measuredSeconds.toFixed(0)}s = ${((totalRequests / measuredSeconds) * 60).toFixed(0)}/min = ${((totalRequests / measuredSeconds) * 60 / Math.max(1, all.length)).toFixed(1)}/min/player`);
+	const httpRequests = totalRequests - socketActionsSent;
+	console.log(`actions: ${totalRequests} in ${measuredSeconds.toFixed(0)}s = ${((totalRequests / measuredSeconds) * 60).toFixed(0)}/min = ${((totalRequests / measuredSeconds) * 60 / Math.max(1, all.length)).toFixed(1)}/min/player`);
+	console.log(`  of which over the socket: ${socketActionsSent} (billed 20:1 = ~${Math.ceil(socketActionsSent / 20)} requests); as HTTP: ${httpRequests}${socketActionFallbacks ? ` (${socketActionFallbacks} were socket timeouts that fell back)` : ""}`);
 	console.log(`pushes received: ${pushes} (${(pushBytes / 1024).toFixed(0)} KB) = ${(pushes / Math.max(1, all.length)).toFixed(1)} per player, ${((pushBytes / 1024) / Math.max(1, all.length)).toFixed(1)} KB per player`);
 	// /message's own 429 is the 30s chat cooldown (an application rule the
 	// simulated chatter trips on purpose), not a rate-limit binding.
 	let limited = 0;
 	for (const [route, s] of routes) {
-		if (route === "POST /message") continue;
+		if (route === "message" || route === "POST /message") continue;
 		limited += (s.statuses.get(429) ?? 0) + (s.statuses.get(503) ?? 0);
 	}
 	if (limited > 0) console.log(`rate-limited responses (429/503, excluding the chat cooldown): ${limited} -- a limit in wrangler.json's ratelimits is binding at this load`);

@@ -57,3 +57,39 @@ export async function checkPlayerGuess(
 		name: player.canonical_name,
 	};
 }
+
+// ---- Grading inside the session object (2026-09-15) ----
+//
+// A remote round's answer, resolved ONCE at /start and kept in the
+// session object so a guess is graded in memory -- checkPlayerGuess()
+// above round-trips to D1 three times per guess, which the load test
+// measured as ~230 ms per guess against ~50 ms for every other action
+// (docs/scaling.md §5f). Same rule as above: canonical name or any
+// curated alias, compared on collapseToAlnum(normalize(...)). `keys`
+// are the pre-collapsed match strings; `name` is what's revealed.
+export interface RoundAnswer {
+	name: string;
+	keys: string[];
+}
+
+export function gradeGuess(answer: RoundAnswer, guess: string): boolean {
+	const key = collapseToAlnum(normalize(guess));
+	return key.length > 0 && answer.keys.includes(key);
+}
+
+// Every picked question's answer in two indexed queries (names, aliases),
+// keyed by player id. A player missing an entities row is simply absent
+// -- the caller falls back to checkPlayerGuess() for that question.
+export async function loadRoundAnswers(db: D1Database, playerIds: number[]): Promise<Map<number, RoundAnswer>> {
+	const ids = [...new Set(playerIds)];
+	const out = new Map<number, RoundAnswer>();
+	if (ids.length === 0) return out;
+	const marks = ids.map(() => "?").join(",");
+	const [names, aliases] = await Promise.all([
+		db.prepare(`SELECT id, canonical_name FROM entities WHERE id IN (${marks})`).bind(...ids).all<{ id: number; canonical_name: string }>(),
+		db.prepare(`SELECT entity_id, alias FROM entity_aliases WHERE entity_id IN (${marks})`).bind(...ids).all<{ entity_id: number; alias: string }>(),
+	]);
+	for (const row of names.results ?? []) out.set(row.id, { name: row.canonical_name, keys: [collapseToAlnum(row.canonical_name)] });
+	for (const row of aliases.results ?? []) out.get(row.entity_id)?.keys.push(collapseToAlnum(row.alias));
+	return out;
+}

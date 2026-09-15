@@ -50,6 +50,10 @@ const SOCKET_MAX_UNANSWERED_PINGS = 2;
 // server; the browser's `online` event cuts the wait short when the
 // network is back.
 const SOCKET_RETRY_MAX_MS = 30_000;
+// An action sent over the socket that gets no reply in this long is
+// re-sent over HTTP (the socket is probably dead and about to be
+// noticed by the missed-pong check).
+const SOCKET_REPLY_TIMEOUT_MS = 5_000;
 // Idle handling (2026-09-15) -- the unhappy case, so it must cost
 // nothing: a tab HIDDEN for HIDDEN_GRACE_MS (phone locked, switched app)
 // disconnects, and reconnects the moment it's visible again (one upgrade
@@ -146,6 +150,11 @@ export function useRemoteSession(): UseRemoteSessionResult {
 	identityRef.current = identity;
 	// Whether the push channel is up -- the poll loop stands down while it is.
 	const socketOpenRef = useRef(false);
+	// The open socket itself and the replies awaited on it, for actions
+	// sent over it (see perform below): request id -> resolver.
+	const socketRef = useRef<WebSocket | null>(null);
+	const pendingRef = useRef(new Map<string, (reply: { status: number; body: unknown }) => void>());
+	const nextRequestId = useRef(1);
 
 	// The session this identity pointed at is gone or never existed -- a
 	// stale localStorage entry from a previous game, most likely, or a
@@ -176,6 +185,42 @@ export function useRemoteSession(): UseRemoteSessionResult {
 			lastFeedIdRef.current = Math.max(lastFeedIdRef.current, ...body.feed.map((e) => e.id));
 		}
 		setState(body);
+	}, []);
+
+	// Every in-session action goes through here (2026-09-15; docs/
+	// scaling.md §5g): over the socket when it's open -- {id, type, body},
+	// answered by {id, status, body}, billed 20:1 and no Worker hop --
+	// else the HTTP call the caller supplies. The server dispatches a
+	// socket action to the very same route, so the reply shapes are
+	// identical either way. A socket reply that doesn't arrive in
+	// SOCKET_REPLY_TIMEOUT_MS falls back to HTTP too. After an HTTP action
+	// the caller refreshes; after a socket action the broadcast that
+	// follows every write already carries the new state.
+	const perform = useCallback(async <T,>(type: string, body: unknown, viaHttp: () => Promise<{ status: number; body: T }>): Promise<{ status: number; body: T; viaSocket: boolean }> => {
+		const ws = socketRef.current;
+		if (ws && ws.readyState === WebSocket.OPEN) {
+			const id = String(nextRequestId.current++);
+			const reply = await new Promise<{ status: number; body: unknown } | null>((resolve) => {
+				const timer = setTimeout(() => {
+					pendingRef.current.delete(id);
+					resolve(null);
+				}, SOCKET_REPLY_TIMEOUT_MS);
+				pendingRef.current.set(id, (r) => {
+					clearTimeout(timer);
+					resolve(r);
+				});
+				try {
+					ws.send(JSON.stringify({ id, type, body }));
+				} catch {
+					clearTimeout(timer);
+					pendingRef.current.delete(id);
+					resolve(null);
+				}
+			});
+			if (reply) return { status: reply.status, body: reply.body as T, viaSocket: true };
+		}
+		const res = await viaHttp();
+		return { ...res, viaSocket: false };
 	}, []);
 
 	const refresh = useCallback(
@@ -292,6 +337,7 @@ export function useRemoteSession(): UseRemoteSessionResult {
 			if (disposed) return;
 			const socket = new WebSocket(sessionSocketUrl(identity.sessionCode, identity.playerToken, lastFeedIdRef.current));
 			ws = socket;
+			socketRef.current = socket;
 			let unansweredPings = 0;
 			let opened = false;
 			socket.onopen = () => {
@@ -312,18 +358,25 @@ export function useRemoteSession(): UseRemoteSessionResult {
 				unansweredPings = 0; // Anything arriving proves the connection.
 				if (typeof event.data !== "string" || event.data === "pong") return;
 				if (identityRef.current !== identity) return;
-				let body: SessionState;
+				let parsed: SessionState | { id: string; status: number; body: unknown };
 				try {
-					body = JSON.parse(event.data) as SessionState;
+					parsed = JSON.parse(event.data) as typeof parsed;
 				} catch {
 					return;
 				}
+				if ("id" in parsed && typeof parsed.id === "string") {
+					// A reply to an action sent over the socket -- see perform.
+					pendingRef.current.get(parsed.id)?.(parsed);
+					pendingRef.current.delete(parsed.id);
+					return;
+				}
 				setError(null);
-				applyState(body);
+				applyState(parsed as SessionState);
 			};
 			socket.onerror = () => socket.close();
 			socket.onclose = (event) => {
 				socketOpenRef.current = false;
+				if (socketRef.current === socket) socketRef.current = null;
 				clearInterval(pingTimer);
 				if (disposed) return;
 				if (event.code === 4404 || event.code === 4410) {
@@ -400,124 +453,124 @@ export function useRemoteSession(): UseRemoteSessionResult {
 	const setReadyAction = useCallback(
 		async (ready: boolean) => {
 			if (!identity) return;
-			const res = await apiSetReady(identity.sessionCode, identity.playerToken, ready);
+			const res = await perform("ready", { ready }, () => apiSetReady(identity.sessionCode, identity.playerToken, ready));
 			if (res.status !== 200) {
 				setError("error" in res.body ? res.body.error : "Couldn't update ready status.");
 				return;
 			}
-			await refresh(identity);
+			if (!res.viaSocket) await refresh(identity);
 		},
-		[identity, refresh],
+		[identity, perform, refresh],
 	);
 
 	const start = useCallback(
 		async (questionCount: number, competitionId?: string): Promise<string | null> => {
 			if (!identity) return "No active session.";
-			const res = await apiStartGame(identity.sessionCode, identity.playerToken, questionCount, competitionId);
+			const res = await perform("start", { questionCount, competitionId }, () => apiStartGame(identity.sessionCode, identity.playerToken, questionCount, competitionId));
 			if (res.status !== 200) {
 				const message = "error" in res.body ? res.body.error : "Couldn't start the game.";
 				setError(message);
 				return message;
 			}
-			await refresh(identity);
+			if (!res.viaSocket) await refresh(identity);
 			return null;
 		},
-		[identity, refresh],
+		[identity, perform, refresh],
 	);
 
 	const removePlayerAction = useCallback(
 		async (playerId: string) => {
 			if (!identity) return;
-			const res = await apiRemovePlayer(identity.sessionCode, identity.playerToken, playerId);
+			const res = await perform("remove", { playerId }, () => apiRemovePlayer(identity.sessionCode, identity.playerToken, playerId));
 			if (res.status !== 200) {
 				setError("error" in res.body ? res.body.error : "Couldn't remove that player.");
 				return;
 			}
-			await refresh(identity);
+			if (!res.viaSocket) await refresh(identity);
 		},
-		[identity, refresh],
+		[identity, perform, refresh],
 	);
 
 	const guess = useCallback(
 		async (guessText: string): Promise<"correct" | "wrong" | null> => {
 			if (!identity) return null;
-			const res = await apiSubmitGuess(identity.sessionCode, identity.playerToken, guessText);
+			const res = await perform("guess", { guess: guessText }, () => apiSubmitGuess(identity.sessionCode, identity.playerToken, guessText));
 			if (res.status !== 200 || !("result" in res.body)) {
 				setError("error" in res.body ? res.body.error : "Couldn't submit that guess.");
 				return null;
 			}
-			await refresh(identity);
+			if (!res.viaSocket) await refresh(identity);
 			return res.body.result;
 		},
-		[identity, refresh],
+		[identity, perform, refresh],
 	);
 
 	const giveUp = useCallback(async () => {
 		if (!identity) return;
-		const res = await apiGiveUp(identity.sessionCode, identity.playerToken);
+		const res = await perform("give-up", {}, () => apiGiveUp(identity.sessionCode, identity.playerToken));
 		if (res.status !== 200) {
 			setError("error" in res.body ? res.body.error : "Couldn't give up on this one.");
 			return;
 		}
-		await refresh(identity);
-	}, [identity, refresh]);
+		if (!res.viaSocket) await refresh(identity);
+	}, [identity, perform, refresh]);
 
 	const postMessage = useCallback(
 		async (text: string): Promise<{ error: string; retryAfterMs?: number } | null> => {
 			if (!identity) return { error: "No active session." };
-			const res = await apiPostMessage(identity.sessionCode, identity.playerToken, text);
+			const res = await perform("message", { text }, () => apiPostMessage(identity.sessionCode, identity.playerToken, text));
 			if (res.status !== 200) {
 				return "error" in res.body ? { error: res.body.error, retryAfterMs: res.body.retryAfterMs } : { error: "Couldn't send that message." };
 			}
-			await refresh(identity);
+			if (!res.viaSocket) await refresh(identity);
 			return null;
 		},
-		[identity, refresh],
+		[identity, perform, refresh],
 	);
 
 	const restart = useCallback(
 		async (keepScores: boolean) => {
 			if (!identity) return;
-			const res = await apiRestart(identity.sessionCode, identity.playerToken, keepScores);
+			const res = await perform("restart", { keepScores }, () => apiRestart(identity.sessionCode, identity.playerToken, keepScores));
 			if (res.status !== 200) {
 				setError("error" in res.body ? res.body.error : "Couldn't start a new game.");
 				return;
 			}
-			await refresh(identity);
+			if (!res.viaSocket) await refresh(identity);
 		},
-		[identity, refresh],
+		[identity, perform, refresh],
 	);
 
 	const selectTile = useCallback(
 		async (season: string) => {
 			if (!identity) return { error: "No active session." };
-			const res = await apiSelectTile(identity.sessionCode, identity.playerToken, season);
+			const res = await perform("tile/select", { season }, () => apiSelectTile(identity.sessionCode, identity.playerToken, season));
 			if (res.status !== 200 || !("ok" in res.body)) {
 				return "error" in res.body ? { error: res.body.error, retryAfterMs: res.body.retryAfterMs } : { error: "Couldn't take that season." };
 			}
-			await refresh(identity);
+			if (!res.viaSocket) await refresh(identity);
 			return { lockedForMs: res.body.lockedForMs };
 		},
-		[identity, refresh],
+		[identity, perform, refresh],
 	);
 
 	const releaseTile = useCallback(async () => {
 		if (!identity) return;
-		await apiReleaseTile(identity.sessionCode, identity.playerToken);
-		await refresh(identity);
-	}, [identity, refresh]);
+		const res = await perform("tile/release", {}, () => apiReleaseTile(identity.sessionCode, identity.playerToken));
+		if (!res.viaSocket) await refresh(identity);
+	}, [identity, perform, refresh]);
 
 	const answerTile = useCallback(
 		async (season: string, guess: string) => {
 			if (!identity) return { error: "No active session." };
-			const res = await apiAnswerTile(identity.sessionCode, identity.playerToken, season, guess);
+			const res = await perform("tile/answer", { season, guess }, () => apiAnswerTile(identity.sessionCode, identity.playerToken, season, guess));
 			if (res.status !== 200 || !("result" in res.body)) {
 				return { error: "error" in res.body ? res.body.error : "Couldn't submit that answer." };
 			}
-			await refresh(identity);
+			if (!res.viaSocket) await refresh(identity);
 			return res.body;
 		},
-		[identity, refresh],
+		[identity, perform, refresh],
 	);
 
 	const leave = useCallback(async () => {

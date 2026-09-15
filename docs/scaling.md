@@ -201,14 +201,16 @@ pattern and the billing is built for it:
 - **Hibernation** means an idle connection consumes no duration. Players
   sitting on a reveal or a lobby cost nothing until something happens.
 
-Effect on the numbers above, **as designed**: 300 concurrent players
-for a month goes from ~48 M billable requests to well **under 1 M** --
-inside the paid plan's included amounts. **As built (measured 2026-09-15,
-§5f): not yet.** The polling is gone, but a player's actions still
-travel as HTTP requests, one Worker + one DO request each, so 500 active
-players measure ~3,600 requests/min (~20 M a month at 3 h/night). The
-20:1 billing only applies to messages sent *over* the socket -- moving
-actions onto it is §6's 5g. Latency for another player's lock/release
+Effect on the numbers above: 300 concurrent players for a month goes
+from ~48 M billable requests to well **under 1 M** -- inside the paid
+plan's included amounts. That needed two steps: the polling gone
+(2026-09-14), and then -- because the first load test (§5f) showed a
+player's actions still travelling as HTTP, one Worker + one DO request
+each, ~3,600/min at 500 players -- **actions over the socket**
+(2026-09-15, §5g): the client sends `{id, type, body}` on its open
+socket, the object dispatches it to the same Hono route the HTTP path
+uses and answers `{id, status, body}`, HTTP stays as the fallback. An
+incoming socket message bills 20:1. Latency for another player's lock/release
 drops from 0-1.5 s to tens of milliseconds, and the 5 s start-countdown
 and reveal-hold windows can shrink (they exist to paper over poll
 skew -- kept for now, they're also what lets every device count down
@@ -421,7 +423,24 @@ Pushes received: Club Run ~40/min/player, ~64 KB/min/player; Roll of
 Honour **~70/min/player, ~330 KB/min/player** (every tile event pushes
 the whole ~5-10 KB grid to every socket in the room).
 
-What it showed:
+**Re-measured the same evening after 5g + 5h** (actions over the
+socket, guesses graded in the object), same laptop, same staging Worker:
+
+| Run | Actions | Over the socket | Guess / tile answer | Ready, give up, chat | Start | Errors |
+|---|---|---|---|---|---|---|
+| **500 players, Club Run, 120s** | 7,663 (3,831/min) | 7,659 (**~383 billable requests**, 20:1); 4 as HTTP, 1 a socket timeout that fell back | **p50 29 ms, p99 58 ms**, max 0.8 s | p50 30 ms, p99 ~70 ms | p50 386 ms | none; 30 socket failures in 530 opens |
+| 100 players, Roll of Honour, 90s | 1,781 (1,187/min) | 1,781 (~90 billable) | tile answer p50 29 ms, p99 73 ms | p50 ~30 ms | 220 ms | none |
+
+So at 500 players the object tier now bills about **190 requests a
+minute** instead of 3,600, a guess went from 231 ms to 29 ms (the D1
+round-trip was almost all of it -- the remaining ~30 ms is the
+laptop-to-edge hop, the same as every other action), and the single
+500 didn't recur in 4,782 guesses. `/start` is the one slower call
+(~390 ms at 500 players): it builds the deck and now also resolves the
+answers from D1, once per game. Roll of Honour's push volume is
+unchanged (~330 KB/min/player) -- tile deltas remain the open item.
+
+What the first runs showed:
 
 1. **The object tier holds.** 500 concurrent players across 84 session
    objects: every non-guess action at ~50 ms p50 and ~120 ms p99, no
@@ -429,22 +448,21 @@ What it showed:
    limit is enforced per Cloudflare location and best-effort; 3,630/min
    from one location did not trip it -- read it as "bounded", not
    "exact").
-2. **A guess costs ~230 ms; everything else ~50 ms.** The difference is
-   grading: `/guess` round-trips from the object to D1 (`checkPlayerGuess`),
-   while a Roll of Honour tile answer is graded from the tile record
-   already in the object (43 ms). Grading a round's answer inside the
-   object -- store the normalised answer and aliases in the session at
-   `/start` -- would take the D1 read off the hot path and make a guess
-   as fast as a give-up. (5h in §6.)
-3. **Actions are HTTP, so they bill as full requests.** §4b's "under 1 M
-   billable a month for 300 players" assumed actions travel over the
-   socket at 20:1. They don't yet: a guess, ready, give-up or chat is
-   one Worker request plus one Durable Object request. Measured, 500
-   active players are ~3,600 requests/min -- 3 hours a night for a month
-   is ~20 M Worker + ~20 M DO requests, roughly $3 + $3 over the paid
-   plan's included amounts. Not expensive, but it scales with actions.
-   Sending actions over the open socket (5g in §6) would make the same
-   load ~180 billable requests/min. The pushes back are already free.
+2. **A guess cost ~230 ms; everything else ~50 ms.** The difference was
+   grading: `/guess` round-tripped from the object to D1
+   (`checkPlayerGuess`), while a Roll of Honour tile answer is graded
+   from the tile record already in the object (43 ms). **Fixed the same
+   day (5h):** each round's answer (name and collapsed match keys) is
+   resolved at `/start` and kept with the deck, so a guess is graded in
+   memory -- 29 ms in the re-measurement, the same as a give-up.
+3. **Actions were HTTP, so they billed as full requests.** §4b's "under
+   1 M billable a month for 300 players" assumed actions travel over the
+   socket at 20:1; at the time they didn't. Measured, 500 active players
+   were ~3,600 requests/min -- 3 hours a night for a month is ~20 M
+   Worker + ~20 M DO requests, roughly $3 + $3 over the paid plan's
+   included amounts. **Fixed the same day (5g):** the re-measurement
+   above puts the same load at ~190 billable requests/min. The pushes
+   back were always free.
 4. **Roll of Honour's grid push is the heavy payload**: ~330 KB/min per
    player at 100 players, free on egress but real on phones. Tile deltas
    (only the changed tile per push) would cut it ~10× (§6's tier-3
@@ -483,8 +501,8 @@ mix.
 | ~~Edge image cache (5c)~~ | **Done 2026-09-14** -- once per location per day, not per browser | -- |
 | ~~Per-IP limit on session create/join (5d)~~ | **Done 2026-09-15** -- 120/min per IP, create + join combined | -- |
 | ~~Load test (5f)~~ | **Done 2026-09-15** -- `npm run loadtest` against the staging Worker; results in §5f, re-run before declaring the next tier | -- |
-| **Actions over the socket** (5g, new) | Before "hundreds every night" on the paid plan -- the load test showed actions are still one HTTP request each, so 500 players is ~3,600 Worker requests/min; over the socket that bills 20:1 | medium |
-| **Grade guesses in the object** (5h, new) | With 5g, or when guess latency matters -- a guess is ~230 ms p50 against ~50 ms for every other action because grading round-trips to D1 | small-medium |
+| ~~Actions over the socket (5g)~~ | **Done 2026-09-15** -- every in-session action (ready, guess, give up, chat, restart, start, remove, tile select/release/answer) goes `{id, type, body}` over the open socket, dispatched to the same route; HTTP is the fallback; per-player burst guard in the object | -- |
+| ~~Grade guesses in the object (5h)~~ | **Done 2026-09-15** -- each round's answer (name + collapsed match keys) is resolved at `/start` and kept with the deck; a guess is graded in memory, D1 only for a pre-existing session | -- |
 
 ## 7. What to leave alone
 
