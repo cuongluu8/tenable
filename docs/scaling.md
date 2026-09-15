@@ -233,14 +233,17 @@ How it was built (all in `remoteGameSession.ts`, "WebSockets" section):
   pings or timer wakes; a dropped connection is an edge case that needs
   handling, not speed, so neither is spent on it.
 - Idle players (2026-09-15) cost nothing: the client disconnects when
-  its tab is hidden and reconnects when visible (one upgrade request per
-  cycle instead of pings all night), pauses after 10 minutes without a
-  touch ("Still there?"), and the object drops anyone unseen for 30
-  minutes (`IDLE_REMOVE_MS`) **lazily**, on the next request or tick --
-  no alarm of its own. An idle host outside a live game ends the
-  session; mid-game the host is kept so the others can finish. So a
+  its tab has been hidden for 30s (a quick app switch or auto-lock stays
+  connected -- otherwise each was a reconnect and a full push) and
+  reconnects when visible (one upgrade request per cycle instead of
+  pings all night), pauses after 10 minutes without a tap, scroll or
+  pointer movement ("Still there?"), and the object drops anyone unseen
+  for 30 minutes (`IDLE_REMOVE_MS`) **lazily**, on the next request or
+  tick -- no alarm of its own. An idle host outside a live game ends
+  the session; mid-game the host is kept so the others can finish. So a
   session everyone has walked away from is hibernating storage until
-  its 24h expiry, and nothing else.
+  its expiry -- 24h, or 1h once it has ended or emptied -- and nothing
+  else.
 - The client (`useRemoteSession.ts`) applies a push exactly as it did a
   poll body; the poll loop stands down while the socket is open;
   reconnect backs off 1s -> 30s (attempts while offline fail in the
@@ -373,7 +376,7 @@ arithmetic; those will be measurements.
 | ~~Rate Limiting binding; per-player keys; remove `DAILY_REQUEST_BUDGET` (3a)~~ | **Done 2026-09-14** | -- |
 | ~~`?v=` unchanged-poll replies (3b)~~ | **Done 2026-09-14** | -- |
 | ~~Club typeahead fetched once, filtered in the browser; other typeahead responses edge-cached (3c)~~ | **Done 2026-09-14** | -- |
-| ~~Session TTL alarm (5d)~~ | **Done 2026-09-14** -- 24h untouched, deleted by the object's own alarm | -- |
+| ~~Session TTL alarm (5d)~~ | **Done 2026-09-14** -- 24h untouched (1h once ended/emptied), deleted by the object's own alarm | -- |
 | Workers Paid + Budget Alert (4a, 4e) | When any free daily limit is hit once, or before advertising the game | $5/mo |
 | ~~WebSockets + hibernation (4b)~~ | **Done 2026-09-14** -- push on change, alarm for clock-driven changes, `/state` poll as fallback | -- |
 | ~~SQL storage in the object (4c)~~ | **Done 2026-09-14** -- five tables, in-memory working copy, diffed writes | -- |

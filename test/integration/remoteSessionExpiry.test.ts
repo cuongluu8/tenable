@@ -48,4 +48,25 @@ describe("session expiry", () => {
 		expect(after.status).toBe(404);
 		expect(await runInDurableObject(stub, (_instance, state) => state.storage.getAlarm())).toBeNull();
 	});
+
+	it("books an ended session's expiry an hour out, not a day", async () => {
+		const host = await createSession("Host");
+		const stub = stubFor(host.sessionCode);
+		const before = (await runInDurableObject(stub, (_instance, state) => state.storage.getAlarm()))!;
+		expect(before - Date.now()).toBeGreaterThan(23 * 60 * 60 * 1000);
+
+		// The host leaving ends the session (see /leave).
+		const leave = await SELF.fetch(`https://example.com/api/remote/sessions/${host.sessionCode}/leave`, { method: "POST", headers: { "X-Player-Token": host.playerToken } });
+		expect(leave.status).toBe(200);
+		const after = (await runInDurableObject(stub, (_instance, state) => state.storage.getAlarm()))!;
+		expect(after - Date.now()).toBeLessThanOrEqual(60 * 60 * 1000);
+		expect(after - Date.now()).toBeGreaterThan(59 * 60 * 1000);
+
+		// And the check agrees with the booking: aged past an hour, it's gone.
+		await runInDurableObject(stub, (_instance, state) => {
+			state.storage.sql.exec("UPDATE players SET data = json_set(data, '$.lastSeenAt', ?)", Date.now() - 61 * 60 * 1000);
+		});
+		expect(await runDurableObjectAlarm(stub)).toBe(true);
+		expect((await SELF.fetch(`https://example.com/api/remote/sessions/${host.sessionCode}/state`, { headers: { "X-Player-Token": host.playerToken } })).status).toBe(404);
+	});
 });

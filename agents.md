@@ -262,9 +262,10 @@ simpler content model.
     signal) or 15s after their last poll, and is skipped by every gate.
     Presence is never swept on a timer -- the object books an away check
     only when a gate is waiting on exactly the players who've gone quiet.
-    **Idle** is handled at zero cost: a hidden tab disconnects (and
-    reconnects when visible); 10 minutes without a touch pauses with a
-    "Still there?" overlay; a player unseen for 30 minutes
+    **Idle** is handled at zero cost: a tab hidden for 30s disconnects
+    (and reconnects when visible -- a quick app switch or auto-lock costs
+    nothing); 10 minutes without a tap, scroll or pointer movement pauses
+    with a "Still there?" overlay; a player unseen for 30 minutes
     (`IDLE_REMOVE_MS`, a wrangler var) is dropped from the session on the
     next request anyone makes -- the host too, which ends the session
     unless a game is in progress. A dropped player is told on the home
@@ -280,7 +281,7 @@ simpler content model.
     fetched incrementally via `/state?since=`) is shown in a side pane.
   - `REMOTE_MULTIPLAYER_ENABLED` (wrangler var) is the kill switch: `false`
     makes every `/api/remote/*` route return 503 without a deploy.
-  - Sessions untouched for 24h are deleted by the object's own alarm
+  - Sessions untouched for 24h (1h once ended or emptied) are deleted by the object's own alarm
     (`SESSION_TTL_MS`); badge/flag images and typeahead responses are
     edge-cached (once per location, not per browser).
   - Pushes and polls carry a state fingerprint (`v`); a socket is only

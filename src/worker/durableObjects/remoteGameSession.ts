@@ -151,8 +151,19 @@ const DEFAULT_IDLE_REMOVE_MS = 30 * 60_000;
 // (2026-09-14) abandoned sessions lived forever; every code ever created
 // was a permanent row set. A day covers "we'll finish tomorrow" and the
 // lobby link someone opens late; the only things that resume a session
-// are its players' own polls, which refresh lastSeenAt.
+// are its players' own pings and polls, which refresh lastSeenAt.
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+// ...but a session that has ENDED, or whose roster is empty (everyone
+// left or was dropped), has nothing anyone can come back to, so it goes
+// an hour after its last activity instead -- storage freed sooner for no
+// extra requests (the alarm was being booked anyway). See sessionTtlMs.
+const ENDED_TTL_MS = 60 * 60 * 1000;
+
+// Which of the two applies -- shared by scheduleAlarm and alarm() so the
+// booking and the check can't disagree (they'd loop hourly if they did).
+function sessionTtlMs(status: SessionRecord["status"], playerCount: number): number {
+	return status === "ended" || playerCount === 0 ? ENDED_TTL_MS : SESSION_TTL_MS;
+}
 // /state's heartbeat write (lastSeenAt) is skipped when the previous one is
 // younger than this -- see that handler. Comfortably inside PLAYER_AWAY_MS.
 const HEARTBEAT_WRITE_MIN_MS = 3_000;
@@ -906,7 +917,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 			const { session, players } = await load();
 			if (!session) return;
 			const inProgress = session.status === "in_progress";
-			let next = Math.max(session.createdAt, ...players.map(lastSeen)) + SESSION_TTL_MS;
+			let next = Math.max(session.createdAt, ...players.map(lastSeen)) + sessionTtlMs(session.status, players.length);
 			const consider = (at: number) => {
 				if (at > now && at < next) next = at;
 			};
@@ -1861,9 +1872,10 @@ export class RemoteGameSession extends DurableObject<Env> {
 			return;
 		}
 		const now = Date.now();
-		const lastSeenRow = sql.exec<{ last: number | null }>("SELECT MAX(json_extract(data, '$.lastSeenAt')) AS last FROM players").toArray()[0];
-		const lastSeen = Math.max(lastSeenRow?.last ?? (JSON.parse(sessionRow.data) as SessionRecord).createdAt, this.socketsLastSeen());
-		if (now - lastSeen >= SESSION_TTL_MS) {
+		const session = JSON.parse(sessionRow.data) as SessionRecord;
+		const presence = sql.exec<{ last: number | null; n: number }>("SELECT MAX(json_extract(data, '$.lastSeenAt')) AS last, COUNT(*) AS n FROM players").one();
+		const lastSeen = Math.max(presence.last ?? session.createdAt, this.socketsLastSeen());
+		if (now - lastSeen >= sessionTtlMs(session.status, presence.n)) {
 			await this.wipe();
 			return;
 		}

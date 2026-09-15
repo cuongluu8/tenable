@@ -51,13 +51,18 @@ const SOCKET_MAX_UNANSWERED_PINGS = 2;
 // network is back.
 const SOCKET_RETRY_MAX_MS = 30_000;
 // Idle handling (2026-09-15) -- the unhappy case, so it must cost
-// nothing: a HIDDEN tab (phone locked, switched app) disconnects at once
-// and reconnects the moment it's visible again (one upgrade request; the
-// first push is the current state). A visible tab nobody has touched for
+// nothing: a tab HIDDEN for HIDDEN_GRACE_MS (phone locked, switched app)
+// disconnects, and reconnects the moment it's visible again (one upgrade
+// request; the first push is the current state). The grace is for the
+// quick flick to another app or a screen that auto-locks in 30s: each of
+// those would otherwise be a disconnect, a reconnect and a full state
+// push, and 60s later an "away" -- for someone who's right there. A
+// visible tab nobody has touched, scrolled or moved a pointer on for
 // IDLE_MS pauses the same way and shows "Still there?" until tapped.
 // Paused, this device sends no pings and no polls, so the server sees it
 // go quiet and, after its own limit (IDLE_REMOVE_MS, 30 min), drops it
 // from the session; a player back before that just resumes.
+const HIDDEN_GRACE_MS = 30_000;
 const IDLE_MS = 10 * 60_000;
 
 export type Suspended = "hidden" | "idle" | null;
@@ -235,13 +240,21 @@ export function useRemoteSession(): UseRemoteSessionResult {
 	const ended = state?.status === "ended";
 	useEffect(() => {
 		if (!identity || ended) return;
+		let hiddenTimer: ReturnType<typeof setTimeout> | undefined;
 		const onVisibility = () => {
-			if (document.visibilityState === "hidden") setSuspended((s) => s ?? "hidden");
-			else setSuspended((s) => (s === "hidden" ? null : s));
+			clearTimeout(hiddenTimer);
+			if (document.visibilityState === "hidden") {
+				hiddenTimer = setTimeout(() => setSuspended((s) => s ?? "hidden"), HIDDEN_GRACE_MS);
+			} else {
+				setSuspended((s) => (s === "hidden" ? null : s));
+			}
 		};
 		onVisibility();
 		document.addEventListener("visibilitychange", onVisibility);
-		return () => document.removeEventListener("visibilitychange", onVisibility);
+		return () => {
+			clearTimeout(hiddenTimer);
+			document.removeEventListener("visibilitychange", onVisibility);
+		};
 	}, [identity, ended]);
 	useEffect(() => {
 		if (!identity || ended || suspended) return;
@@ -250,11 +263,14 @@ export function useRemoteSession(): UseRemoteSessionResult {
 			clearTimeout(timer);
 			timer = setTimeout(() => setSuspended("idle"), IDLE_MS);
 		};
-		const events = ["pointerdown", "keydown", "touchstart"] as const;
-		for (const e of events) window.addEventListener(e, touched, { passive: true });
+		// Scrolling and pointer movement count too: a Roll of Honour player
+		// who has given up and is watching the grid fill, or someone reading
+		// the chat, is present without tapping anything for a long time.
+		const events = ["pointerdown", "pointermove", "keydown", "touchstart", "scroll"] as const;
+		for (const e of events) window.addEventListener(e, touched, { passive: true, capture: true });
 		return () => {
 			clearTimeout(timer);
-			for (const e of events) window.removeEventListener(e, touched);
+			for (const e of events) window.removeEventListener(e, touched, { capture: true });
 		};
 	}, [identity, ended, suspended]);
 	const resume = useCallback(() => setSuspended(null), []);
