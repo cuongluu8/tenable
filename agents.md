@@ -262,6 +262,13 @@ simpler content model.
     signal) or 15s after their last poll, and is skipped by every gate.
     Presence is never swept on a timer -- the object books an away check
     only when a gate is waiting on exactly the players who've gone quiet.
+    **Idle** is handled at zero cost: a hidden tab disconnects (and
+    reconnects when visible); 10 minutes without a touch pauses with a
+    "Still there?" overlay; a player unseen for 30 minutes
+    (`IDLE_REMOVE_MS`, a wrangler var) is dropped from the session on the
+    next request anyone makes -- the host too, which ends the session
+    unless a game is in progress. A dropped player is told on the home
+    screen and rejoins with the code.
   - **Roll of Honour** is a different engine inside the same object: tap
     to hold a season for 20s, answer it; wrong frees it and blocks that
     player from it for 5s; scores are correct tiles.

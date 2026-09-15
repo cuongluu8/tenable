@@ -40,7 +40,12 @@
 		// decided round stays on its answer reveal before the ready gate may
 		// advance past it, so every device gets a poll in during the reveal.
 		// Same tunable-var pattern and test override (to 0) as above.
-		"MIN_REVEAL_MS": 5000
+		"MIN_REVEAL_MS": 5000,
+		// remoteGameSession.ts's own IDLE_REMOVE_MS -- how long a player can
+		// go unseen (no socket ping, no poll) before they're dropped from
+		// the session on the next request. Same tunable-var pattern;
+		// integration tests shrink it to a couple of seconds.
+		"IDLE_REMOVE_MS": 1800000
 	},
 	// Cloudflare's Rate Limiting binding -- in-memory at the edge, free-plan
 	// compatible, no storage ops. Replaces (2026-09-14) the D1-backed daily

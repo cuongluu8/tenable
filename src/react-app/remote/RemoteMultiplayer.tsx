@@ -5,10 +5,34 @@ import { RemoteGameTypePick, type RemoteGameType } from "./RemoteGameTypePick";
 import { RemoteHome } from "./RemoteHome";
 import { RemoteLobby } from "./RemoteLobby";
 import { RollOfHonourGame } from "./RollOfHonourGame";
-import { useRemoteSession } from "./useRemoteSession";
+import { useRemoteSession, type UseRemoteSessionResult } from "./useRemoteSession";
 
 interface Props {
 	onBack: () => void;
+}
+
+// The one hook call, and the one thing drawn over every screen: the
+// "Still there?" pause after IDLE_MS without a touch (see
+// useRemoteSession.ts) -- live updates are off until tapped, whichever
+// screen was up. A hidden tab pauses too, but resumes by itself.
+export function RemoteMultiplayer({ onBack }: Props) {
+	const session = useRemoteSession();
+	return (
+		<>
+			<RemoteScreens session={session} onBack={onBack} />
+			{session.suspended === "idle" && (
+				<div className="remote-modal-backdrop" onClick={session.resume}>
+					<div className="remote-modal remote-idle" role="alertdialog" aria-modal="true" aria-label="Still there?" onClick={(e) => e.stopPropagation()}>
+						<h3 className="remote-modal__title">Still there?</h3>
+						<p className="remote-subtitle">Live updates are paused while you're away from the screen.</p>
+						<button type="button" className="remote-primary-button" onClick={session.resume} autoFocus>
+							I'm back
+						</button>
+					</div>
+				</div>
+			)}
+		</>
+	);
 }
 
 // Top-level orchestrator: which of GameTypePick/Home/Lobby/Game to show is
@@ -21,8 +45,8 @@ interface Props {
 // actually is -- skipping the game-type picker entirely once a session
 // exists, since a resumed session already committed to whichever game it
 // started as; there's nothing left to pick.
-export function RemoteMultiplayer({ onBack }: Props) {
-	const { identity, state, feed, error, isHost, create, join, setReady, start, removePlayer, guess, giveUp, postMessage, restart, selectTile, releaseTile, answerTile, leave, forget } = useRemoteSession();
+function RemoteScreens({ session, onBack }: { session: UseRemoteSessionResult; onBack: () => void }) {
+	const { identity, state, feed, error, isHost, create, join, setReady, start, removePlayer, guess, giveUp, postMessage, restart, selectTile, releaseTile, answerTile, leave, forget } = session;
 	// Set when this page was opened via a shared WhatsApp join link (see
 	// shareSession.ts) -- read once at mount, same as App.tsx's own
 	// pathname-based routing helpers read window.location directly rather
@@ -64,7 +88,7 @@ export function RemoteMultiplayer({ onBack }: Props) {
 		return (
 			<div className="screen">
 				<h2>Session ended</h2>
-				<p className="remote-subtitle">The host ended this session.</p>
+				<p className="remote-subtitle">The host ended this session, or has been away too long.</p>
 				<button type="button" className="remote-primary-button" onClick={forget}>
 					Back
 				</button>

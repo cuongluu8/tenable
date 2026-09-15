@@ -65,6 +65,11 @@ export default defineConfig({
 					// Same again for the minimum answer-reveal window -- the
 					// round-advance tests expect the gate to fire immediately.
 					MIN_REVEAL_MS: 0,
+					// remoteGameSession.ts's IDLE_REMOVE_MS (30 min in prod): 4s here so
+					// remoteSessionIdle.test.ts can watch a player be dropped. Must
+					// exceed the 3s heartbeat-write throttle (HEARTBEAT_WRITE_MIN_MS)
+					// or a player who IS polling looks unseen between writes.
+					IDLE_REMOVE_MS: 4000,
 				},
 			},
 		}),

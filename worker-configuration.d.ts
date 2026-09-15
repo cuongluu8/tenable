@@ -12,6 +12,7 @@ interface __BaseEnv_Env {
 	REMOTE_MULTIPLAYER_ENABLED: true;
 	ROUND_START_GRACE_MS: 5000;
 	MIN_REVEAL_MS: 5000;
+	IDLE_REMOVE_MS: 1800000;
 	REMOTE_GAME_SESSION: DurableObjectNamespace<import("./src/worker/index").RemoteGameSession>;
 }
 declare namespace Cloudflare {
@@ -26,7 +27,7 @@ type StringifyValues<EnvType extends Record<string, unknown>> = {
 	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
 };
 declare namespace NodeJS {
-	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "TICKER_MESSAGE" | "REMOTE_MULTIPLAYER_ENABLED" | "ROUND_START_GRACE_MS" | "MIN_REVEAL_MS">> {}
+	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "TICKER_MESSAGE" | "REMOTE_MULTIPLAYER_ENABLED" | "ROUND_START_GRACE_MS" | "MIN_REVEAL_MS" | "IDLE_REMOVE_MS">> {}
 }
 
 // Begin runtime types

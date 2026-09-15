@@ -673,3 +673,15 @@ body.remote-in-game:not(.remote-pane-open) .screen {
 	border-color: #374151;
 	background: #111827;
 }
+
+/* The idle pause -- see RemoteMultiplayer.tsx. */
+.remote-idle {
+	text-align: center;
+}
+.remote-idle .remote-modal__title {
+	font-size: 1.3rem;
+	margin-bottom: 0.5rem;
+}
+.remote-idle .remote-primary-button {
+	margin-top: 0.75rem;
+}

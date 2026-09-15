@@ -50,9 +50,25 @@ const SOCKET_MAX_UNANSWERED_PINGS = 2;
 // server; the browser's `online` event cuts the wait short when the
 // network is back.
 const SOCKET_RETRY_MAX_MS = 30_000;
+// Idle handling (2026-09-15) -- the unhappy case, so it must cost
+// nothing: a HIDDEN tab (phone locked, switched app) disconnects at once
+// and reconnects the moment it's visible again (one upgrade request; the
+// first push is the current state). A visible tab nobody has touched for
+// IDLE_MS pauses the same way and shows "Still there?" until tapped.
+// Paused, this device sends no pings and no polls, so the server sees it
+// go quiet and, after its own limit (IDLE_REMOVE_MS, 30 min), drops it
+// from the session; a player back before that just resumes.
+const IDLE_MS = 10 * 60_000;
 
-interface UseRemoteSessionResult {
+export type Suspended = "hidden" | "idle" | null;
+
+export interface UseRemoteSessionResult {
 	identity: RemoteIdentity | null;
+	// Why live updates are paused, if they are -- see IDLE_MS. "hidden"
+	// clears itself when the tab is visible again; "idle" waits for
+	// resume() (a tap on the overlay RemoteMultiplayer shows).
+	suspended: Suspended;
+	resume: () => void;
 	state: SessionState | null;
 	// The whole activity feed this tab has seen for the current session,
 	// oldest first -- accumulated from each poll's incremental slice (see
@@ -115,6 +131,7 @@ export function useRemoteSession(): UseRemoteSessionResult {
 	// poll's `v` (see remoteApi.ts's UnchangedState).
 	const lastVersionRef = useRef("");
 	const [error, setError] = useState<string | null>(null);
+	const [suspended, setSuspended] = useState<Suspended>(null);
 	// Avoids setting state after the identity that produced it has already
 	// been cleared (e.g. a 401 from a stale localStorage entry racing
 	// against an in-flight poll) -- checked by reference, not a boolean, so
@@ -134,6 +151,10 @@ export function useRemoteSession(): UseRemoteSessionResult {
 		setIdentity(null);
 		setState(null);
 		resetFeed();
+		// Shown on the home screen (RemoteHome's error line) so being dropped
+		// for idling, or a session ending while away, doesn't just dump the
+		// player back at the start with no word.
+		setError("That session is over for you -- it ended, or you were away for too long. Start or join another.");
 	}, []);
 
 	// One state body, from a poll or a push -- identical shapes.
@@ -184,7 +205,7 @@ export function useRemoteSession(): UseRemoteSessionResult {
 	const pollMs = state?.gameType === "roll-of-honour" && state.status === "in_progress" ? HONOUR_POLL_INTERVAL_MS : POLL_INTERVAL_MS;
 
 	useEffect(() => {
-		if (!identity) return;
+		if (!identity || suspended) return;
 		let cancelled = false;
 		refresh(identity);
 		const interval = setInterval(() => {
@@ -203,9 +224,40 @@ export function useRemoteSession(): UseRemoteSessionResult {
 		// state.status is read inside the interval callback (to stop polling
 		// once terminal), not depended on here -- depending on it would tear
 		// down and rebuild the interval every single poll, defeating a fixed
-		// cadence. pollMs IS depended on: see its own comment.
+		// cadence. pollMs IS depended on: see its own comment. So is
+		// `suspended`: coming back from a pause re-polls at once.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [identity, refresh, pollMs]);
+	}, [identity, refresh, pollMs, suspended]);
+
+	// Pausing -- see IDLE_MS. A hidden tab pauses and resumes by itself;
+	// IDLE_MS without a touch pauses until resume(). Neither applies once
+	// the session has ended (nothing left to pause).
+	const ended = state?.status === "ended";
+	useEffect(() => {
+		if (!identity || ended) return;
+		const onVisibility = () => {
+			if (document.visibilityState === "hidden") setSuspended((s) => s ?? "hidden");
+			else setSuspended((s) => (s === "hidden" ? null : s));
+		};
+		onVisibility();
+		document.addEventListener("visibilitychange", onVisibility);
+		return () => document.removeEventListener("visibilitychange", onVisibility);
+	}, [identity, ended]);
+	useEffect(() => {
+		if (!identity || ended || suspended) return;
+		let timer = setTimeout(() => setSuspended("idle"), IDLE_MS);
+		const touched = () => {
+			clearTimeout(timer);
+			timer = setTimeout(() => setSuspended("idle"), IDLE_MS);
+		};
+		const events = ["pointerdown", "keydown", "touchstart"] as const;
+		for (const e of events) window.addEventListener(e, touched, { passive: true });
+		return () => {
+			clearTimeout(timer);
+			for (const e of events) window.removeEventListener(e, touched);
+		};
+	}, [identity, ended, suspended]);
+	const resume = useCallback(() => setSuspended(null), []);
 
 	// The push channel: one socket per identity, reconnected with backoff
 	// for as long as the identity stands, with a poll on every reconnect to
@@ -213,7 +265,7 @@ export function useRemoteSession(): UseRemoteSessionResult {
 	// 4404 (session gone) and 4410 (no longer a player) mean the same as a
 	// poll's 401/404.
 	useEffect(() => {
-		if (!identity || typeof WebSocket === "undefined") return;
+		if (!identity || suspended || typeof WebSocket === "undefined") return;
 		let ws: WebSocket | null = null;
 		let disposed = false;
 		let attempt = 0;
@@ -293,7 +345,7 @@ export function useRemoteSession(): UseRemoteSessionResult {
 			clearInterval(pingTimer);
 			ws?.close(1000, "leaving");
 		};
-	}, [identity, applyState, dropIdentity, refresh]);
+	}, [identity, suspended, applyState, dropIdentity, refresh]);
 
 	const create = useCallback(
 		async (hostName: string, gameType: RemoteGameType) => {
@@ -473,6 +525,8 @@ export function useRemoteSession(): UseRemoteSessionResult {
 
 	return {
 		identity,
+		suspended,
+		resume,
 		state,
 		feed,
 		error,

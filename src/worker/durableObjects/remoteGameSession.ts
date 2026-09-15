@@ -62,7 +62,11 @@ import { buildHonourTiles, DEFAULT_HONOUR_COMPETITION_ID, gradeHonourGuess, HONO
 //     gone, they come back as a fresh seat. See /join for the one
 //     wrinkle (readiness when joining during a reveal).
 //   - A player is "away" 15s after their last poll or 60s after their
-//     last socket ping (see PLAYER_AWAY_MS / SOCKET_AWAY_MS); both
+//     last socket ping (see PLAYER_AWAY_MS / SOCKET_AWAY_MS), and is
+//     DROPPED from the session after 30 minutes unseen (IDLE_REMOVE_MS,
+//     pruneIdle) -- the host too, which ends the session, unless a game
+//     is in progress (it plays on without them; they're dropped once it's
+//     over). Their seat is simply gone; coming back means rejoining. Both
 //     "everyone ready" and "everyone next-question" gates only wait on
 //     non-away players. The host can also remove a player outright.
 //   - Wrong guesses cost nothing -- unlimited attempts, a pure race on
@@ -133,6 +137,15 @@ const SOCKET_AWAY_MS = 60_000;
 // it doesn't linger. Past SOCKET_AWAY_MS: by then the player has been
 // away for a while and, if they're back, has a fresh socket.
 const SOCKET_STALE_MS = 120_000;
+// A player unseen (no ping, no poll) for this long is dropped from the
+// session -- lazily, by whichever request or alarm tick next runs (see
+// pruneIdle), never by a timer of its own: an idle player is the unhappy
+// case and mustn't cost anything to handle. The client pauses itself
+// after 10 minutes without a touch (useRemoteSession.ts's IDLE_MS) and a
+// hidden tab disconnects at once, so a real person's phone in their
+// pocket stops pinging well before this; whoever is still unseen at 30
+// minutes has left. A wrangler var so integration tests can shrink it.
+const DEFAULT_IDLE_REMOVE_MS = 30 * 60_000;
 // A session nobody has touched for this long is deleted outright (storage
 // and all) by the object's alarm -- see alarm() below. Before this
 // (2026-09-14) abandoned sessions lived forever; every code ever created
@@ -923,10 +936,49 @@ export class RemoteGameSession extends DurableObject<Env> {
 			await maybeAdvanceRound(session, players, now);
 		};
 
+		// Drops players unseen for IDLE_REMOVE_MS -- run before every request
+		// (the middleware below) and every alarm tick, so it costs no wake
+		// of its own; a session nobody touches simply keeps its idle roster
+		// until its expiry. A dropped player's own next request finds their
+		// token gone (401 / the socket refused), which is how they learn.
+		// The host: in the lobby or on the results nothing can move without
+		// them, so their going ends the session for everyone; mid-game the
+		// others can finish (the gates already skip an away host), so the
+		// host is left in place until the game is over.
+		const idleRemoveMs = (): number => {
+			const raw = Number(env.IDLE_REMOVE_MS);
+			return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_IDLE_REMOVE_MS;
+		};
+		const pruneIdle = async (session: SessionRecord, players: PlayerRecord[], now: number): Promise<boolean> => {
+			if (session.status === "ended") return false;
+			const limit = idleRemoveMs();
+			const gone = players.filter((p) => now - lastSeen(p) > limit && !(p.isHost && session.status === "in_progress"));
+			if (gone.length === 0) return false;
+			const remaining = players.filter((p) => !gone.includes(p));
+			for (const p of gone) {
+				releaseHonourLocks(session, p.id);
+				const forHow = limit >= 60_000 ? `${Math.round(limit / 60_000)} minutes` : `${Math.round(limit / 1_000)} seconds`;
+				pushFeed(session, now, { kind: "system", playerId: null, text: `${p.name} was dropped after being away for ${forHow}` });
+			}
+			if (gone.some((p) => p.isHost)) {
+				session.status = "ended";
+				pushFeed(session, now, { kind: "system", playerId: null, text: "Session ended -- the host has been away too long" });
+			} else {
+				// Same follow-ups as /leave and /remove: the dropped player may
+				// have been the one a gate was waiting on.
+				finishHonourIfDone(session, remaining, now);
+				await resolveRoundByGiveUp(session, remaining, now);
+			}
+			await save({ players: remaining });
+			if (session.status === "in_progress") await maybeAdvanceRound(session, remaining, now);
+			return true;
+		};
+
 		this.tick = async (now) => {
 			const { session, players } = await load();
 			if (!session) return;
-			await settleTimedEvents(session, players, now);
+			await pruneIdle(session, players, now);
+			await settleTimedEvents(session, (await load()).players, now);
 			await broadcast(now);
 			await scheduleAlarm(now);
 		};
@@ -947,7 +999,11 @@ export class RemoteGameSession extends DurableObject<Env> {
 			await scheduleAlarm(now);
 		};
 
-		this.app.use("*", async (_c, next) => {
+		this.app.use("*", async (c, next) => {
+			if (c.req.path !== "/create") {
+				const { session, players } = await load();
+				if (session) await pruneIdle(session, players, Date.now());
+			}
 			await next();
 			if (dirty) {
 				const now = Date.now();
@@ -1305,8 +1361,9 @@ export class RemoteGameSession extends DurableObject<Env> {
 
 			if (self.isHost) {
 				// Host-explicit-leave ends the session for everyone -- distinct
-				// from host-idle (just another "away" player until they either
-				// come back or the game plays on without them), see class doc.
+				// from host-away (just another "away" player until they either
+				// come back, the game plays on without them, or pruneIdle drops
+				// them after IDLE_REMOVE_MS), see class doc.
 				// The player roster is left as-is (not cleared) so a poll made
 				// right after this still shows who was in the room when it
 				// ended, not an empty list.

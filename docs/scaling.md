@@ -232,6 +232,15 @@ How it was built (all in `remoteGameSession.ts`, "WebSockets" section):
   is closed by the next broadcast. Faster detection would need more
   pings or timer wakes; a dropped connection is an edge case that needs
   handling, not speed, so neither is spent on it.
+- Idle players (2026-09-15) cost nothing: the client disconnects when
+  its tab is hidden and reconnects when visible (one upgrade request per
+  cycle instead of pings all night), pauses after 10 minutes without a
+  touch ("Still there?"), and the object drops anyone unseen for 30
+  minutes (`IDLE_REMOVE_MS`) **lazily**, on the next request or tick --
+  no alarm of its own. An idle host outside a live game ends the
+  session; mid-game the host is kept so the others can finish. So a
+  session everyone has walked away from is hibernating storage until
+  its 24h expiry, and nothing else.
 - The client (`useRemoteSession.ts`) applies a push exactly as it did a
   poll body; the poll loop stands down while the socket is open;
   reconnect backs off 1s -> 30s (attempts while offline fail in the
