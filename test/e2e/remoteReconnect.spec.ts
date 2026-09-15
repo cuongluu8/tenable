@@ -16,16 +16,19 @@
 import { expect, test } from "@playwright/test";
 import { AFTER_COUNTDOWN, POLL, guestJoins, guestReadies, hostCreates, newPlayer } from "./remoteHelpers";
 
-// Away is 15s (PLAYER_AWAY_MS) after the socket dropped, noticed by the
-// object's alarm and pushed; the assertion allows for the alarm's own
-// granularity and a slow CI runner.
-const AFTER_AWAY = { timeout: 30_000 };
-// Reconnect backoff is 1s, 2s, 4s, 8s, then 15s -- a device that was
-// offline for the away window is a few attempts in when it comes back.
-const AFTER_RECONNECT = { timeout: 25_000 };
+// A connected player is away 60s after their last keep-alive ping
+// (SOCKET_AWAY_MS; pings are every 25s), and the object only checks at
+// that moment when a gate is waiting on them -- so from going offline to
+// the game moving on is up to ~85s, plus the reveal hold.
+const AFTER_AWAY = { timeout: 100_000 };
+// Coming back: the browser's `online` event reconnects at once when it
+// fires; otherwise two unanswered 25s pings close the dead socket
+// (~50-75s) and the reconnect follows.
+const AFTER_RECONNECT = { timeout: 90_000 };
 
 test.describe("remote play over a bad connection", { tag: "@slow" }, () => {
-	test.slow(); // Triples the default timeout; the whole file is real waits.
+	test.setTimeout(120_000);
+	test.slow(); // Long-running by nature: real away windows and backoffs. Triples the timeout above.
 
 	test("a player who drops offline mid-game is shown as away, the game finishes without them, and they land on the results when back", async ({ browser }) => {
 		const host = await newPlayer(browser);
@@ -46,16 +49,17 @@ test.describe("remote play over a bad connection", { tag: "@slow" }, () => {
 		// still looks open to the server; their pings stop.
 		await guest.context().setOffline(true);
 
-		// 15s of grace, then the host sees them away without anyone doing
-		// anything: the object's alarm noticed the pings stopping.
-		await expect(host.locator(".remote-badge--away")).toBeVisible(AFTER_AWAY);
-
-		// The game doesn't hang on them: with the only other player away, the
-		// host giving up resolves the round, and the ready gate skips the
-		// away player, so the one-question game runs through to the results.
+		// The host gives up. The guest is still within their presence window,
+		// so the round stays open -- but the gate is now waiting on exactly
+		// one quiet player, and that is the one case the object books an
+		// alarm for. When it fires the guest is away: the round resolves with
+		// nobody, the badge shows, and the ready gate skips the away player,
+		// so the one-question game runs through to the results. The game
+		// didn't hang on a dead connection, and nothing swept for it.
 		await host.getByRole("button", { name: "Give up", exact: true }).click();
 		await host.getByRole("button", { name: "Yes, give up" }).click();
-		await expect(host.getByText(/Nobody got this one/)).toBeVisible(POLL);
+		await expect(host.getByText(/Nobody got this one/)).toBeVisible(AFTER_AWAY);
+		await expect(host.locator(".remote-badge--away")).toBeVisible();
 		await expect(host.getByRole("heading", { name: "Final results" })).toBeVisible(AFTER_COUNTDOWN);
 		await expect(guest.getByPlaceholder("Type your guess…")).toBeVisible(); // Still on the stale screen.
 
@@ -90,10 +94,15 @@ test.describe("remote play over a bad connection", { tag: "@slow" }, () => {
 		await expect(guest.getByText(/First question in/)).toBeVisible(POLL);
 		await expect(guest.getByPlaceholder("Type your guess…")).toBeVisible(AFTER_COUNTDOWN);
 
-		// And stays present to the host throughout: polling IS presence.
+		// And stays present to the host throughout: polling IS presence. The
+		// host giving up puts the gate on the guest, which is when the object
+		// would notice them gone -- it doesn't, because they're polling.
+		await host.getByRole("button", { name: "Give up", exact: true }).click();
+		await host.getByRole("button", { name: "Yes, give up" }).click();
+		await guest.waitForTimeout(20_000);
 		await expect(host.locator(".remote-badge--away")).toHaveCount(0);
-		await guest.waitForTimeout(16_000);
-		await expect(host.locator(".remote-badge--away")).toHaveCount(0);
+		await expect(host.getByText(/Nobody got this one/)).toHaveCount(0);
+		await expect(guest.getByPlaceholder("Type your guess…")).toBeEnabled();
 	});
 
 	test("a refresh mid-game re-opens the socket from the stored identity and lands back in the game", async ({ browser }) => {

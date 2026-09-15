@@ -83,7 +83,7 @@ npm run lint
 npm run test:unit          # pure logic and reducers (vitest)
 npm run test:integration   # real routes and the Durable Object against a small local fixture
 npm run test:e2e           # Playwright against a real dev server, every game and mode
-npm run test:e2e:slow      # remote play over a bad connection (offline, reconnect) -- real 15s waits
+npm run test:e2e:slow      # remote play over a bad connection (offline, reconnect) -- real 60s+ waits
 npm run verify:all         # coverage-gated unit + integration + e2e (both) + build
 ```
 

@@ -61,7 +61,8 @@ import { buildHonourTiles, DEFAULT_HONOUR_COMPETITION_ID, gradeHonourGuess, HONO
 //     changes. "Rejoining" after /leave is just this -- the old record is
 //     gone, they come back as a fresh seat. See /join for the one
 //     wrinkle (readiness when joining during a reveal).
-//   - A player is "away" after 15s without a socket ping or a poll; both
+//   - A player is "away" 15s after their last poll or 60s after their
+//     last socket ping (see PLAYER_AWAY_MS / SOCKET_AWAY_MS); both
 //     "everyone ready" and "everyone next-question" gates only wait on
 //     non-away players. The host can also remove a player outright.
 //   - Wrong guesses cost nothing -- unlimited attempts, a pure race on
@@ -121,17 +122,17 @@ import { buildHonourTiles, DEFAULT_HONOUR_COMPETITION_ID, gradeHonourGuess, HONO
 // round-based modes; everything round-specific (ready gate, hint tiers,
 // minimum reveal) simply never engages since no round ever starts.
 
-const PLAYER_AWAY_MS = 15_000; // ~3 missed socket pings (5s) or 4s polls -- see class doc and isAway.
-// A lobby or results screen checks for away players on a coarser clock
-// than a live game (see scheduleAlarm): the gates that skip away players
-// only bite mid-game, and an idle-but-connected session would otherwise
-// wake the object every 15s for a badge nobody is racing against.
-const IDLE_AWAY_CHECK_MS = 60_000;
+const PLAYER_AWAY_MS = 15_000; // ~3 missed 4s polls -- see class doc and isAway.
+// The socket equivalent: a connected player pings every 25s (see
+// useRemoteSession.ts's SOCKET_PING_MS), so two missed pings plus slack.
+// Coarser than the poll rule on purpose -- a tighter one needs more
+// pings, and pings are the one steady per-player cost sockets left.
+const SOCKET_AWAY_MS = 60_000;
 // A socket that hasn't pinged for this long is dead on the far side
 // (network gone without a close frame) -- closed by the next broadcast so
-// it doesn't linger. Well past PLAYER_AWAY_MS: by then the player has
-// been away for a while and, if they're back, has a fresh socket.
-const SOCKET_STALE_MS = 60_000;
+// it doesn't linger. Past SOCKET_AWAY_MS: by then the player has been
+// away for a while and, if they're back, has a fresh socket.
+const SOCKET_STALE_MS = 120_000;
 // A session nobody has touched for this long is deleted outright (storage
 // and all) by the object's alarm -- see alarm() below. Before this
 // (2026-09-14) abandoned sessions lived forever; every code ever created
@@ -749,13 +750,21 @@ export class RemoteGameSession extends DurableObject<Env> {
 		//
 		// "Away" (see class doc) was purely poll-based: no /state for
 		// PLAYER_AWAY_MS. With WebSockets (below) a player is present while
-		// their socket is PINGING: the client sends "ping" every 5s, the
+		// their socket is PINGING: the client sends "ping" every 25s, the
 		// runtime answers without waking this object (setWebSocketAutoResponse)
 		// but records when it last did, and that timestamp is the socket's
-		// heartbeat. An open socket alone is NOT presence -- a phone that
-		// loses signal never sends a close frame, so its socket looks open
-		// for minutes (found by the offline e2e test, 2026-09-15); its pings
-		// stop at once. The poll rule still applies alongside (lastSeenAt).
+		// heartbeat (SOCKET_AWAY_MS). An open socket alone is NOT presence --
+		// a phone that loses signal never sends a close frame, so its socket
+		// looks open for minutes (found by the offline e2e test, 2026-09-15);
+		// its pings stop at once. The poll rule still applies alongside.
+		//
+		// Nothing wakes the object just to re-check presence (2026-09-15):
+		// "away" is evaluated whenever something else happens -- a request,
+		// a hint tier, a lock expiry -- and the only alarm booked FOR it is
+		// the one case the clock alone must settle: a gate that everyone
+		// present has satisfied except a player who has gone quiet (see
+		// scheduleAlarm's gateBlockers). An idle connected lobby costs no
+		// wakes at all; its away badges refresh on the next push.
 		const socketSeenAt = (ws: WebSocket): number => {
 			const pinged = ctx.getWebSocketAutoResponseTimestamp(ws);
 			if (pinged) return pinged.getTime();
@@ -763,7 +772,11 @@ export class RemoteGameSession extends DurableObject<Env> {
 			return att?.connectedAt ?? 0;
 		};
 		const lastSeen = (player: PlayerRecord): number => Math.max(player.lastSeenAt, ...ctx.getWebSockets(player.id).map(socketSeenAt));
-		const isAway = (player: PlayerRecord, now: number): boolean => now - lastSeen(player) > PLAYER_AWAY_MS;
+		// The moment this player becomes away if nothing more is heard from
+		// them: whichever of their channels keeps them present longest.
+		const presenceDeadline = (player: PlayerRecord): number =>
+			Math.max(player.lastSeenAt + PLAYER_AWAY_MS, ...ctx.getWebSockets(player.id).map((ws) => socketSeenAt(ws) + SOCKET_AWAY_MS));
+		const isAway = (player: PlayerRecord, now: number): boolean => presenceDeadline(player) < now;
 		this.socketsLastSeen = () => Math.max(0, ...ctx.getWebSockets().map(socketSeenAt));
 		// Non-host, non-away players who haven't marked ready -- shared by
 		// /start (gating lobby -> in_progress) and the round-advance check
@@ -852,26 +865,39 @@ export class RemoteGameSession extends DurableObject<Env> {
 			}
 		};
 
+		// The present players a gate is waiting on, when everyone else
+		// present has already satisfied it -- the one situation where a
+		// player going away changes the game with nobody acting: an
+		// undecided round (or a Roll of Honour game) where every other
+		// active player has given up, or a decided round where every other
+		// non-host player is ready. Empty when the gate isn't otherwise met
+		// (then whoever acts next re-evaluates) or when nobody is waiting.
+		const gateBlockers = (session: SessionRecord, players: PlayerRecord[], now: number): PlayerRecord[] => {
+			if (session.status !== "in_progress") return [];
+			const active = players.filter((p) => !isAway(p, now));
+			if (session.gameType === "roll-of-honour" || !isRoundDecided(session)) {
+				const notGivenUp = active.filter((p) => !session.roundGivenUpPlayerIds.includes(p.id));
+				return notGivenUp.length < active.length ? notGivenUp : [];
+			}
+			return playersNotReady(players, now);
+		};
+
 		// Books the alarm for the earliest thing the clock alone will
-		// change -- see the WebSockets doc above. Away checks run at
-		// PLAYER_AWAY_MS precision mid-game (the gates depend on them) and
-		// at IDLE_AWAY_CHECK_MS otherwise, and only while someone is
-		// connected to be told; a polled lobby books just the expiry. Never
-		// books a time already past (the tick that fires handles it and the
-		// next call finds it gone), so it can't spin.
+		// change -- see the WebSockets doc above: the next hint tier, lock
+		// expiry, the reveal hold closing, a gate's last blocker going away
+		// (gateBlockers), and the daily expiry check. No periodic presence
+		// sweep -- see the presence doc. Never books a time already past
+		// (the tick that fires handles it and the next call finds it gone),
+		// so it can't spin.
 		const scheduleAlarm = async (now: number): Promise<void> => {
 			const { session, players } = await load();
 			if (!session) return;
-			const anySocket = ctx.getWebSockets().length > 0;
 			const inProgress = session.status === "in_progress";
 			let next = Math.max(session.createdAt, ...players.map(lastSeen)) + SESSION_TTL_MS;
 			const consider = (at: number) => {
 				if (at > now && at < next) next = at;
 			};
-			if (inProgress || anySocket) {
-				const awayCheckMs = inProgress ? PLAYER_AWAY_MS : IDLE_AWAY_CHECK_MS;
-				for (const p of players) if (!isAway(p, now)) consider(lastSeen(p) + awayCheckMs + 1);
-			}
+			for (const p of gateBlockers(session, players, now)) consider(presenceDeadline(p) + 1);
 			if (inProgress) {
 				for (const t of session.honour?.tiles ?? []) if (t.lockedBy !== null && t.lockedUntil !== null) consider(t.lockedUntil);
 				if (session.gameType !== "roll-of-honour") {
@@ -905,7 +931,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 			await scheduleAlarm(now);
 		};
 
-		// A socket closing (tab gone, network drop) -- the player keeps
+		// A socket closing cleanly (tab gone) -- the player keeps
 		// PLAYER_AWAY_MS of grace from now, as if this were their last poll,
 		// rather than being marked away on the spot: a refresh reconnects
 		// well inside that.

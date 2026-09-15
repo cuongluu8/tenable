@@ -36,14 +36,20 @@ const HONOUR_POLL_INTERVAL_MS = 1_500;
 // Keep-alive over the socket, answered by the runtime without waking the
 // session object. It's also this device's PRESENCE: the server counts a
 // player present while their socket keeps pinging (see remoteGameSession
-// .ts's presence doc), so ~3 missed pings is "away", as ~3 missed polls
-// was. And it's how THIS side notices a dead connection: a socket the
-// network dropped without a close frame still reads as open here, so two
-// unanswered pings close it and reconnect (which also re-polls).
-const SOCKET_PING_MS = 5_000;
+// .ts's presence doc -- away after two missed pings plus slack). And it's
+// how THIS side notices a dead connection: a socket the network dropped
+// without a close frame still reads as open here, so two unanswered
+// pings close it and reconnect. 25s is the one steady per-player cost
+// sockets left (incoming messages bill 20:1, so ~7 requests an hour) --
+// deliberately not tightened for faster away detection, which is an
+// edge case that only needs handling, not speed.
+const SOCKET_PING_MS = 25_000;
 const SOCKET_MAX_UNANSWERED_PINGS = 2;
-// Reconnect backoff: 1s, 2s, 4s, 8s, then every 15s.
-const SOCKET_RETRY_MAX_MS = 15_000;
+// Reconnect backoff: 1s, 2s, 4s, 8s, 16s, then every 30s. While the
+// device is offline these attempts fail in the browser and reach no
+// server; the browser's `online` event cuts the wait short when the
+// network is back.
+const SOCKET_RETRY_MAX_MS = 30_000;
 
 interface UseRemoteSessionResult {
 	identity: RemoteIdentity | null;
@@ -219,8 +225,10 @@ export function useRemoteSession(): UseRemoteSessionResult {
 			const socket = new WebSocket(sessionSocketUrl(identity.sessionCode, identity.playerToken, lastFeedIdRef.current));
 			ws = socket;
 			let unansweredPings = 0;
+			let opened = false;
 			socket.onopen = () => {
 				attempt = 0;
+				opened = true;
 				socketOpenRef.current = true;
 				pingTimer = setInterval(() => {
 					if (socket.readyState !== WebSocket.OPEN) return;
@@ -255,9 +263,13 @@ export function useRemoteSession(): UseRemoteSessionResult {
 					return;
 				}
 				attempt += 1;
-				retryTimer = setTimeout(connect, Math.min(SOCKET_RETRY_MAX_MS, 1_000 * 2 ** Math.min(attempt - 1, 3)));
-				// Fill any gap straight away rather than waiting for the poll loop.
-				void refresh(identity);
+				retryTimer = setTimeout(connect, Math.min(SOCKET_RETRY_MAX_MS, 1_000 * 2 ** Math.min(attempt - 1, 4)));
+				// A socket that had been delivering may have missed something as
+				// it died: fill the gap now rather than on the next poll tick. One
+				// that never opened has nothing to fill -- the poll loop is
+				// already covering, and an extra request per failed attempt
+				// would only add load exactly when the connection is bad.
+				if (opened) void refresh(identity);
 			};
 		};
 		connect();
