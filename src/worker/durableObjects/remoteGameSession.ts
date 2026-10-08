@@ -4,7 +4,8 @@ import { generateToken } from "../lib/remoteSession";
 import { buildClubBadgeQuestions, pickRandomEligibleQuestions, type ClubBadgeQuestionPublic, type QuestionRow } from "../lib/clubBadgeRound";
 import { buildTeammateQuestions, pickRandomTeammateQuestions, type TeammateQuestionPublic, type TeammateQuestionRow } from "../lib/teammateRound";
 import { checkPlayerGuess, gradeGuess, loadRoundAnswers, type RoundAnswer } from "../lib/checkPlayerGuess";
-import { buildHonourTiles, DEFAULT_HONOUR_COMPETITION_ID, gradeHonourGuess, HONOUR_COMPETITIONS, HONOUR_TURN_HINTS, honourTurnHints, type HonourTilePrivate } from "../lib/rollOfHonour";
+import { buildHonourTiles, DEFAULT_HONOUR_COMPETITION_ID, gradeHonourGuess, HONOUR_COMPETITIONS, type HonourTilePrivate } from "../lib/rollOfHonour";
+import { HONOUR_TURN_HINTS, honourTurnHints } from "../lib/rollOfHonourHints";
 
 // The authoritative session for one "remote" multiplayer game -- players
 // on their own devices, as opposed to the existing pass-and-play mode
@@ -250,7 +251,7 @@ interface HonourTileRecord extends HonourTilePrivate {
 interface HonourTurnRecord {
 	turnMs: number;
 	// Every winner is from one country, so the hints are about the name
-	// only (see lib/rollOfHonour.ts's honourTurnHints).
+	// only (see lib/rollOfHonourHints.ts's honourTurnHints).
 	nameOnly: boolean;
 	// Seats, in the order players take their turns: the roster at /start,
 	// refreshed between tiles (leavers dropped, mid-game joiners added at

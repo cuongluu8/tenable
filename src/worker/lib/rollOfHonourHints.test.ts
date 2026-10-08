@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { honourTurnHints, maskHonourName } from "./rollOfHonour";
+import { honourTurnHints, maskHonourName } from "./rollOfHonourHints";
 
 describe("maskHonourName", () => {
 	it("shows only the first letter, words two spaces apart", () => {

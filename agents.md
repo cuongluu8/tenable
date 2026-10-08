@@ -288,7 +288,7 @@ simpler content model.
     slider, default 10; running out passes the turn like a wrong answer);
     after each full trip round the table a hint appears, two hints at
     most, then the winner is revealed and nobody scores. Hints are built
-    server-side (`lib/rollOfHonour.ts`'s `honourTurnHints`): country then
+    server-side (`lib/rollOfHonourHints.ts`'s `honourTurnHints`): country then
     first letter + blanked name, or -- when every winner in the
     competition is from one country -- first letter + blanked name, then
     the last letter too. The whole turn state is `HonourRecord.turn`,
