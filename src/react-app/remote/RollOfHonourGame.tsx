@@ -198,7 +198,7 @@ export function RollOfHonourGame({ state, feed, myPlayerId, error, onSelectTile,
 	}
 
 	return (
-		<div className="screen">
+		<div className="screen roh-screen">
 			<div className="remote-round-header">
 				<span>
 					{honour.competitionName} · {answered} of {honour.tiles.length} filled

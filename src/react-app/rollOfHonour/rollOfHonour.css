@@ -14,6 +14,24 @@
 	gap: 0.4rem;
 	margin: 0.75rem 0 1rem;
 }
+/* Desktop: remote play's grid screen (.roh-screen) takes the room a wide
+   window has -- up to 93 seasons fit without scrolling -- while the
+   things read as a block (header, standings, the turn panel, the
+   countdown) stay a 640px column centred above it. */
+@media (min-width: 960px) {
+	.screen.roh-screen {
+		--screen-max: 1400px;
+		max-width: var(--screen-max);
+	}
+	.roh-screen > .remote-round-header,
+	.roh-screen > .remote-standings,
+	.roh-screen > .remote-countdown,
+	.roh-screen > .roh-turn {
+		max-width: 600px;
+		margin-left: auto;
+		margin-right: auto;
+	}
+}
 .roh-grid--final {
 	margin-top: 0.25rem;
 	margin-bottom: 1.5rem;

@@ -463,11 +463,13 @@ body.remote-in-game:not(.remote-pane-open) .screen {
 	font-size: 0.92rem;
 }
 @media (min-width: 960px) {
-	/* Make room for the column: the game keeps its 640px width, shifted
-	   into the space left of the pane. */
+	/* Make room for the column: the game is centred in the space left of
+	   the pane (not pushed up against it, which left one big empty block
+	   on a wide monitor). --screen-max is the screen's own width -- 640px
+	   unless a screen widens itself (Roll of Honour's grid). */
 	body.remote-pane-open .screen {
 		margin-left: auto;
-		margin-right: calc(360px + 1.5rem);
+		margin-right: calc(360px + max(1.5rem, (100vw - 360px - var(--screen-max, 640px)) / 2));
 	}
 }
 .remote-pane__header {
