@@ -4,7 +4,7 @@ import { generateToken } from "../lib/remoteSession";
 import { buildClubBadgeQuestions, pickRandomEligibleQuestions, type ClubBadgeQuestionPublic, type QuestionRow } from "../lib/clubBadgeRound";
 import { buildTeammateQuestions, pickRandomTeammateQuestions, type TeammateQuestionPublic, type TeammateQuestionRow } from "../lib/teammateRound";
 import { checkPlayerGuess, gradeGuess, loadRoundAnswers, type RoundAnswer } from "../lib/checkPlayerGuess";
-import { buildHonourTiles, DEFAULT_HONOUR_COMPETITION_ID, gradeHonourGuess, HONOUR_COMPETITIONS, type HonourTilePrivate } from "../lib/rollOfHonour";
+import { buildHonourTiles, DEFAULT_HONOUR_COMPETITION_ID, gradeHonourGuess, HONOUR_COMPETITIONS, HONOUR_TURN_HINTS, honourTurnHints, type HonourTilePrivate } from "../lib/rollOfHonour";
 
 // The authoritative session for one "remote" multiplayer game -- players
 // on their own devices, as opposed to the existing pass-and-play mode
@@ -125,6 +125,17 @@ import { buildHonourTiles, DEFAULT_HONOUR_COMPETITION_ID, gradeHonourGuess, HONO
 // leave/end, Play again and the start countdown are all shared with the
 // round-based modes; everything round-specific (ready gate, hint tiers,
 // minimum reveal) simply never engages since no round ever starts.
+// That race is "Party" mode. Turn mode (2026-10-08) plays the same grid
+// one tile at a time, in order, with the table taking turns: tile N is
+// opened by seat N (so the first guess rotates), each player in turn gets
+// one guess inside the turn timer (5-30s, the host's choice at /start;
+// running out passes the turn, same as a wrong answer), and when the
+// whole table has missed a hint appears and the table goes round again --
+// HONOUR_TURN_HINTS hints, so three passes at most, after which the
+// winner is revealed and nobody scores. No tile is selected or held; the
+// only action is /tile/answer by whoever's turn it is. Everything about
+// whose turn it is lives in HonourRecord.turn and moves in one place,
+// settleHonourTurn, driven by answers and by the alarm for the timer.
 
 const PLAYER_AWAY_MS = 15_000; // ~3 missed 4s polls -- see class doc and isAway.
 // The socket equivalent: a connected player pings every 25s (see
@@ -214,6 +225,15 @@ type RemoteQuestionPublic = ClubBadgeQuestionPublic | TeammateQuestionPublic;
 const HONOUR_LOCK_MS = 20_000;
 const HONOUR_RETRY_BLOCK_MS = 5_000;
 
+// Roll of Honour's two ways to play -- see the class doc. Mirrored by the
+// client's HonourMode (remoteApi.ts).
+type HonourMode = "party" | "turn";
+const HONOUR_MODES: readonly HonourMode[] = ["party", "turn"];
+// Turn mode's per-guess timer, chosen by the host in the lobby.
+const MIN_TURN_SECONDS = 5;
+const MAX_TURN_SECONDS = 30;
+const DEFAULT_TURN_SECONDS = 10;
+
 interface HonourTileRecord extends HonourTilePrivate {
 	lockedBy: string | null;
 	lockedUntil: number | null;
@@ -221,12 +241,38 @@ interface HonourTileRecord extends HonourTilePrivate {
 	// playerId -> epoch ms until which THAT player may not re-select this
 	// tile (their last answer on it was wrong).
 	blockedUntil: Record<string, number>;
+	// Turn mode: the table went round every pass without getting it, so
+	// the winner is shown with nobody credited. Absent otherwise.
+	missed?: boolean;
+}
+
+// Turn mode's whole state -- see the class doc and settleHonourTurn.
+interface HonourTurnRecord {
+	turnMs: number;
+	// Every winner is from one country, so the hints are about the name
+	// only (see lib/rollOfHonour.ts's honourTurnHints).
+	nameOnly: boolean;
+	// Seats, in the order players take their turns: the roster at /start,
+	// refreshed between tiles (leavers dropped, mid-game joiners added at
+	// the end) -- never mid-tile, so a pass can't skip or repeat anyone.
+	order: string[];
+	tileIndex: number; // The tile in play -- tiles are played in grid order.
+	pass: number; // 0-based trip round the table on this tile; also the number of hints showing.
+	cursor: number; // Seats already used this pass, counted from the tile's opening seat.
+	playerId: string | null; // Whose turn it is; null between turns and while nobody is present to play.
+	deadline: number | null; // Epoch ms that turn runs out.
+	// Set once the tile is decided (answered, or missed): epoch ms the
+	// reveal is held until before the next tile opens.
+	revealUntil: number | null;
 }
 
 interface HonourRecord {
 	competitionId: string;
 	competitionName: string;
 	tiles: HonourTileRecord[];
+	// null for Party mode; absent on records persisted before Turn mode
+	// existed (read with `?? null`).
+	turn?: HonourTurnRecord | null;
 }
 
 interface PublicHonourTile {
@@ -240,9 +286,24 @@ interface PublicHonourTile {
 	imageUrl: string | null;
 }
 
+interface PublicHonourTurn {
+	turnMs: number;
+	season: string;
+	playerId: string | null;
+	deadline: number | null;
+	// The hints showing for the tile in play -- built here, never the
+	// winner itself, so there's nothing to read off the wire early.
+	hints: string[];
+	// The tile in play has been decided and is on its reveal.
+	revealed: boolean;
+}
+
 interface PublicHonour {
 	competitionId: string;
 	competitionName: string;
+	mode: HonourMode;
+	// Non-null only for a Turn mode game in progress.
+	turn: PublicHonourTurn | null;
 	// When the game started -- drives the client's shared start countdown
 	// (publicRound is null for this mode, so it can't come from there).
 	startedAt: number | null;
@@ -490,17 +551,35 @@ function publicHonour(session: SessionRecord, now: number): PublicHonour | null 
 	const honour = session.honour;
 	if (!honour) return null;
 	const over = session.status === "finished";
+	const turn = honour.turn ?? null;
+	const turnTile = turn && !over ? honour.tiles[turn.tileIndex] : undefined;
 	return {
 		competitionId: honour.competitionId,
 		competitionName: honour.competitionName,
+		mode: turn ? "turn" : "party",
+		turn:
+			turn && turnTile
+				? {
+						turnMs: turn.turnMs,
+						season: turnTile.season,
+						playerId: turn.playerId,
+						deadline: turn.deadline,
+						hints: turn.revealUntil === null ? honourTurnHints(turnTile, turn.pass, turn.nameOnly) : [],
+						revealed: turn.revealUntil !== null,
+					}
+				: null,
 		startedAt: session.roundStartedAt,
 		tiles: honour.tiles.map((t) => {
-			const locked = t.lockedBy !== null && t.lockedUntil !== null && t.lockedUntil > now;
-			const reveal = t.answeredBy !== null || over;
+			// Turn mode has no locks; the tile in play reads as "locked" by
+			// whoever's turn it is, so the grid marks it in their colour.
+			const inPlay = t === turnTile && turn !== null && turn.revealUntil === null && turn.playerId !== null;
+			const locked = inPlay || (t.lockedBy !== null && t.lockedUntil !== null && t.lockedUntil > now);
+			const decided = t.answeredBy !== null || t.missed === true;
+			const reveal = decided || over;
 			return {
 				season: t.season,
-				status: t.answeredBy !== null ? "answered" : locked ? "locked" : "open",
-				lockedBy: locked ? t.lockedBy : null,
+				status: decided ? "answered" : locked ? "locked" : "open",
+				lockedBy: inPlay && turn ? turn.playerId : locked ? t.lockedBy : null,
 				answeredBy: t.answeredBy,
 				winner: reveal ? t.winner : null,
 				imageUrl: reveal ? t.imageUrl : null,
@@ -633,7 +712,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 			void _questions;
 			void _answers;
 			void _next;
-			return JSON.stringify({ ...rest, honour: honour ? { competitionId: honour.competitionId, competitionName: honour.competitionName } : null });
+			return JSON.stringify({ ...rest, honour: honour ? { competitionId: honour.competitionId, competitionName: honour.competitionName, turn: honour.turn ?? null } : null });
 		};
 
 		// The questions row carries the deck AND its answers -- both change
@@ -977,6 +1056,10 @@ export class RemoteGameSession extends DurableObject<Env> {
 			for (const p of gateBlockers(session, players, now)) consider(Math.ceil((presenceDeadline(p) + 1) / 5_000) * 5_000);
 			if (inProgress) {
 				for (const t of session.honour?.tiles ?? []) if (t.lockedBy !== null && t.lockedUntil !== null) consider(t.lockedUntil);
+				// Turn mode: the turn timer running out, the reveal hold closing.
+				const turn = session.honour?.turn;
+				if (turn?.revealUntil != null) consider(turn.revealUntil + 1);
+				else if (turn?.deadline != null) consider(turn.deadline + 1);
 				if (session.gameType !== "roll-of-honour") {
 					if (!isRoundDecided(session)) {
 						if (session.roundStartedAt !== null) {
@@ -1093,6 +1176,9 @@ export class RemoteGameSession extends DurableObject<Env> {
 			const now = Date.now();
 			server.serializeAttachment({ playerId: self.id, feedId: Number.isFinite(since) && since > 0 ? since : 0, v: "", connectedAt: now } satisfies SocketAttachment);
 			self.lastSeenAt = now;
+			// Turn mode with nobody present has no turn running; the first
+			// player back gets one.
+			settleHonourTurn(session, players, now);
 			await save();
 			dirty = true; // Even if nothing changed: the new socket needs its first state.
 			return new Response(null, { status: 101, webSocket: client });
@@ -1220,16 +1306,110 @@ export class RemoteGameSession extends DurableObject<Env> {
 		// non-away player has bowed out (same "at least one active player"
 		// guard as resolveRoundByGiveUp: a room that's all gone quiet is
 		// left for them to come back to). Returns whether it finished.
+		// Turn mode: also moves the turn on (settleHonourTurn) -- every caller
+		// of this is somewhere the turn may need to move (the clock, a player
+		// leaving, being removed or dropped, giving up), and they pass the
+		// roster as it will be. Returns whether anything changed, which for
+		// Party mode is still exactly "it finished".
 		function finishHonourIfDone(session: SessionRecord, players: PlayerRecord[], now: number): boolean {
 			if (session.gameType !== "roll-of-honour" || session.status !== "in_progress" || !session.honour) return false;
-			const allAnswered = session.honour.tiles.every((t) => t.answeredBy !== null);
+			const turnMode = Boolean(session.honour.turn);
+			// Turn mode reaches the end of the grid inside settleHonourTurn
+			// (after the last tile's reveal), not here.
+			const allAnswered = !turnMode && session.honour.tiles.every((t) => t.answeredBy !== null);
 			const active = players.filter((p) => !isAway(p, now));
 			const allBowedOut = active.length > 0 && active.every((p) => session.roundGivenUpPlayerIds.includes(p.id));
-			if (!allAnswered && !allBowedOut) return false;
+			if (!allAnswered && !allBowedOut) return turnMode ? settleHonourTurn(session, players, now) : false;
 			session.status = "finished";
 			session.roundDecidedAt = now;
 			pushFeed(session, now, { kind: "system", playerId: null, text: allAnswered ? "Every season filled -- game over" : "Everyone gave up -- game over" });
 			return true;
+		}
+
+		const roundStartGraceMs = (): number => {
+			const raw = Number(env.ROUND_START_GRACE_MS);
+			return Number.isFinite(raw) ? raw : DEFAULT_ROUND_START_GRACE_MS;
+		};
+
+		// Turn mode's one state machine (see the class doc and
+		// HonourTurnRecord): brings the turn up to date with the clock and
+		// the roster, and is the only thing that moves it. Called after an
+		// answer, and from everything that calls finishHonourIfDone. In
+		// order, repeated until nothing more applies:
+		//   - a decided tile whose reveal hold is over -> the next tile (or
+		//     the game finishes past the last one);
+		//   - a turn that has run out, or whose player has left / given up
+		//     -> that seat is used up;
+		//   - no turn running -> the next seat this pass with someone to
+		//     play it (present, still in the game); if the pass has none
+		//     left, the next pass (one more hint), and past the last pass
+		//     the tile is missed and goes to its reveal.
+		// With nobody present to play, no turn runs -- the room is left for
+		// them to come back to, as everywhere else. Returns whether anything
+		// changed; persists nothing itself.
+		function settleHonourTurn(session: SessionRecord, players: PlayerRecord[], now: number): boolean {
+			const honour = session.honour;
+			const turn = honour?.turn;
+			if (!honour || !turn || session.status !== "in_progress") return false;
+			const inGame = (id: string): PlayerRecord | undefined => (session.roundGivenUpPlayerIds.includes(id) ? undefined : players.find((p) => p.id === id));
+			const canPlay = (id: string): boolean => {
+				const p = inGame(id);
+				return p !== undefined && !isAway(p, now);
+			};
+			let changed = false;
+			// Bounded: each step either stops or consumes a seat, a pass or a
+			// tile, and there are finitely many of each.
+			for (let step = 0; step < 10_000; step++) {
+				if (turn.revealUntil !== null) {
+					if (now < turn.revealUntil) break;
+					changed = true;
+					if (turn.tileIndex + 1 >= honour.tiles.length) {
+						session.status = "finished";
+						session.roundDecidedAt = now;
+						pushFeed(session, now, { kind: "system", playerId: null, text: "Every season played -- game over" });
+						break;
+					}
+					turn.tileIndex += 1;
+					turn.order = [...turn.order.filter((id) => players.some((p) => p.id === id)), ...players.filter((p) => !turn.order.includes(p.id)).map((p) => p.id)];
+					turn.pass = 0;
+					turn.cursor = 0;
+					turn.playerId = null;
+					turn.deadline = null;
+					turn.revealUntil = null;
+					continue;
+				}
+				const tile = honour.tiles[turn.tileIndex];
+				if (turn.playerId !== null) {
+					const player = inGame(turn.playerId);
+					if (player && turn.deadline !== null && now < turn.deadline) break;
+					if (player) pushFeed(session, now, { kind: "system", playerId: null, text: `${player.name} ran out of time on ${tile.season}` });
+					turn.playerId = null;
+					turn.deadline = null;
+					turn.cursor += 1;
+					changed = true;
+					continue;
+				}
+				if (!players.some((p) => canPlay(p.id))) break;
+				const seats = turn.order.length;
+				const seat = (offset: number): string => turn.order[(turn.tileIndex + offset) % seats];
+				while (turn.cursor < seats && !canPlay(seat(turn.cursor))) turn.cursor += 1;
+				changed = true;
+				if (turn.cursor < seats) {
+					turn.playerId = seat(turn.cursor);
+					// The first turn of the game starts when the countdown ends.
+					turn.deadline = Math.max(now, (session.roundStartedAt ?? now) + roundStartGraceMs()) + turn.turnMs;
+					break;
+				}
+				if (turn.pass >= HONOUR_TURN_HINTS) {
+					tile.missed = true;
+					turn.revealUntil = now + minRevealMs();
+					pushFeed(session, now, { kind: "system", playerId: null, text: `Nobody got ${tile.season} -- it was ${tile.winner}` });
+					continue;
+				}
+				turn.pass += 1;
+				turn.cursor = 0;
+			}
+			return changed;
 		}
 
 		this.app.get("/", (c) => c.json({ ok: true }));
@@ -1487,13 +1667,23 @@ export class RemoteGameSession extends DurableObject<Env> {
 			if (!caller.isHost) return c.json({ error: "Only the host can start the game" }, 403);
 			if (session.status !== "lobby") return c.json({ error: "This session has already started" }, 409);
 
-			const body = await c.req.json<{ questionCount?: number; competitionId?: string }>().catch(() => ({}) as { questionCount?: number; competitionId?: string });
+			const body = await c.req
+				.json<{ questionCount?: number; competitionId?: string; mode?: string; turnSeconds?: number }>()
+				.catch(() => ({}) as { questionCount?: number; competitionId?: string; mode?: string; turnSeconds?: number });
 
 			if (session.gameType === "roll-of-honour") {
 				// No question count -- the grid IS the game. The competition is
 				// the one choice, defaulting to the only one that exists today.
 				const competition = HONOUR_COMPETITIONS[body.competitionId ?? DEFAULT_HONOUR_COMPETITION_ID];
 				if (!competition) return c.json({ error: "Unknown competition" }, 400);
+				// Party (the race) unless the host picked Turn mode; the turn
+				// timer only means anything there.
+				const mode = (body.mode ?? "party") as HonourMode;
+				if (!HONOUR_MODES.includes(mode)) return c.json({ error: "Unknown mode" }, 400);
+				const turnSeconds = body.turnSeconds ?? DEFAULT_TURN_SECONDS;
+				if (mode === "turn" && (typeof turnSeconds !== "number" || !Number.isInteger(turnSeconds) || turnSeconds < MIN_TURN_SECONDS || turnSeconds > MAX_TURN_SECONDS)) {
+					return c.json({ error: `turnSeconds must be a whole number between ${MIN_TURN_SECONDS} and ${MAX_TURN_SECONDS}` }, 400);
+				}
 				const now = Date.now();
 				const notReady = playersNotReady(players, now);
 				if (notReady.length > 0) {
@@ -1504,6 +1694,20 @@ export class RemoteGameSession extends DurableObject<Env> {
 					competitionId: competition.id,
 					competitionName: competition.name,
 					tiles: tiles.map((t) => ({ ...t, lockedBy: null, lockedUntil: null, answeredBy: null, blockedUntil: {} })),
+					turn:
+						mode === "turn"
+							? {
+									turnMs: turnSeconds * 1000,
+									nameOnly: new Set(tiles.map((t) => t.country)).size <= 1,
+									order: players.map((p) => p.id),
+									tileIndex: 0,
+									pass: 0,
+									cursor: 0,
+									playerId: null,
+									deadline: null,
+									revealUntil: null,
+								}
+							: null,
 				};
 				session.questionCount = tiles.length;
 				session.status = "in_progress";
@@ -1512,6 +1716,7 @@ export class RemoteGameSession extends DurableObject<Env> {
 				// round-shaped stays null, so no round ever "starts".
 				session.roundStartedAt = now;
 				session.roundGivenUpPlayerIds = [];
+				settleHonourTurn(session, players, now); // Turn mode: seat 1's turn, timed from the end of the countdown.
 				await save();
 				return c.json({ ok: true });
 			}
@@ -1781,10 +1986,12 @@ export class RemoteGameSession extends DurableObject<Env> {
 			const ctx = await honourContext(c);
 			if ("error" in ctx) return ctx.error;
 			const { session, honour, self, now } = ctx;
+			if (honour.turn) {
+				await save();
+				return c.json({ error: "Seasons are played in order in Turn mode" }, 409);
+			}
 
-			const rawGraceMs = Number(this.env.ROUND_START_GRACE_MS);
-			const roundStartGraceMs = Number.isFinite(rawGraceMs) ? rawGraceMs : DEFAULT_ROUND_START_GRACE_MS;
-			if (session.roundStartedAt !== null && now - session.roundStartedAt < roundStartGraceMs) {
+			if (session.roundStartedAt !== null && now - session.roundStartedAt < roundStartGraceMs()) {
 				await save();
 				return c.json({ error: "Too early -- wait for the countdown" }, 409);
 			}
@@ -1840,6 +2047,47 @@ export class RemoteGameSession extends DurableObject<Env> {
 			if (!tile) {
 				await save();
 				return c.json({ error: "Unknown season" }, 404);
+			}
+
+			const turn = honour.turn;
+			if (turn) {
+				// Turn mode: no hold to check -- it has to be this player's
+				// turn, on the tile in play, inside the timer. Right scores
+				// and sends the tile to its reveal; wrong uses up the turn.
+				if (session.roundStartedAt !== null && now - session.roundStartedAt < roundStartGraceMs()) {
+					await save();
+					return c.json({ error: "Too early -- wait for the countdown" }, 409);
+				}
+				settleHonourTurn(session, players, now); // The timer may have just run out.
+				if (session.status !== "in_progress" || turn.revealUntil !== null || honour.tiles[turn.tileIndex] !== tile) {
+					await save();
+					return c.json({ error: "That season isn't in play" }, 409);
+				}
+				if (turn.playerId !== self.id) {
+					await save();
+					return c.json({ error: "It's not your turn" }, 409);
+				}
+				const turnGuess = (body.guess ?? "").trim();
+				if (!turnGuess) {
+					await save();
+					return c.json({ error: "Missing guess" }, 400);
+				}
+				turn.playerId = null;
+				turn.deadline = null;
+				if (gradeHonourGuess(turnGuess, tile)) {
+					tile.answeredBy = self.id;
+					self.wins += 1;
+					turn.revealUntil = now + minRevealMs();
+					pushFeed(session, now, { kind: "guess", playerId: self.id, text: tile.winner, correct: true, season: tile.season });
+					settleHonourTurn(session, players, now);
+					await save();
+					return c.json({ result: "correct" as const, winner: tile.winner, imageUrl: tile.imageUrl });
+				}
+				pushFeed(session, now, { kind: "guess", playerId: self.id, text: turnGuess, correct: false, season: tile.season });
+				turn.cursor += 1;
+				settleHonourTurn(session, players, now);
+				await save();
+				return c.json({ result: "wrong" as const, retryAfterMs: 0 });
 			}
 			if (tile.answeredBy !== null) {
 				await save();

@@ -51,9 +51,29 @@ export interface HonourTile {
 	winner: string | null;
 	imageUrl: string | null;
 }
+// Roll of Honour's two ways to play -- mirrors remoteGameSession.ts's
+// HonourMode. Party is the race for any season; Turn plays the seasons in
+// order with the table taking turns.
+export type HonourMode = "party" | "turn";
+export const HONOUR_TURN_SECONDS = { min: 5, max: 30, default: 10 };
+export interface HonourStartOptions {
+	mode: HonourMode;
+	turnSeconds: number;
+}
+// Turn mode's live state -- see remoteGameSession.ts's PublicHonourTurn.
+export interface HonourTurn {
+	turnMs: number;
+	season: string;
+	playerId: string | null;
+	deadline: number | null;
+	hints: string[];
+	revealed: boolean;
+}
 export interface HonourState {
 	competitionId: string;
 	competitionName: string;
+	mode: HonourMode;
+	turn: HonourTurn | null;
 	startedAt: number | null;
 	tiles: HonourTile[];
 	givenUpPlayerIds: string[];
@@ -251,13 +271,14 @@ export function apiRemovePlayer(code: string, token: string, playerId: string) {
 	});
 }
 
-// `competitionId` is Roll of Honour's one start option (ignored by the
-// round formats, which read questionCount instead -- and vice versa).
-export function apiStartGame(code: string, token: string, questionCount: number, competitionId?: string) {
+// `competitionId` and `honour` (mode, turn timer) are Roll of Honour's
+// start options (ignored by the round formats, which read questionCount
+// instead -- and vice versa).
+export function apiStartGame(code: string, token: string, questionCount: number, competitionId?: string, honour?: HonourStartOptions) {
 	return apiFetch<{ ok: true } | { error: string; notReadyPlayerIds?: string[] }>(`/sessions/${code}/start`, {
 		method: "POST",
 		headers: authHeaders(token),
-		body: JSON.stringify({ questionCount, competitionId }),
+		body: JSON.stringify({ questionCount, competitionId, ...honour }),
 	});
 }
 

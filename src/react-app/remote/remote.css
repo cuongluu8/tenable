@@ -685,3 +685,12 @@ body.remote-in-game:not(.remote-pane-open) .screen {
 .remote-idle .remote-primary-button {
 	margin-top: 0.75rem;
 }
+
+/* The lobby's "seconds per guess" slider -- a range input wants none of
+   .remote-field's text-box padding and border. */
+.remote-field input.remote-range {
+	padding: 0;
+	border: 0;
+	background: none;
+	accent-color: #4ade80;
+}

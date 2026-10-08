@@ -6,6 +6,7 @@ import { useClubIndex } from "../rollOfHonour/useClubIndex";
 import { ChatDock } from "./ChatPane";
 import type { FeedEntry, SessionState } from "./remoteApi";
 import { FinalResults, Leaderboard, LeaveControl, ROUND_START_GRACE_MS } from "./RemoteGame";
+import { TurnPanel } from "./RollOfHonourTurn";
 
 interface Props {
 	state: SessionState;
@@ -35,7 +36,11 @@ function deadline(ms: number): number {
 // Roll of Honour's live game and its results -- see remoteGameSession.ts's
 // class doc for the rules. Everything not about the grid (leaderboard,
 // chat, leave/end, final results with Play again) is the same shared UI
-// the round-based formats use, imported from RemoteGame.tsx.
+// the round-based formats use, imported from RemoteGame.tsx. Both modes
+// share this screen: Party is tap-a-season-and-answer (the hold state and
+// answer modal below); Turn mode has nothing to tap -- the grid only
+// shows progress and RollOfHonourTurn.tsx's panel above it is where the
+// player whose turn it is answers.
 export function RollOfHonourGame({ state, feed, myPlayerId, error, onSelectTile, onReleaseTile, onAnswerTile, onGiveUp, onPostMessage, onRestart, onLeave }: Props) {
 	const [now, setNow] = useState(() => Date.now());
 	const clubIndex = useClubIndex();
@@ -54,7 +59,9 @@ export function RollOfHonourGame({ state, feed, myPlayerId, error, onSelectTile,
 	const [blocked, setBlocked] = useState<Record<string, number>>({});
 	const [guess, setGuess] = useState("");
 	const [busy, setBusy] = useState(false);
-	const [feedback, setFeedback] = useState<{ kind: "correct" | "wrong" | "info"; text: string } | null>(null);
+	// `season` is set by Turn mode only: the verdict belongs to that season
+	// and goes once it's decided, instead of lingering over the next one.
+	const [feedback, setFeedback] = useState<{ kind: "correct" | "wrong" | "info"; text: string; season?: string } | null>(null);
 	// A refused tile claim ("Someone else has that season right now", the
 	// retry block, the start countdown) -- shown as a modal that has to be
 	// dismissed (2026-09-14), not an inline line: it only ever happens when
@@ -170,6 +177,20 @@ export function RollOfHonourGame({ state, feed, myPlayerId, error, onSelectTile,
 		setFeedback({ kind: "wrong", text: `❌ Not ${name}` });
 	}
 
+	// Turn mode: answer the season in play (it's this player's turn -- the
+	// panel only offers the box then).
+	const turn = honour.mode === "turn" ? honour.turn : null;
+	async function answerTurn(name: string) {
+		if (!turn || busy) return;
+		setBusy(true);
+		const res = await onAnswerTile(turn.season, name);
+		setBusy(false);
+		if ("error" in res) setFeedback({ kind: "info", text: res.error, season: turn.season });
+		else if (res.result === "wrong") setFeedback({ kind: "wrong", text: `❌ Not ${name}`, season: turn.season });
+		else setFeedback(null);
+	}
+	const showFeedback = feedback !== null && (!turn || (feedback.season === turn.season && !turn.revealed));
+
 	async function confirmGiveUp() {
 		setConfirmingGiveUp(false);
 		setHeld(null);
@@ -195,15 +216,34 @@ export function RollOfHonourGame({ state, feed, myPlayerId, error, onSelectTile,
 				<>
 					{iGaveUp ? (
 						<p className="remote-subtitle">You gave up on this one. Watching the others fill in the rest…</p>
-					) : (
+					) : turn ? null : (
 						<p className="remote-subtitle roh-hint">Tap a season to claim it, then name the winner.</p>
 					)}
 
-					{feedback && <p className={`roh-feedback roh-feedback--${feedback.kind}`}>{feedback.text}</p>}
+					{turn && (
+						<TurnPanel
+							// A fresh panel (and an empty guess box) for every turn.
+							key={`${turn.season}:${turn.playerId}:${turn.hints.length}`}
+							turn={turn}
+							tile={honour.tiles.find((t) => t.season === turn.season)}
+							players={state.players}
+							myPlayerId={myPlayerId}
+							canAnswer={!iGaveUp}
+							now={now}
+							busy={busy}
+							clubIndex={clubIndex ?? undefined}
+							colorFor={colorFor}
+							onAnswer={answerTurn}
+						/>
+					)}
+
+					{feedback && showFeedback && <p className={`roh-feedback roh-feedback--${feedback.kind}`}>{feedback.text}</p>}
 
 					<div className="roh-grid">
 						{honour.tiles.map((t) => {
-							const mine = held?.season === t.season && t.lockedBy === myPlayerId;
+							// Party: this device's hold. Turn: the season in play, on this player's turn.
+							const myTurnTile = turn !== null && !turn.revealed && turn.season === t.season && turn.playerId === myPlayerId;
+							const mine = myTurnTile || (held?.season === t.season && t.lockedBy === myPlayerId);
 							const blockedForMs = Math.max(0, (blocked[t.season] ?? 0) - now);
 							return (
 								<HonourTile
@@ -211,10 +251,10 @@ export function RollOfHonourGame({ state, feed, myPlayerId, error, onSelectTile,
 									tile={t}
 									ownerColor={colorFor(t.answeredBy ?? t.lockedBy)}
 									mine={mine}
-									lockLeftMs={mine && held ? Math.max(0, held.until - now) : null}
+									lockLeftMs={myTurnTile && turn?.deadline ? Math.max(0, turn.deadline - now) : mine && held ? Math.max(0, held.until - now) : null}
 									blockedForMs={blockedForMs}
-									disabled={busy || iGaveUp}
-									onSelect={() => (mine ? undefined : void select(t.season))}
+									disabled={busy || iGaveUp || turn !== null}
+									onSelect={() => (mine || turn ? undefined : void select(t.season))}
 								/>
 							);
 						})}

@@ -84,8 +84,8 @@ function RemoteScreens({ session, onBack }: { session: UseRemoteSessionResult; o
 				isHost={isHost}
 				error={error}
 				onSetReady={setReady}
-				onStart={(count, competitionId) => {
-					void start(count, competitionId);
+				onStart={(count, competitionId, honour) => {
+					void start(count, competitionId, honour);
 				}}
 				onRemovePlayer={removePlayer}
 				onLeave={leave}

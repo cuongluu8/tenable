@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { colorForPlayerIndex } from "../components/playerColors";
-import { apiHonourCompetitions, REMOTE_GAME_LABELS, type HonourCompetitionOption, type SessionState } from "./remoteApi";
+import { apiHonourCompetitions, HONOUR_TURN_SECONDS, REMOTE_GAME_LABELS, type HonourCompetitionOption, type HonourMode, type HonourStartOptions, type SessionState } from "./remoteApi";
 import { shareSessionViaWhatsApp } from "./shareSession";
 
 const DEFAULT_QUESTION_COUNT = 5;
@@ -14,9 +14,9 @@ interface Props {
 	isHost: boolean;
 	error: string | null;
 	onSetReady: (ready: boolean) => void;
-	// competitionId only means anything for Roll of Honour (see
-	// apiStartGame); undefined for the round formats.
-	onStart: (questionCount: number, competitionId?: string) => void;
+	// competitionId and honour (mode, turn timer) only mean anything for
+	// Roll of Honour (see apiStartGame); undefined for the round formats.
+	onStart: (questionCount: number, competitionId?: string, honour?: HonourStartOptions) => void;
 	onRemovePlayer: (playerId: string) => void;
 	onLeave: () => void;
 }
@@ -36,6 +36,8 @@ export function RemoteLobby({ state, sessionCode, myPlayerId, isHost, error, onS
 	const isHonour = state.gameType === "roll-of-honour";
 	const [competitions, setCompetitions] = useState<HonourCompetitionOption[]>([]);
 	const [competitionId, setCompetitionId] = useState<string | null>(null);
+	const [honourMode, setHonourMode] = useState<HonourMode>("party");
+	const [turnSeconds, setTurnSeconds] = useState(HONOUR_TURN_SECONDS.default);
 	useEffect(() => {
 		if (!isHonour) return;
 		let cancelled = false;
@@ -89,19 +91,42 @@ export function RemoteLobby({ state, sessionCode, myPlayerId, isHost, error, onS
 			{isHost ? (
 				<div className="remote-host-controls">
 					{isHonour ? (
-						// No question count -- the grid is the game; the competition
-						// is the one choice.
-						<label className="remote-field">
-							Competition
-							<select value={competitionId ?? ""} onChange={(e) => setCompetitionId(e.target.value)} disabled={competitions.length === 0}>
-								{competitions.length === 0 && <option value="">Loading…</option>}
-								{competitions.map((c) => (
-									<option key={c.id} value={c.id}>
-										{c.name} · {c.seasonCount} seasons
-									</option>
-								))}
-							</select>
-						</label>
+						// No question count -- the grid is the game; the choices are
+						// the competition and how it's played.
+						<>
+							<label className="remote-field">
+								Competition
+								<select value={competitionId ?? ""} onChange={(e) => setCompetitionId(e.target.value)} disabled={competitions.length === 0}>
+									{competitions.length === 0 && <option value="">Loading…</option>}
+									{competitions.map((c) => (
+										<option key={c.id} value={c.id}>
+											{c.name} · {c.seasonCount} seasons
+										</option>
+									))}
+								</select>
+							</label>
+							<label className="remote-field">
+								Mode
+								<select value={honourMode} onChange={(e) => setHonourMode(e.target.value as HonourMode)}>
+									<option value="party">Party mode · race for any season</option>
+									<option value="turn">Turn mode · take turns, season by season</option>
+								</select>
+							</label>
+							{honourMode === "turn" && (
+								<label className="remote-field">
+									Seconds per guess: {turnSeconds}
+									<input
+										type="range"
+										className="remote-range"
+										min={HONOUR_TURN_SECONDS.min}
+										max={HONOUR_TURN_SECONDS.max}
+										step={1}
+										value={turnSeconds}
+										onChange={(e) => setTurnSeconds(Number(e.target.value))}
+									/>
+								</label>
+							)}
+						</>
 					) : (
 						<label className="remote-field">
 							Number of questions
@@ -118,7 +143,7 @@ export function RemoteLobby({ state, sessionCode, myPlayerId, isHost, error, onS
 						type="button"
 						className="remote-primary-button"
 						disabled={isHonour && !competitionId}
-						onClick={() => onStart(questionCount, isHonour ? (competitionId ?? undefined) : undefined)}
+						onClick={() => (isHonour ? onStart(questionCount, competitionId ?? undefined, { mode: honourMode, turnSeconds }) : onStart(questionCount))}
 					>
 						Start game
 					</button>

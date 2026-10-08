@@ -278,9 +278,23 @@ simpler content model.
     next request anyone makes -- the host too, which ends the session
     unless a game is in progress. A dropped player is told on the home
     screen and rejoins with the code.
-  - **Roll of Honour** is a different engine inside the same object: tap
-    to hold a season for 20s, answer it; wrong frees it and blocks that
-    player from it for 5s; scores are correct tiles.
+  - **Roll of Honour** is a different engine inside the same object, with
+    two modes the host picks in the lobby (sent with `/start`). **Party
+    mode** (the default, the original race): tap to hold a season for
+    20s, answer it; wrong frees it and blocks that player from it for 5s.
+    **Turn mode** (2026-10-08): seasons are played in grid order with the
+    table taking turns -- season N is opened by seat N, so the first
+    guess rotates; one guess per turn inside a timer (5-30s, a lobby
+    slider, default 10; running out passes the turn like a wrong answer);
+    after each full trip round the table a hint appears, two hints at
+    most, then the winner is revealed and nobody scores. Hints are built
+    server-side (`lib/rollOfHonour.ts`'s `honourTurnHints`): country then
+    first letter + blanked name, or -- when every winner in the
+    competition is from one country -- first letter + blanked name, then
+    the last letter too. The whole turn state is `HonourRecord.turn`,
+    moved only by `settleHonourTurn`; away players are skipped, a
+    mid-game joiner gets a seat from the next season. Scores are correct
+    tiles in both modes.
   - Joining is allowed **mid-game**; a guest leaving vacates their seat; the
     host leaving/ending ends the session for everyone. **Play again**
     returns a finished session to the lobby with scores kept or reset. A

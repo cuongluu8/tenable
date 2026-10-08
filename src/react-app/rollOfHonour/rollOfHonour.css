@@ -235,3 +235,37 @@
 	margin: 0 0 1rem;
 	font-size: 1.05rem;
 }
+
+/* ---- Remote play, Turn mode (remote/RollOfHonourTurn.tsx) ---- */
+.roh-turn {
+	margin: 0 0 0.75rem;
+	padding: 0.75rem 0.9rem 0.9rem;
+	border-radius: 8px;
+	border: 2px solid var(--owner-color, #374151);
+	background: #1f2937;
+	text-align: center;
+}
+.roh-turn--mine {
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--owner-color, #fbbf24) 35%, transparent);
+}
+.roh-turn__season {
+	margin: 0;
+	font-size: 1.5rem;
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+}
+.roh-turn__who {
+	margin: 0.15rem 0 0;
+}
+/* The blanked name keeps its spacing (two spaces between words) and wraps
+   between letters rather than overflowing a 390px screen. */
+.roh-turn__hint {
+	margin: 0.5rem 0 0;
+	color: #fbbf24;
+	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+.roh-turn .guess-input {
+	margin-top: 0.75rem;
+}
