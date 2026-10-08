@@ -14,7 +14,7 @@ test("a Premier League grid: claim, wrong, right, switch, give up, play again ke
 	const guest = await newPlayer(browser);
 
 	const code = await hostCreates(host, "Roll of Honour", "Cuong");
-	await guestJoins(guest, "Roll of Honour", code, "Luka");
+	await guestJoins(guest, code, "Luka");
 	await guestReadies(guest);
 	await expect(host.locator(".remote-badge--ready")).toBeVisible(POLL);
 

@@ -16,9 +16,9 @@
 
 // `?join=<code>` is read once by RemoteMultiplayer.tsx on load -- whoever
 // opens this link lands straight in the "join" form with the code
-// already filled in, not the game-type picker or a blank host-or-join
-// choice, since the whole point of a shared link is skipping every step
-// that isn't "type your name".
+// already filled in, not a blank host-or-join choice, since the whole
+// point of a shared link is skipping every step that isn't "type your
+// name".
 export function buildJoinUrl(sessionCode: string): string {
 	return `${window.location.origin}/remote?join=${sessionCode}`;
 }

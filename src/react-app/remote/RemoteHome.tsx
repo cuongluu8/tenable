@@ -1,8 +1,9 @@
 import { useState } from "react";
+import { RemoteGameTypePick, type RemoteGameType } from "./RemoteGameTypePick";
 
 interface Props {
 	error: string | null;
-	onCreate: (hostName: string) => Promise<void>;
+	onCreate: (hostName: string, gameType: RemoteGameType) => Promise<void>;
 	onJoin: (code: string, name: string) => Promise<void>;
 	onBack: () => void;
 	// Set when this screen was reached via a shared WhatsApp join link
@@ -16,18 +17,22 @@ interface Props {
 // Entry point for remote multiplayer -- host a new session, or join one
 // with a code someone else shared. Neither action needs a whole separate
 // screen (this one has all of two fields), so both live here as a small
-// mode toggle rather than their own routes.
+// mode toggle rather than their own routes. Only hosting picks a game
+// type (the "game" step, between choosing to host and naming yourself):
+// a joiner gets whatever the host picked, back from the server in
+// state.gameType.
 export function RemoteHome({ error, onCreate, onJoin, onBack, initialJoinCode }: Props) {
-	const [mode, setMode] = useState<"choose" | "create" | "join">(initialJoinCode ? "join" : "choose");
+	const [mode, setMode] = useState<"choose" | "game" | "create" | "join">(initialJoinCode ? "join" : "choose");
 	const [name, setName] = useState("");
 	const [code, setCode] = useState(initialJoinCode ?? "");
+	const [gameType, setGameType] = useState<RemoteGameType | null>(null);
 	const [submitting, setSubmitting] = useState(false);
 
 	async function handleCreate(e: React.FormEvent) {
 		e.preventDefault();
-		if (!name.trim() || submitting) return;
+		if (!name.trim() || !gameType || submitting) return;
 		setSubmitting(true);
-		await onCreate(name.trim());
+		await onCreate(name.trim(), gameType);
 		setSubmitting(false);
 	}
 
@@ -37,6 +42,18 @@ export function RemoteHome({ error, onCreate, onJoin, onBack, initialJoinCode }:
 		setSubmitting(true);
 		await onJoin(code.trim(), name.trim());
 		setSubmitting(false);
+	}
+
+	if (mode === "game") {
+		return (
+			<RemoteGameTypePick
+				onSelect={(picked) => {
+					setGameType(picked);
+					setMode("create");
+				}}
+				onBack={() => setMode("choose")}
+			/>
+		);
 	}
 
 	return (
@@ -50,7 +67,7 @@ export function RemoteHome({ error, onCreate, onJoin, onBack, initialJoinCode }:
 
 			{mode === "choose" && (
 				<div className="mode-picker">
-					<button type="button" className="mode-button" onClick={() => setMode("create")}>
+					<button type="button" className="mode-button" onClick={() => setMode("game")}>
 						<strong>🎉 Host a game</strong>
 						<span>Get a code to share with friends</span>
 					</button>
@@ -77,7 +94,7 @@ export function RemoteHome({ error, onCreate, onJoin, onBack, initialJoinCode }:
 					<button type="submit" className="remote-primary-button" disabled={!name.trim() || submitting}>
 						Create session
 					</button>
-					<button type="button" className="back-link" onClick={() => setMode("choose")}>
+					<button type="button" className="back-link" onClick={() => setMode("game")}>
 						← Back
 					</button>
 				</form>

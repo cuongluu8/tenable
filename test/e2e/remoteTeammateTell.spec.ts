@@ -12,7 +12,7 @@ test("a one-question Teammate Tell game, then the guest leaves from the results"
 
 	const code = await hostCreates(host, "Teammate Tell", "Cuong");
 	await expect(host.getByText("Teammate Tell", { exact: true })).toBeVisible();
-	await guestJoins(guest, "Teammate Tell", code, "Luka");
+	await guestJoins(guest, code, "Luka");
 	await guestReadies(guest);
 	await expect(host.locator(".remote-badge--ready")).toBeVisible(POLL);
 

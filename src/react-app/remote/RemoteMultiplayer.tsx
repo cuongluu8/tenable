@@ -1,7 +1,6 @@
 import { useState } from "react";
 import "./remote.css";
 import { RemoteGame } from "./RemoteGame";
-import { RemoteGameTypePick, type RemoteGameType } from "./RemoteGameTypePick";
 import { RemoteHome } from "./RemoteHome";
 import { RemoteLobby } from "./RemoteLobby";
 import { RollOfHonourGame } from "./RollOfHonourGame";
@@ -35,45 +34,25 @@ export function RemoteMultiplayer({ onBack }: Props) {
 	);
 }
 
-// Top-level orchestrator: which of GameTypePick/Home/Lobby/Game to show is
-// entirely a function of whether a game type has been picked yet, whether
-// a session identity exists, and what its server state currently says --
+// Top-level orchestrator: which of Home/Lobby/Game to show is entirely a
+// function of whether a session identity exists and what its server state
+// currently says --
 // there's no separate client-side navigation state to keep in sync with
 // it (unlike App.tsx's own screens, which are real distinct URLs a
 // refresh/back-button should land back on). A refresh here just re-reads
 // the same identity from localStorage and resumes wherever the session
-// actually is -- skipping the game-type picker entirely once a session
-// exists, since a resumed session already committed to whichever game it
-// started as; there's nothing left to pick.
+// actually is. Picking a game type is part of hosting, so it lives inside
+// RemoteHome (after "Host a game"), not here.
 function RemoteScreens({ session, onBack }: { session: UseRemoteSessionResult; onBack: () => void }) {
 	const { identity, state, feed, error, isHost, create, join, setReady, start, removePlayer, guess, giveUp, postMessage, restart, selectTile, releaseTile, answerTile, leave, forget } = session;
 	// Set when this page was opened via a shared WhatsApp join link (see
 	// shareSession.ts) -- read once at mount, same as App.tsx's own
 	// pathname-based routing helpers read window.location directly rather
-	// than threading a router through props. A join link always means
-	// "join THIS game", so it skips the game-type picker entirely --
-	// there's nothing to pick, the host already picked it, and what they
-	// picked comes back from the server in state.gameType once joined
-	// (the preset below is only to get past the picker).
+	// than threading a router through props.
 	const [joinCode] = useState(() => new URLSearchParams(window.location.search).get("join")?.toUpperCase() || undefined);
-	const [gameType, setGameType] = useState<RemoteGameType | null>(() => (joinCode ? "club-badges" : null));
-
-	if (!identity && !gameType) {
-		return <RemoteGameTypePick onSelect={setGameType} onBack={onBack} />;
-	}
 
 	if (!identity) {
-		return (
-			<RemoteHome
-				error={error}
-				// gameType is always set by here (the picker above ran, or a
-				// join link preset it) -- the fallback only satisfies the type.
-				onCreate={(name) => create(name, gameType ?? "club-badges")}
-				onJoin={join}
-				onBack={() => setGameType(null)}
-				initialJoinCode={joinCode}
-			/>
-		);
+		return <RemoteHome error={error} onCreate={create} onJoin={join} onBack={onBack} initialJoinCode={joinCode} />;
 	}
 
 	if (!state) {

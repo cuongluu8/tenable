@@ -12,7 +12,7 @@ test("a two-question Club Run game from lobby to Play again to End game", async 
 	const guest = await newPlayer(browser);
 
 	const code = await hostCreates(host, "Club Run", "Cuong");
-	await guestJoins(guest, "Club Run", code, "Luka");
+	await guestJoins(guest, code, "Luka");
 	await guestReadies(guest);
 	await expect(host.getByText("Luka")).toBeVisible(POLL);
 	await expect(host.locator(".remote-badge--ready")).toBeVisible(POLL);

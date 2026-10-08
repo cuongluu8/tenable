@@ -7,9 +7,8 @@ interface Props {
 	onBack: () => void;
 }
 
-// First step of remote play, ahead of RemoteHome's own host-or-join
-// choice -- same "one shared fork point" reasoning as local multiplayer's
-// MultiplayerGameTypePick.tsx. Club Run and (since 2026-09-13) Teammate
+// The host's second step, shown by RemoteHome once "Host a game" is
+// chosen -- a joiner never sees it, the host already picked. Club Run and (since 2026-09-13) Teammate
 // Tell are wired up -- both "name the player" formats RemoteGameSession
 // serves; Top 10 is shown too rather than hidden, so it reads as "coming
 // soon", not as never having been considered.
@@ -19,7 +18,7 @@ export function RemoteGameTypePick({ onSelect, onBack }: Props) {
 			<button type="button" className="back-link" onClick={onBack}>
 				← Back
 			</button>
-			<h2>Remote play</h2>
+			<h2>Host a game</h2>
 			<p className="remote-subtitle">Choose a game to race friends on their own devices.</p>
 
 			<div className="mode-picker">

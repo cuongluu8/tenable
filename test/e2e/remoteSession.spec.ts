@@ -17,7 +17,7 @@ test("chat, a mid-game joiner, a guest leaving, and the host ending the game", a
 	const late = await newPlayer(browser);
 
 	const code = await hostCreates(host, "Club Run", "Cuong");
-	await guestJoins(guest, "Club Run", code, "Luka");
+	await guestJoins(guest, code, "Luka");
 	await guestReadies(guest);
 	await expect(host.locator(".remote-badge--ready")).toBeVisible(POLL);
 	await host.getByLabel("Number of questions").fill("1");
@@ -50,7 +50,7 @@ test("chat, a mid-game joiner, a guest leaving, and the host ending the game", a
 	await expect(guestBar.locator(".remote-pane__entry--chat")).toContainText("Cuong: no idea who this is 😂", POLL);
 
 	// Joining a game already in progress lands straight in the round.
-	await guestJoins(late, "Club Run", code, "Geoff");
+	await guestJoins(late, code, "Geoff");
 	await expect(late.locator(".remote-round-header").getByText("Question 1 of 1")).toBeVisible(POLL);
 	await expect(host.getByText("Geoff")).toBeVisible(POLL);
 

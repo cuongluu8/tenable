@@ -3,9 +3,9 @@ import { expect, type Browser, type Page } from "@playwright/test";
 // Remote play is several real browsers on one session, so every remote
 // spec runs two (or three) independent contexts -- separate cookies,
 // separate localStorage identities -- exactly as separate phones would.
-// Everything here goes through the UI the way a player would: the game
-// picker, "Host a game"/"Join a game", the lobby's code display, its
-// ready button. Nothing calls /api/remote directly.
+// Everything here goes through the UI the way a player would: "Host a
+// game" then the game picker, or "Join a game", the lobby's code display,
+// its ready button. Nothing calls /api/remote directly.
 
 export async function newPlayer(browser: Browser): Promise<Page> {
 	const context = await browser.newContext();
@@ -14,8 +14,8 @@ export async function newPlayer(browser: Browser): Promise<Page> {
 
 export async function hostCreates(page: Page, game: "Club Run" | "Teammate Tell" | "Roll of Honour", name: string): Promise<string> {
 	await page.goto("/remote");
-	await page.getByRole("button", { name: new RegExp(game) }).click();
 	await page.getByRole("button", { name: /Host a game/ }).click();
+	await page.getByRole("button", { name: new RegExp(game) }).click();
 	await page.getByLabel("Your name").fill(name);
 	await page.getByRole("button", { name: "Create session" }).click();
 	await expect(page.getByRole("heading", { name: "Waiting room" })).toBeVisible();
@@ -24,9 +24,8 @@ export async function hostCreates(page: Page, game: "Club Run" | "Teammate Tell"
 	return code;
 }
 
-export async function guestJoins(page: Page, game: "Club Run" | "Teammate Tell" | "Roll of Honour", code: string, name: string): Promise<void> {
+export async function guestJoins(page: Page, code: string, name: string): Promise<void> {
 	await page.goto("/remote");
-	await page.getByRole("button", { name: new RegExp(game) }).click();
 	await page.getByRole("button", { name: /Join a game/ }).click();
 	await page.getByLabel("Session code").fill(code);
 	await page.getByLabel("Your name").fill(name);
