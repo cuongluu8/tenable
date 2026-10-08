@@ -33,7 +33,7 @@ function sessionStub(env: Env, code: string): DurableObjectStub {
 // it never ends up in a URL (logs, referrers) and every route can read it
 // the same way regardless of HTTP method.
 async function forward(c: Context<{ Bindings: Env }>, path: string, init: RequestInit = {}): Promise<Response> {
-	const code = normalizeSessionCode(c.req.param("code"));
+	const code = normalizeSessionCode(c.req.param("code") ?? "");
 	if (!isValidSessionCode(code)) return c.json({ error: "Invalid session code" }, 400);
 
 	const token = c.req.header("X-Player-Token");
@@ -85,7 +85,7 @@ remoteSession.get("/sessions/:code/state", async (c) => forward(c, `/state${new 
 // WebSocket API can't set headers; the upgrade is forwarded to the object
 // as-is and its 101 response returned untouched.
 remoteSession.get("/sessions/:code/ws", (c) => {
-	const code = normalizeSessionCode(c.req.param("code"));
+	const code = normalizeSessionCode(c.req.param("code") ?? "");
 	if (!isValidSessionCode(code)) return c.json({ error: "Invalid session code" }, 400);
 	if (c.req.header("Upgrade")?.toLowerCase() !== "websocket") return c.json({ error: "Expected a WebSocket upgrade" }, 426);
 	return sessionStub(c.env, code).fetch(`https://do/ws${new URL(c.req.url).search}`, { headers: { Upgrade: "websocket" } });
