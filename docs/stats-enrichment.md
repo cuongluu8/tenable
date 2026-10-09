@@ -348,8 +348,14 @@ Players 572-583 (32 rows; Giggs and Scholes have none) are researched in
 `players_batch1_transfers_part4.sql` -- applied to production and synced
 into `db/seed.sql` 2026-10-09. **Do not re-run it.** Production and seed
 now hold 254 transfers / 52 players: 51 `day`, 45 `month`, 66 `year`, 7
-`inconclusive`, 85 `unverified`. Item 1 below resumes at id 584, 67
-players to go.
+`inconclusive`, 85 `unverified`.
+
+Players 584-595 (47 rows; Puyol, Maldini and Totti have none) are
+researched in `players_batch1_transfers_part5.sql` -- applied to
+production and synced into `db/seed.sql` 2026-10-09. **Do not re-run
+it.** Production and seed now hold 301 transfers: 74 `day`, 54 `month`,
+81 `year`, 7 `inconclusive`, 85 `unverified`, 0 orphaned ids.
+Item 1 below resumes at id 596, 55 players to go.
 
 Convention added with part 4: when a move was announced long before it
 happened (a pre-contract), `transfer_date` is the date the player joined
