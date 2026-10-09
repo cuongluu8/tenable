@@ -97,17 +97,31 @@ Every transfer date is checked against a **second independent source** (the
 player's Italian/Portuguese/French Wikipedia article, Soccerway's transfer
 log, contemporary press). The result is recorded per row:
 
-- `day` -- two sources state the same day.
-- `month` -- two sources agree on month+year; `transfer_date` is the 1st.
-- `inconclusive` -- no second source confirms month+year, or sources
-  conflict. `transfer_date` is a best-known placeholder that keeps a
-  player's moves in order, nothing more.
+- `day` -- a source states the day and no other source contradicts it.
+- `month` -- a source states the month and the others agree on the year;
+  `transfer_date` is the 1st. Also used when two sources give different
+  days in one month, and when they give different months in one year --
+  then the **earlier** month is stored.
+- `year` -- sources give only the year (or "summer", "early 2004", a
+  debut date). The month and day of `transfer_date` are a placeholder that
+  keeps a player's moves in order, nothing more.
+- `inconclusive` -- sources disagree on the year, or none states one.
+  Never use the date.
 - `unverified` -- never cross-checked. The original 85 rows (players
   530-547) are all this.
 
-**Only `day` and `month` rows may be used to build a question about when a
-move happened** (user decision, 2026-10-09). A database that predates the
-column needs `data/research/migration_transfers_date_precision.sql` once.
+This is the user's rule, stated 2026-10-09: an agreed year is enough, a
+more specific date from one source stands unless contradicted, and only a
+missing or disputed year is inconclusive. (The first attempt the same day
+demanded two sources agreeing on month+year and marked 105 of 137 rows
+inconclusive -- far too strict; don't reintroduce it.) **A question about
+when a move happened may only ask at the row's own precision or coarser,
+and never from an `inconclusive` or `unverified` row.**
+
+A database that predates the column needs
+`migration_transfers_date_precision.sql`; one that has the column but
+rejects `'year'` (production did, briefly) needs
+`migration_transfers_date_precision_v2.sql`.
 Transfermarkt and worldfootball.net both refuse automated fetches (tried
 2026-10-09) -- don't spend calls retrying them.
 
@@ -322,11 +336,22 @@ sandbox) so nothing from this session's work is lost:
 
 **2026-10-09:** transfers for players 548-559 (12 players, 72 rows) are
 researched in `data/research/players_batch1_transfers_part2.sql` --
-**applied to production the same day** along with
-`migration_transfers_date_precision.sql` (production now: 157 transfers /
-30 players -- 13 `day`, 17 `month`, 42 `inconclusive`, 85 `unverified`).
-**Do not re-run either file.** Item 1 below resumes at id 560 (Diego
-Maradona), 91 players to go.
+and players 560-571 (12 players, 65 rows) in
+`players_batch1_transfers_part3.sql`. Part 2 was applied to production
+under the first, too-strict labelling, then both files were relabelled.
+`migration_transfers_date_precision_v2.sql`, part 2 and part 3 were then
+applied to production in that order, confirmed by query 2026-10-09: 222
+transfers / 42 players -- 34 `day`, 35 `month`, 61 `year`, 7
+`inconclusive`, 85 `unverified`. **Do not re-run any of these files.**
+
+Players 572-583 (32 rows; Giggs and Scholes have none) are researched in
+`players_batch1_transfers_part4.sql` -- **written, not yet applied** when
+this note was added (17 `day`, 10 `month`, 5 `year`). Item 1 below
+resumes at id 584, 67 players to go.
+
+Convention added with part 4: when a move was announced long before it
+happened (a pre-contract), `transfer_date` is the date the player joined
+and the announcement date goes in `display_value`.
 
 1. **Research transfers (fee/date history) for the 103 players in
    `players_batch1_remaining_stats.sql`** -- career stats are done and
