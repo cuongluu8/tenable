@@ -451,6 +451,9 @@ and the announcement date goes in `display_value`.
    - part 15: ids 861-875, 67 rows. Production total after it: 1,434.
      (Daniel Munoz, Chris Richards, Idrissa Gueye and Beto rest on the
      English article only.)
+   - part 16: ids 876-888, 50 rows. Production total after it: 1,484.
+     (Joachim Andersen and Bart Verbruggen rest on the English article
+     only.)
    Resume at the first id not listed here. Many batch-2 players' minor
    clubs are missing from the club pool, so NULL club ids are common.
 3. **Extend player coverage past id 900** -- the "notable tier" scope
