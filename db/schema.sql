@@ -138,7 +138,15 @@ CREATE TABLE IF NOT EXISTS transfers (
 		-- ends up documented) — never a live/current-day rate applied to a historical fee.
 	display_value TEXT NOT NULL,     -- what's shown, e.g. "€222m (~£195m)" or "Free transfer" or "Loan"
 	source TEXT NOT NULL,
-	verified_at TEXT NOT NULL        -- UTC "YYYY-MM-DD" this was actually checked
+	verified_at TEXT NOT NULL,       -- UTC "YYYY-MM-DD" this was actually checked
+	date_precision TEXT NOT NULL DEFAULT 'unverified'  -- how far transfer_date can be trusted:
+		-- 'day' / 'month' = two independent sources agree to that precision ('month' rows store
+		-- the 1st); 'inconclusive' = no second source confirms even month+year, or sources
+		-- conflict (transfer_date is then a best-known placeholder, good only for ordering a
+		-- player's moves); 'unverified' = never cross-checked (every row older than this column). Only
+		-- 'day' and 'month' rows may be used to build a question about WHEN a move happened.
+		-- Kept as the last column so it matches the ALTER TABLE that added it to production.
+		CHECK (date_precision IN ('day', 'month', 'inconclusive', 'unverified'))
 );
 CREATE INDEX IF NOT EXISTS idx_transfers_player ON transfers(player_id);
 CREATE INDEX IF NOT EXISTS idx_transfers_from_club ON transfers(from_club_id);

@@ -415,7 +415,10 @@ rather than merely checked for, which is worth knowing when you read them.
   the row's primary entity — the one case `entity_stats`'s single-`entity_id`
   shape doesn't fit, which is why these are dedicated tables rather than more
   `entity_stats` rows. Not yet read by any gameplay code (no `category_defs`
-  reference them) — currently pure data, populated incrementally. Full
+  reference them) — currently pure data, populated incrementally.
+  `transfers.date_precision` (2026-10-09) records how far each date was
+  cross-checked; only `day`/`month` rows may ever feed a question about
+  when a move happened. Full
   schema, sourcing rules, and current coverage: `docs/stats-enrichment.md`.
 
 ### Generic rule: answers stay bounded, typeahead is broader

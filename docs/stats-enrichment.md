@@ -65,7 +65,9 @@ CREATE TABLE transfers (
     fee_gbp_value REAL,               -- see "Currency conversion" below
     display_value TEXT NOT NULL,      -- what's shown, e.g. "€222m (~£195m)" or "Free transfer"
     source TEXT NOT NULL,
-    verified_at TEXT NOT NULL
+    verified_at TEXT NOT NULL,
+    date_precision TEXT NOT NULL DEFAULT 'unverified'  -- added 2026-10-09, see below
+        CHECK (date_precision IN ('day', 'month', 'inconclusive', 'unverified'))
 );
 
 CREATE TABLE management_spells (
@@ -88,6 +90,26 @@ counterpart as a bare name string in `scope` would repeat exactly the
 truth redesign exists to close off. Everything else (simple per-entity
 facts) reuses `entity_stats` with new `stat_key` values — no schema
 change needed there, that's what it was designed for.
+
+### `transfers.date_precision` (added 2026-10-09)
+
+Every transfer date is checked against a **second independent source** (the
+player's Italian/Portuguese/French Wikipedia article, Soccerway's transfer
+log, contemporary press). The result is recorded per row:
+
+- `day` -- two sources state the same day.
+- `month` -- two sources agree on month+year; `transfer_date` is the 1st.
+- `inconclusive` -- no second source confirms month+year, or sources
+  conflict. `transfer_date` is a best-known placeholder that keeps a
+  player's moves in order, nothing more.
+- `unverified` -- never cross-checked. The original 85 rows (players
+  530-547) are all this.
+
+**Only `day` and `month` rows may be used to build a question about when a
+move happened** (user decision, 2026-10-09). A database that predates the
+column needs `data/research/migration_transfers_date_precision.sql` once.
+Transfermarkt and worldfootball.net both refuse automated fetches (tried
+2026-10-09) -- don't spend calls retrying them.
 
 ### `entity_stats` stat_key vocabulary in use
 
@@ -258,10 +280,16 @@ wrangler d1 export tenable-content --remote --no-schema \
   --table=categories --table=entities --table=entity_aliases \
   --table=entity_stats --table=category_defs --table=category_answers \
   --table=transfers --table=management_spells --table=player_career_stats \
+  --table=club_badge_questions --table=teammate_questions \
   --output=db/seed.sql
+cat db/seed_header.txt db/seed.sql > /tmp/s && mv /tmp/s db/seed.sql
 ```
 
-(Same command as `db/seed.sql`'s own header documents. **Deliberately no
+(`db/seed.sql`'s own header is the authoritative copy of this command --
+if the two ever differ, use the header's. This doc's copy went stale once:
+on 2026-10-09 it still lacked the two question tables, and an export run
+from it silently dropped Club Run / Teammate Tell from the seed until it
+was re-run. **Deliberately no
 `--table=content_version`** — that table is runtime state schema.sql
 already seeds correctly on its own; including it in the export crashes a
 fresh local reset with `UNIQUE constraint failed: content_version.id`, hit
@@ -291,6 +319,14 @@ sandbox) so nothing from this session's work is lost:
 | `players_batch1_remaining.csv` / `players_batch1_remaining_stats.sql` | **Career stats fully applied to production already** (2026-09-11) — all 103 remaining batch-1 candidates (ids 530-650), 0 fatal. **Transfers not yet researched** for these 103 -- see "What's left" below. **Do not re-run the stats file.** |
 
 ## What's left, in priority order
+
+**2026-10-09:** transfers for players 548-559 (12 players, 72 rows) are
+researched in `data/research/players_batch1_transfers_part2.sql` --
+**applied to production the same day** along with
+`migration_transfers_date_precision.sql` (production now: 157 transfers /
+30 players -- 13 `day`, 17 `month`, 42 `inconclusive`, 85 `unverified`).
+**Do not re-run either file.** Item 1 below resumes at id 560 (Diego
+Maradona), 91 players to go.
 
 1. **Research transfers (fee/date history) for the 103 players in
    `players_batch1_remaining_stats.sql`** -- career stats are done and
