@@ -512,19 +512,38 @@ and the announcement date goes in `display_value`.
      as it stood that day.
    When a later slice names a club that is not in the pool, add the
    club to `entities` in the same file rather than leaving a NULL id.
-3. **Extend player coverage past id 900** -- the "notable tier" scope
-   (id 530-1500ish) has ~600 players beyond batches 1+2 that have never
-   had a candidate list generated. Generate one the same way this
-   project has each time:
-   ```sql
-   SELECT id, canonical_name, scope FROM entities
-   WHERE entity_type='player' AND id BETWEEN 901 AND 1500 ORDER BY id;
-   ```
-   then apply the same fame-decay judgment call each prior batch made
-   (the "obviously famous" quality fades well before 1500 -- sample a
-   few dozen ids first to find a sensible real cutoff for this batch,
-   the same way earlier batches did before settling on their own
-   ranges).
+3. **Extend player coverage past id 900** -- in progress, in slices of
+   50 taken in id order (no fame cut-off applied yet; revisit as the
+   names thin out).
+   - **Part 1, ids 901-950 (2026-10-09): career stats and questions
+     done, transfers not started.** Files, all applied to production in
+     this order: `candidate_players_batch3_part1.csv`,
+     `players_batch3_part1_stats.sql` (463 rows, all 50 players, 0
+     fatal; output of `scripts/research_player_stats.py`),
+     `unresolved_clubs_fix_batch3_part1.sql` (24 clubs added to the
+     pool, 849 clubs now; three names mapped to existing clubs; reserve
+     and B teams left unlinked), `club_badge_questions_batch3_part1.sql`
+     (53 net-new: the 50 plus Ben White, Zinchenko and Bergvall, who
+     only became eligible on 2026-10-09; 407 questions now) and
+     `teammate_questions_batch3_part1.sql` (16 net-new, six existing
+     questions given a longer clue set in place; 127 now).
+   - How a slice is run: build the CSV from `entities`; run the
+     extractor (needs `requests` and `mwparserfromhell`); apply stats
+     then the clubs fix to local D1; run both `build_*_questions.py`
+     against local D1 and keep only the net-new rows (never apply the
+     full regenerated file -- question ids must not shift); apply to
+     production in the same order, checking the new club ids match
+     local before applying the question files (they embed club ids);
+     extend `clubBadgeSets.ts` / `teammateSets.ts` by appending;
+     regenerate the seed.
+   - Not regenerated: seven existing Club Run questions whose
+     transfers-sourced chain would now differ (their transfers changed
+     on 2026-10-09), and Chris Richards (866), whose transfers-sourced
+     chain repeats FC Dallas > Bayern Munich because his loan and the
+     purchase are separate rows.
+   - Held out of Sets until the next slice fills a set of ten: Club Run
+     944-950; Teammate Tell 926, 929, 931, 936, 937, 938, 939.
+   - Next: ids 951-1000.
 4. After each new batch is applied to production, **repeat the
    `db/seed.sql` regeneration** so it never drifts from production again
    (same export command as this doc's own "Where things stand" section).

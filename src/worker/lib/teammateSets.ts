@@ -43,6 +43,12 @@ export const TEAMMATE_SETS: number[][] = [
 	[811, 815, 816, 817, 821, 828, 829, 832, 833, 836],
 	[842, 845, 849, 851, 853, 855, 857, 859, 863, 868],
 	[870, 874, 876, 878, 879, 886, 887, 890, 894, 900],
+	// Batch 3 part 1 (2026-10-09): appended rather than re-chunked, so Sets
+	// 1-11 keep their numbers. Takes the long-held-back 604, two earlier
+	// players who became answerable with the larger pool (700, 840) and the
+	// first seven of players 901-950. Seven more new questions (926, 929,
+	// 931, 936, 937, 938, 939) wait for the next batch to fill a Set.
+	[604, 700, 840, 903, 911, 913, 917, 920, 922, 923],
 ];
 
 // A fun display name per set, index-matched to TEAMMATE_SETS above --
@@ -65,4 +71,5 @@ export const TEAMMATE_SET_NAMES: string[] = [
 	"Plucky Caribou",
 	"Sly Meerkat",
 	"Bold Axolotl",
+	"Zesty Quokka",
 ];
