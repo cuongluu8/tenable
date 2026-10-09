@@ -345,9 +345,11 @@ transfers / 42 players -- 34 `day`, 35 `month`, 61 `year`, 7
 `inconclusive`, 85 `unverified`. **Do not re-run any of these files.**
 
 Players 572-583 (32 rows; Giggs and Scholes have none) are researched in
-`players_batch1_transfers_part4.sql` -- **written, not yet applied** when
-this note was added (17 `day`, 10 `month`, 5 `year`). Item 1 below
-resumes at id 584, 67 players to go.
+`players_batch1_transfers_part4.sql` -- applied to production and synced
+into `db/seed.sql` 2026-10-09. **Do not re-run it.** Production and seed
+now hold 254 transfers / 52 players: 51 `day`, 45 `month`, 66 `year`, 7
+`inconclusive`, 85 `unverified`. Item 1 below resumes at id 584, 67
+players to go.
 
 Convention added with part 4: when a move was announced long before it
 happened (a pre-contract), `transfer_date` is the date the player joined
