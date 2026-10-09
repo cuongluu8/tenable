@@ -361,7 +361,15 @@ Players 596-607 (71 rows, Falcao to Sneijder) are in
 synced into the seed 2026-10-09. **Do not re-run it.** Production and
 seed now hold 372 transfers / 73 players with rows: 123 `day`, 73
 `month`, 84 `year`, 7 `inconclusive`, 85 `unverified`, 0 orphaned ids.
-Item 1 below resumes at id 608, 43 players to go.
+
+Players 608-619 (54 rows, Robben to Vinicius Junior) are in
+`players_batch1_transfers_part7.sql`, also applied to production and
+synced into the seed 2026-10-09. **Do not re-run it.** Production and
+seed now hold 426 transfers: 161 `day`, 82 `month`, 91 `year`, 7
+`inconclusive`, 85 `unverified`, 0 orphaned ids. Most players from id
+596 on are still active -- their rows are their history as of
+2026-10-09 and will go stale as they move.
+Item 1 below resumes at id 620, 31 players to go.
 
 Convention added with part 4: when a move was announced long before it
 happened (a pre-contract), `transfer_date` is the date the player joined
