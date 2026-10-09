@@ -390,19 +390,24 @@ Final split: 262 `day`, 130 `month`, 123 `year`, 7 `inconclusive`. A
 clean local rebuild from `db/schema.sql` + `db/seed.sql` passes
 `verify:matching` and `verify:category-defs`.
 
-Known gaps, none blocking:
-- **Fees for players 530-547 were not rechecked** beyond four glaring
-  fixes (Zidane x2, Benzema to Al-Hilal, Eto'o to Barcelona). The rest
-  still come from the original aggregator-sourced research and several
-  disagree with Wikipedia (Ronaldo Nazario's and Ronaldinho's
-  especially). Mbappe's 2017 move is typed `permanent` but was a loan
-  with an obligation to buy.
-- **Moves missing from the original 18 players' rows:** Lewandowski to
-  Chicago Fire (June 2026), Salah's 2015 Roma loan and 2026 move to
-  Trabzonspor, Modric's two early loans, Ronaldinho after 2012, Eto'o
-  after Sampdoria, Drogba to Phoenix Rising.
-- **Fabinho (635)** still rests on one source (the pt article 404'd).
-- Players active today will go stale as they move.
+`transfers_followup_fixes.sql` (applied the same day, **do not re-run**
+-- its INSERTs are unguarded) closed the gaps that left: fees for
+players 530-547 rechecked against both articles (14 rows changed),
+Mbappe's 2017 move split into the loan and the 2018 purchase, Fabinho's
+second source, and 12 missing moves added for Ronaldinho, Lewandowski,
+Modric, Salah, Drogba and Eto'o. **Production and seed now hold 535
+transfers: 270 `day`, 133 `month`, 125 `year`, 7 `inconclusive`, 0
+orphaned ids.**
+
+What is still soft:
+- Five fees for the original 18 rest on the first research pass's single
+  aggregator figure, with nothing in either Wikipedia article to confirm
+  or contradict them: Ronaldo to Manchester United 2021 (EUR 17m),
+  Ronaldinho to Flamengo (EUR 3m), Neymar to Al-Hilal (EUR 90m), and
+  Haaland's moves to Molde and Salzburg.
+- The seven `inconclusive` rows (sources disagree on the year).
+- Players active today will go stale as they move; nothing refreshes
+  these rows automatically.
 
 Convention added with part 4: when a move was announced long before it
 happened (a pre-contract), `transfer_date` is the date the player joined
