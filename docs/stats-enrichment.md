@@ -466,9 +466,14 @@ and the announcement date goes in `display_value`.
    (players past id 900) is next.**
 
    Known soft spots in batch 2:
-   - 19 players rest on the English article alone (listed per part
-     above) -- their second article was a disambiguation page, the wrong
-     person, or a 404. A re-fetch with the right title would close most.
+   - ~~19 players rest on the English article alone~~ -- closed the same
+     day by `transfers_batch2_second_source.sql` (applied; safe to
+     repeat but no reason to). All 19 now have a second-language source;
+     it changed eight dates and seven fees, and the "English article
+     only" notes in the part files and in the list above are out of
+     date. Split afterwards: 1,014 `day`, 271 `month`, 224 `year`, 12
+     `inconclusive`. A handful of individual 2026 moves across batch 2
+     are still single-source where the second article had not caught up.
    - 198 rows have at least one NULL club id and 29 have both, because
      the smaller clubs are not in the club pool. Adding those clubs as
      entities and backfilling the ids is a separate job.
