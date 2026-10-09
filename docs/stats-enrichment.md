@@ -484,6 +484,25 @@ and the announcement date goes in `display_value`.
      deliberate: the player had no club (youth, retired, free agent).
      The new clubs have no `image_key`; sourcing badges is the
      `docs/media-assets.md` workflow.
+   - Audit of 2026-10-09 (`transfers_fee_categories_and_permanent_rows.sql`,
+     applied; safe to repeat). Four loans that became permanent had no
+     second row and now do: Cavani (Palermo to Napoli, July 2011),
+     Fernando Torres (Chelsea to AC Milan, 27 Dec 2014), Bruno Fernandes
+     (Udinese to Sampdoria, 2017 -- year only, the stored month is a
+     placeholder that sorts before his sale to Sporting) and Beto
+     (Portimonense to Udinese, July 2022). Casemiro's Porto spell got no
+     row: the sources disagree on whether Porto ever bought him. Totals:
+     1,525 rows; 1,015 `day`, 273 `month`, 225 `year`, 12 `inconclusive`.
+     The same audit found the two live fee categories
+     (`pl-alltime-transfers`, `world-alltime-transfers`) had missed
+     Barcola to Liverpool (31 Aug 2026) and Enzo Fernandez to Manchester
+     City (1 Sep 2026); both were added as new `entity_stats` rows and
+     the categories rebuilt. Those categories count add-ons and the euro
+     list converts pound fees, so their figures are not the `transfers`
+     table's (which mostly stores the initial fee) -- do not derive one
+     from the other. To check a player's chain for a missing row: a
+     non-loan row whose `from_club_id` is not the previous non-loan
+     row's `to_club_id`.
    - Nearly all batch-2 players are active; rows are history as of
      2026-10-09 and include many summer-2026 moves taken from Wikipedia
      as it stood that day.
