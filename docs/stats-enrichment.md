@@ -438,6 +438,8 @@ and the announcement date goes in `display_value`.
    - part 7: ids 741-755, 52 rows. Production total after it: 952.
    - part 8: ids 756-770, 43 rows. Production total after it: 995.
      (Khusanov rests on the English article only.)
+   - part 9: ids 771-785, 47 rows. Production total after it: 1,042.
+     (Reece James rests on the English article only.)
    Resume at the first id not listed here. Many batch-2 players' minor
    clubs are missing from the club pool, so NULL club ids are common.
 3. **Extend player coverage past id 900** -- the "notable tier" scope
