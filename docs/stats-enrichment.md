@@ -433,6 +433,8 @@ and the announcement date goes in `display_value`.
      (Fabian Ruiz and Vitinha rest on the English article only.)
    - part 5: ids 711-725, 54 rows. Production total after it: 852.
      (Nwaneri rests on the English article only.)
+   - part 6: ids 726-740, 48 rows. Production total after it: 900.
+     (Curtis Jones and Luis Diaz rest on the English article only.)
    Resume at the first id not listed here. Many batch-2 players' minor
    clubs are missing from the club pool, so NULL club ids are common.
 3. **Extend player coverage past id 900** -- the "notable tier" scope
