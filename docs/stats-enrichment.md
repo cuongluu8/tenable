@@ -369,7 +369,20 @@ seed now hold 426 transfers: 161 `day`, 82 `month`, 91 `year`, 7
 `inconclusive`, 85 `unverified`, 0 orphaned ids. Most players from id
 596 on are still active -- their rows are their history as of
 2026-10-09 and will go stale as they move.
-Item 1 below resumes at id 620, 31 players to go.
+
+Players 620-650 (96 rows, Bellingham to Ballack) are in
+`players_batch1_transfers_part8.sql`, applied and synced the same day.
+**Do not re-run it.** Its sourcing is weaker: ids 635-650 rest on the
+English Wikipedia article alone (see the file's header).
+
+**Batch 1 transfers are complete (2026-10-09).** Production and seed
+hold 522 transfers for 112 of the 121 batch-1 players: 217 `day`, 96
+`month`, 116 `year`, 8 `inconclusive`, 85 `unverified`, 0 orphaned ids.
+The other 9 are one-club players with no moves to record (Giggs,
+Scholes, Puyol, Maldini, Totti, Gavi, Saka, Foden, Yashin). **Item 1
+below is done; item 2 (batch 2, ids 651-900) is next.** Still open from
+batch 1: the 85 `unverified` rows for players 530-547 have never had
+their dates cross-checked, and a second-source pass over ids 635-650.
 
 Convention added with part 4: when a move was announced long before it
 happened (a pre-contract), `transfer_date` is the date the player joined
