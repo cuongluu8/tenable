@@ -376,13 +376,33 @@ Players 620-650 (96 rows, Bellingham to Ballack) are in
 English Wikipedia article alone (see the file's header).
 
 **Batch 1 transfers are complete (2026-10-09).** Production and seed
-hold 522 transfers for 112 of the 121 batch-1 players: 217 `day`, 96
-`month`, 116 `year`, 8 `inconclusive`, 85 `unverified`, 0 orphaned ids.
+hold 522 transfers for 112 of the 121 batch-1 players, 0 orphaned ids.
 The other 9 are one-club players with no moves to record (Giggs,
 Scholes, Puyol, Maldini, Totti, Gavi, Saka, Foden, Yashin). **Item 1
-below is done; item 2 (batch 2, ids 651-900) is next.** Still open from
-batch 1: the 85 `unverified` rows for players 530-547 have never had
-their dates cross-checked, and a second-source pass over ids 635-650.
+below is done; item 2 (batch 2, ids 651-900) is next.**
+
+`transfers_date_recheck.sql` (applied the same day; it supersedes the
+dates in `players_batch1_transfers.sql` and a few rows of part 8) then
+did two clean-ups: the 85 original rows for players 530-547 were
+checked against two Wikipedia articles each and relabelled -- no
+`unverified` rows remain -- and players 636-650 got their second source.
+Final split: 262 `day`, 130 `month`, 123 `year`, 7 `inconclusive`. A
+clean local rebuild from `db/schema.sql` + `db/seed.sql` passes
+`verify:matching` and `verify:category-defs`.
+
+Known gaps, none blocking:
+- **Fees for players 530-547 were not rechecked** beyond four glaring
+  fixes (Zidane x2, Benzema to Al-Hilal, Eto'o to Barcelona). The rest
+  still come from the original aggregator-sourced research and several
+  disagree with Wikipedia (Ronaldo Nazario's and Ronaldinho's
+  especially). Mbappe's 2017 move is typed `permanent` but was a loan
+  with an obligation to buy.
+- **Moves missing from the original 18 players' rows:** Lewandowski to
+  Chicago Fire (June 2026), Salah's 2015 Roma loan and 2026 move to
+  Trabzonspor, Modric's two early loans, Ronaldinho after 2012, Eto'o
+  after Sampdoria, Drogba to Phoenix Rising.
+- **Fabinho (635)** still rests on one source (the pt article 404'd).
+- Players active today will go stale as they move.
 
 Convention added with part 4: when a move was announced long before it
 happened (a pre-contract), `transfer_date` is the date the player joined

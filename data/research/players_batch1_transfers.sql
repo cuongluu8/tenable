@@ -1,3 +1,6 @@
+-- SUPERSEDED IN PART (2026-10-09): the dates below were rechecked and many corrected by
+-- transfers_date_recheck.sql, which also fixed four fees. Production no longer matches this file.
+--
 -- Research output: transfer history for players_batch1.csv
 -- Sourced from web search synthesis of Transfermarkt / Wikipedia / ESPN / StatMuse etc.
 -- Club IDs resolved against local D1 mirror (entities WHERE entity_type='club').

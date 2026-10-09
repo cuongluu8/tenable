@@ -1,3 +1,7 @@
+-- SUPERSEDED IN PART (2026-10-09): transfers_date_recheck.sql later gave players 636-650 their
+-- second source and changed seven dates and five fees. Production no longer matches this file
+-- for those rows; the "weaker sourcing" note below now applies only to Fabinho (635).
+--
 -- Research output: transfer history for players 620-650 (Bellingham to Ballack) -- the last
 -- slice of candidate_players_batch1.csv. Researched 2026-10-09. FOR HUMAN REVIEW BEFORE APPLYING.
 --
