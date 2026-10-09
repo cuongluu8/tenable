@@ -454,6 +454,27 @@ and the announcement date goes in `display_value`.
    - part 16: ids 876-888, 50 rows. Production total after it: 1,484.
      (Joachim Andersen and Bart Verbruggen rest on the English article
      only.)
+   - part 17: ids 889-900, 37 rows. Production total after it: 1,521.
+     (Ryan Christie and Djordje Petrovic rest on the English article
+     only.)
+
+   **Batch 2 transfers are complete (2026-10-09):** 986 rows for 246 of
+   the 250 candidates; the other four (Yamal, Lewis-Skelly, Rico Lewis,
+   Mainoo) have only played for one club. Production and seed hold
+   1,521 transfers for 358 players: 1,018 `day`, 265 `month`, 226
+   `year`, 12 `inconclusive`, 0 orphaned ids. **Item 2 is done; item 3
+   (players past id 900) is next.**
+
+   Known soft spots in batch 2:
+   - 19 players rest on the English article alone (listed per part
+     above) -- their second article was a disambiguation page, the wrong
+     person, or a 404. A re-fetch with the right title would close most.
+   - 198 rows have at least one NULL club id and 29 have both, because
+     the smaller clubs are not in the club pool. Adding those clubs as
+     entities and backfilling the ids is a separate job.
+   - Nearly all batch-2 players are active; rows are history as of
+     2026-10-09 and include many summer-2026 moves taken from Wikipedia
+     as it stood that day.
    Resume at the first id not listed here. Many batch-2 players' minor
    clubs are missing from the club pool, so NULL club ids are common.
 3. **Extend player coverage past id 900** -- the "notable tier" scope
