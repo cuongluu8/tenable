@@ -469,7 +469,7 @@ and the announcement date goes in `display_value`.
    - ~~19 players rest on the English article alone~~ -- closed the same
      day by `transfers_batch2_second_source.sql` (applied; safe to
      repeat but no reason to). All 19 now have a second-language source;
-     it changed eight dates and seven fees, and the "English article
+     it changed eight dates and eight fees, and the "English article
      only" notes in the part files and in the list above are out of
      date. Split afterwards: 1,014 `day`, 271 `month`, 224 `year`, 12
      `inconclusive`. A handful of individual 2026 moves across batch 2
