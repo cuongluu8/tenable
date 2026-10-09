@@ -474,14 +474,21 @@ and the announcement date goes in `display_value`.
      date. Split afterwards: 1,014 `day`, 271 `month`, 224 `year`, 12
      `inconclusive`. A handful of individual 2026 moves across batch 2
      are still single-source where the second article had not caught up.
-   - 198 rows have at least one NULL club id and 29 have both, because
-     the smaller clubs are not in the club pool. Adding those clubs as
-     entities and backfilling the ids is a separate job.
+   - ~~198 rows have at least one NULL club id~~ -- closed 2026-10-09 by
+     `clubs_backfill.sql` (applied; safe to repeat): 129 clubs added to
+     `entities` (825 clubs now; `scope` = country, no badge or aliases
+     yet), 167 transfer rows linked to them, and every "[... not in local
+     club pool]" note removed from `display_value` -- the notes in the
+     part files are out of date. No row has a NULL `to_club_id` any
+     more. The 42 rows that still have a NULL `from_club_id` are
+     deliberate: the player had no club (youth, retired, free agent).
+     The new clubs have no `image_key`; sourcing badges is the
+     `docs/media-assets.md` workflow.
    - Nearly all batch-2 players are active; rows are history as of
      2026-10-09 and include many summer-2026 moves taken from Wikipedia
      as it stood that day.
-   Resume at the first id not listed here. Many batch-2 players' minor
-   clubs are missing from the club pool, so NULL club ids are common.
+   When a later slice names a club that is not in the pool, add the
+   club to `entities` in the same file rather than leaving a NULL id.
 3. **Extend player coverage past id 900** -- the "notable tier" scope
    (id 530-1500ish) has ~600 players beyond batches 1+2 that have never
    had a candidate list generated. Generate one the same way this

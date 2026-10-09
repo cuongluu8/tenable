@@ -466,7 +466,9 @@ rows for actual nicknames, not the name itself or its parts.
 Seeded so far (see `db/seed.sql`; a `SELECT entity_type, COUNT(*) FROM
 entities GROUP BY entity_type` on production is the fast way to check this
 hasn't drifted from what's below):
-- Several hundred football clubs, `entity_type = 'club'`.
+- ~825 football clubs, `entity_type = 'club'` (129 of them added 2026-10-09
+  so transfer history could link to them -- lower-league and overseas
+  clubs with no badge yet; see `docs/stats-enrichment.md`).
 - ~110 countries, `entity_type = 'country'` (UEFA + CAF members — scoped to
   the confederations the two 'country' categories actually cover).
 - 100 well-known managers, `entity_type = 'manager'`.
