@@ -100,7 +100,14 @@ export const CLUB_BADGE_SETS: number[][] = [
 	[954, 955, 956, 959, 960, 961, 962, 963, 964, 965],
 	[966, 969, 970, 971, 972, 973, 974, 975, 976, 981],
 	[982, 983, 984, 985, 986, 987, 989, 990, 991, 992],
-	[993, 994, 995, 996, 997, 998, 999, 1000],
+	[993, 994, 995, 996, 997, 998, 999, 1000, 1001, 1002],
+	// Batch 3 part 3 (2026-10-09): players 1001-1050, appended in id order
+	// (1023 is a one-club player with no question). Last set short again.
+	[1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012],
+	[1013, 1014, 1015, 1016, 1017, 1018, 1019, 1020, 1021, 1022],
+	[1024, 1025, 1026, 1027, 1028, 1029, 1030, 1031, 1032, 1033],
+	[1034, 1035, 1036, 1037, 1038, 1039, 1040, 1041, 1042, 1043],
+	[1044, 1045, 1046, 1047, 1048, 1049, 1050],
 ];
 
 // A fun display name per set, index-matched to CLUB_BADGE_SETS above --
@@ -160,4 +167,9 @@ export const CLUB_BADGE_SET_NAMES: string[] = [
 	"Polar Gazelle",
 	"Savage Toucan",
 	"Hazel Lemur",
+	"Lucid Antelope",
+	"Gritty Armadillo",
+	"Vivid Stingray",
+	"Noble Capybara",
+	"Stark Hyena",
 ];

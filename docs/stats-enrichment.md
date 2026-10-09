@@ -555,9 +555,15 @@ and the announcement date goes in `display_value`.
      When the builder drops an existing question, delete the row AND
      give its Set slot to another player in the same commit -- a Set
      with nine questions is hidden entirely.
-   - Held out of Sets after part 2: Club Run 993-1000 (eight);
-     Teammate Tell 990, 991, 993, 997, 998, 999.
-   - Next: ids 1001-1050.
+   - **Part 3, ids 1001-1050 (2026-10-09): same scope, done.** Files as
+     for part 2 with `part3` in the name: 474 career rows (all 50, 0
+     fatal); 27 clubs added (887 now), two names mapped to existing
+     clubs; 49 net-new Club Run questions (Kenan Yildiz is a one-club
+     player; 497 now); 26 net-new Teammate Tell questions, one updated
+     in place, none removed (172 now).
+   - Held out of Sets after part 3: Club Run 1044-1050 (seven);
+     Teammate Tell 1044, 1048.
+   - Next: ids 1051-1100.
 4. After each new batch is applied to production, **repeat the
    `db/seed.sql` regeneration** so it never drifts from production again
    (same export command as this doc's own "Where things stand" section).

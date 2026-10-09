@@ -53,10 +53,16 @@ export const TEAMMATE_SETS: number[][] = [
 	[604, 700, 840, 903, 911, 913, 917, 920, 922, 923],
 	// Batch 3 part 2 (2026-10-09): the seven held over from part 1, four
 	// earlier players who became answerable with the larger pool (691, 772,
-	// 810, 831) and the first of players 951-1000. Six more (990, 991, 993,
-	// 997, 998, 999) wait for the next batch.
+	// 810, 831) and the first of players 951-1000. The six left over went into
+	// the next sets below.
 	[691, 772, 810, 831, 926, 929, 931, 936, 937, 938],
 	[939, 945, 954, 961, 964, 972, 983, 984, 985, 987],
+	// Batch 3 part 3 (2026-10-09): the six held over from part 2 plus 26
+	// new questions, in id order. Two more (1044, 1048) wait for the next
+	// batch.
+	[684, 809, 862, 908, 910, 966, 973, 976, 990, 991],
+	[993, 997, 998, 999, 1004, 1005, 1006, 1009, 1012, 1020],
+	[1021, 1022, 1026, 1028, 1033, 1034, 1036, 1037, 1038, 1039],
 ];
 
 // A fun display name per set, index-matched to TEAMMATE_SETS above --
@@ -82,4 +88,7 @@ export const TEAMMATE_SET_NAMES: string[] = [
 	"Zesty Quokka",
 	"Witty Okapi",
 	"Peppy Walrus",
+	"Merry Puffin",
+	"Chirpy Alpaca",
+	"Sunny Platypus",
 ];
