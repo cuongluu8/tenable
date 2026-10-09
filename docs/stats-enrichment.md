@@ -488,7 +488,7 @@ and the announcement date goes in `display_value`.
      applied; safe to repeat). Three loans that became permanent had no
      second row and now do: Cavani (Palermo to Napoli, July 2011, €17m
      in total), Bruno Fernandes
-     (Udinese to Sampdoria, 2017 -- year only, the stored month is a
+     (Udinese to Sampdoria, 2017, €6m -- year only, the stored month is a
      placeholder that sorts before his sale to Sporting) and Beto
      (Portimonense to Udinese, July 2022). Casemiro's Porto spell got no
      row: the sources disagree on whether Porto ever bought him. Fernando
@@ -496,7 +496,7 @@ and the announcement date goes in `display_value`.
      correction, `transfers_cavani_torres_corrections.sql`; a "made
      permanent" row was added and removed the same day -- do not re-add
      it from Wikipedia). Totals:
-     1,524 rows; 1,014 `day`, 273 `month`, 225 `year`, 12 `inconclusive`.
+     1,524 rows; 1,015 `day`, 272 `month`, 225 `year`, 12 `inconclusive`.
      The same audit found the two live fee categories
      (`pl-alltime-transfers`, `world-alltime-transfers`) had missed
      Barcola to Liverpool (31 Aug 2026) and Enzo Fernandez to Manchester
