@@ -541,9 +541,23 @@ and the announcement date goes in `display_value`.
      on 2026-10-09), and Chris Richards (866), whose transfers-sourced
      chain repeats FC Dallas > Bayern Munich because his loan and the
      purchase are separate rows.
-   - Held out of Sets until the next slice fills a set of ten: Club Run
-     944-950; Teammate Tell 926, 929, 931, 936, 937, 938, 939.
-   - Next: ids 951-1000.
+   - **Part 2, ids 951-1000 (2026-10-09): same scope, done.** Files:
+     `candidate_players_batch3_part2.csv`,
+     `players_batch3_part2_stats.sql` (485 rows, all 50, 0 fatal),
+     `unresolved_clubs_fix_batch3_part2.sql` (11 clubs added, 860 now;
+     five names mapped to existing clubs; Basconia and Bilbao Athletic
+     treated as feeder/reserve sides and left unlinked),
+     `club_badge_questions_batch3_part2.sql` (41 net-new; nine one-club
+     players get none; 448 now) and
+     `teammate_questions_batch3_part2.sql` (20 net-new, three updated in
+     place, **one removed**: Bernardo Silva's clue set stopped being
+     unique once the pool grew, so the builder drops him; 146 now).
+     When the builder drops an existing question, delete the row AND
+     give its Set slot to another player in the same commit -- a Set
+     with nine questions is hidden entirely.
+   - Held out of Sets after part 2: Club Run 993-1000 (eight);
+     Teammate Tell 990, 991, 993, 997, 998, 999.
+   - Next: ids 1001-1050.
 4. After each new batch is applied to production, **repeat the
    `db/seed.sql` regeneration** so it never drifts from production again
    (same export command as this doc's own "Where things stand" section).

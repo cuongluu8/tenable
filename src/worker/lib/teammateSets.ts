@@ -38,7 +38,9 @@ export const TEAMMATE_SETS: number[][] = [
 	[635, 637, 638, 643, 649, 652, 660, 664, 665, 666],
 	[667, 668, 671, 672, 674, 677, 680, 683, 686, 688],
 	[715, 718, 719, 721, 729, 730, 732, 733, 734, 735],
-	[737, 744, 753, 754, 755, 762, 764, 767, 771, 775],
+	// 746 replaced 744 here on 2026-10-09: Bernardo Silva's question was
+	// removed once a larger pool made his clue set fit a second player.
+	[737, 746, 753, 754, 755, 762, 764, 767, 771, 775],
 	[777, 780, 786, 790, 793, 798, 800, 801, 802, 803],
 	[811, 815, 816, 817, 821, 828, 829, 832, 833, 836],
 	[842, 845, 849, 851, 853, 855, 857, 859, 863, 868],
@@ -46,9 +48,15 @@ export const TEAMMATE_SETS: number[][] = [
 	// Batch 3 part 1 (2026-10-09): appended rather than re-chunked, so Sets
 	// 1-11 keep their numbers. Takes the long-held-back 604, two earlier
 	// players who became answerable with the larger pool (700, 840) and the
-	// first seven of players 901-950. Seven more new questions (926, 929,
-	// 931, 936, 937, 938, 939) wait for the next batch to fill a Set.
+	// first seven of players 901-950. The seven left over went into the
+	// next set below.
 	[604, 700, 840, 903, 911, 913, 917, 920, 922, 923],
+	// Batch 3 part 2 (2026-10-09): the seven held over from part 1, four
+	// earlier players who became answerable with the larger pool (691, 772,
+	// 810, 831) and the first of players 951-1000. Six more (990, 991, 993,
+	// 997, 998, 999) wait for the next batch.
+	[691, 772, 810, 831, 926, 929, 931, 936, 937, 938],
+	[939, 945, 954, 961, 964, 972, 983, 984, 985, 987],
 ];
 
 // A fun display name per set, index-matched to TEAMMATE_SETS above --
@@ -72,4 +80,6 @@ export const TEAMMATE_SET_NAMES: string[] = [
 	"Sly Meerkat",
 	"Bold Axolotl",
 	"Zesty Quokka",
+	"Witty Okapi",
+	"Peppy Walrus",
 ];
