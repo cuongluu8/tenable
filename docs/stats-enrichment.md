@@ -428,6 +428,7 @@ and the announcement date goes in `display_value`.
    synced into the seed as it is finished (**do not re-run them**):
    - part 1: ids 651-665, 77 rows. Production total after it: 612.
    - part 2: ids 666-680, 83 rows. Production total after it: 695.
+   - part 3: ids 681-695, 63 rows. Production total after it: 758.
    Resume at the first id not listed here. Many batch-2 players' minor
    clubs are missing from the club pool, so NULL club ids are common.
 3. **Extend player coverage past id 900** -- the "notable tier" scope
