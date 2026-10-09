@@ -443,6 +443,9 @@ and the announcement date goes in `display_value`.
    - part 10: ids 786-800, 54 rows. Production total after it: 1,096.
      (Joao Pedro rests on the English article only.)
    - part 11: ids 801-815, 67 rows. Production total after it: 1,163.
+   - part 12: ids 816-830, 75 rows. Production total after it: 1,238.
+     (Archie Gray, Anthony Gordon and Harvey Barnes rest on the English
+     article only.)
    Resume at the first id not listed here. Many batch-2 players' minor
    clubs are missing from the club pool, so NULL club ids are common.
 3. **Extend player coverage past id 900** -- the "notable tier" scope
