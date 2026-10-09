@@ -355,7 +355,13 @@ researched in `players_batch1_transfers_part5.sql` -- applied to
 production and synced into `db/seed.sql` 2026-10-09. **Do not re-run
 it.** Production and seed now hold 301 transfers: 74 `day`, 54 `month`,
 81 `year`, 7 `inconclusive`, 85 `unverified`, 0 orphaned ids.
-Item 1 below resumes at id 596, 55 players to go.
+
+Players 596-607 (71 rows, Falcao to Sneijder) are in
+`players_batch1_transfers_part6.sql`, also applied to production and
+synced into the seed 2026-10-09. **Do not re-run it.** Production and
+seed now hold 372 transfers / 73 players with rows: 123 `day`, 73
+`month`, 84 `year`, 7 `inconclusive`, 85 `unverified`, 0 orphaned ids.
+Item 1 below resumes at id 608, 43 players to go.
 
 Convention added with part 4: when a move was announced long before it
 happened (a pre-contract), `transfer_date` is the date the player joined
