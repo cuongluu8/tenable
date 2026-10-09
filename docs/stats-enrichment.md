@@ -422,8 +422,13 @@ and the announcement date goes in `display_value`.
    fee/date per move, never estimated: flag and skip rather than guess
    when a source disagrees or is ambiguous.
 2. **Do the same for batch 2's 247 players** (ids 651-900,
-   `candidate_players_batch2_part1.csv`) -- career stats are done, no
-   transfers research has been done for this batch at all yet.
+   `candidate_players_batch2_part1.csv`) -- career stats are done.
+   **In progress since 2026-10-09**, in files named
+   `players_batch2_transfers_partN.sql`, each applied to production and
+   synced into the seed as it is finished (**do not re-run them**):
+   - part 1: ids 651-665, 77 rows. Production total after it: 612.
+   Resume at the first id not listed here. Many batch-2 players' minor
+   clubs are missing from the club pool, so NULL club ids are common.
 3. **Extend player coverage past id 900** -- the "notable tier" scope
    (id 530-1500ish) has ~600 players beyond batches 1+2 that have never
    had a candidate list generated. Generate one the same way this
